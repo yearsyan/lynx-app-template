@@ -7,12 +7,13 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm Trusted Publisher (OIDC) 发布必需
 
 jobs:
   publish:
     name: Publish @lynfe packages
     runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -59,8 +60,8 @@ jobs:
       # 先发主包，再发别名包（别名依赖主包的同一版本）。
       - name: Publish @lynfe/lynx-app
         working-directory: create-lynx-app
-        run: npm publish --provenance --access public
+        run: npm publish --access public
 
       - name: Publish @lynfe/create-lynx-app
         working-directory: create-lynx-app-alias
-        run: npm publish --provenance --access public
+        run: npm publish --access public
