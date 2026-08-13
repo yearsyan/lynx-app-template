@@ -1,0 +1,29 @@
+{
+  "name": "@lynx-template/main",
+  "version": "1.0.0",
+  "type": "module",
+  "lynxBundle": {
+    "name": "main",
+    "entry": "main"
+  },
+  "scripts": {
+    "build": "rspeedy build",
+    "dev": "rspeedy dev",
+    "preview": "rspeedy preview",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@lynx-js/react": "catalog:",
+    "@lynx-template/native-bridge": "workspace:*"
+  },
+  "devDependencies": {
+    "@lynx-js/preact-devtools": "catalog:",
+    "@lynx-js/qrcode-rsbuild-plugin": "catalog:",
+    "@lynx-js/react-rsbuild-plugin": "catalog:",
+    "@lynx-js/rspeedy": "catalog:",
+    "@lynx-js/types": "catalog:",
+    "@rsbuild/plugin-type-check": "catalog:",
+    "@types/react": "catalog:"
+  },
+  "private": true
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".activity.DebugSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LynxTemplate" />
+        <activity
+            android:name=".activity.DebugActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LynxTemplate" />
+    </application>
+</manifest>

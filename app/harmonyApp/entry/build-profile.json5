@@ -1,0 +1,43 @@
+{
+  "apiType": "stageMode",
+  "buildOption": {
+    "arkOptions": {
+      "runtimeOnly": {
+        "packages": [
+          "@lynx/lynx_devtool"
+        ]
+      }
+    },
+    "externalNativeOptions": {
+      "path": "./src/main/cpp/CMakeLists.txt",
+      "arguments": "",
+      "cppFlags": "",
+    }
+  },
+  "buildOptionSet": [
+    {
+      "name": "release",
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": false,
+            "files": [
+              "./obfuscation-rules.txt"
+            ]
+          },
+        },
+      }
+    },
+  ],
+  "targets": [
+    {
+      "name": "debug",
+    },
+    {
+      "name": "release",
+    },
+    {
+      "name": "ohosTest",
+    }
+  ]
+}

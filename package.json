@@ -1,0 +1,40 @@
+{
+  "name": "@lynx-template/bundles",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "nativeApp": {
+    "bundleId": "com.lynxapp",
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    },
+    "harmony": {
+      "bundleName": "com.lynxapp.harmony"
+    }
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "check": "pnpm run native:check && pnpm run typecheck && pnpm run lint",
+    "dev:main": "pnpm --filter @lynx-template/main dev",
+    "dev:websocket": "node ./scripts/websocket-echo.mjs",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "native:apply": "node ./scripts/apply_native_config.mjs",
+    "native:check": "node ./scripts/apply_native_config.mjs --check",
+    "new:bundle": "node ./scripts/create-bundle.mjs",
+    "release": "pnpm run build && pnpm run sync:native",
+    "sync:native": "node ./scripts/sync-native.mjs",
+    "typecheck": "pnpm -r --if-present run typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "typescript": "catalog:",
+    "ws": "catalog:"
+  }
+}

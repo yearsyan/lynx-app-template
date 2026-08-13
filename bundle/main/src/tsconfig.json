@@ -1,0 +1,7 @@
+{
+  "extends": "../../../tsconfig.lynx.json",
+  "compilerOptions": {
+    "composite": true
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}

@@ -1,0 +1,7 @@
+# Android emulator reaches the host at 10.0.2.2. Use your Mac LAN IP on a device.
+lynx.dev.bundle.url=http://10.0.2.2:3000/main.lynx.bundle
+
+# Production should use HTTPS. Leave blank to disable OTA checks.
+lynx.update.manifest.url=https://cdn.example.com/lynx/manifest.json
+
+# sdk.dir=/absolute/path/to/Android/sdk

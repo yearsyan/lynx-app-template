@@ -1,0 +1,100 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Logs and machine-local configuration
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+
+# Signing keys, certificates, and provisioning profiles
+*.cer
+*.key
+*.keystore
+*.mobileprovision
+*.p12
+*.p7b
+*.pem
+*.pfx
+*.provisionprofile
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Node.js, pnpm, and TypeScript
+node_modules/
+.pnpm-store/
+.cache/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Generated Lynx bundles and release manifests
+/bundle/*/dist/
+/bundle/artifacts/
+/app/androidApp/app/src/main/assets/*.lynx.bundle
+/app/androidApp/app/src/main/assets/lynx-bundles.json
+/app/iosApp/*.lynx.bundle
+/app/iosApp/lynx-bundles.json
+/app/harmonyApp/entry/src/main/resources/rawfile/*.lynx.bundle
+/app/harmonyApp/entry/src/main/resources/rawfile/lynx-bundles.json
+
+# Generated workspace package output
+lib/*/dist/
+
+# Android / Gradle
+app/androidApp/.gradle/
+app/androidApp/.kotlin/
+app/androidApp/**/build/
+app/androidApp/**/.externalNativeBuild/
+app/androidApp/**/.cxx/
+app/androidApp/captures/
+app/androidApp/local.properties
+app/androidApp/keystore.properties
+app/androidApp/**/*.jks
+app/androidApp/**/*.keystore
+
+# iOS / Xcode / CocoaPods
+app/iosApp/Pods/
+app/iosApp/build/
+app/iosApp/DerivedData/
+app/iosApp/.build/
+app/iosApp/*.xcworkspace/
+app/iosApp/**/xcuserdata/
+app/iosApp/**/*.xcuserstate
+app/iosApp/**/*.xccheckout
+app/iosApp/**/*.xcscmblueprint
+app/iosApp/**/*.ipa
+app/iosApp/**/*.dSYM/
+app/iosApp/**/*.dSYM.zip
+
+# HarmonyOS / DevEco Studio
+app/harmonyApp/**/.hvigor/
+app/harmonyApp/**/oh_modules/
+app/harmonyApp/**/build/
+app/harmonyApp/**/.preview/
+app/harmonyApp/**/.cxx/
+app/harmonyApp/**/.test/
+app/harmonyApp/.appanalyzer/
+app/harmonyApp/**/local.properties

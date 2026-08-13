@@ -1,0 +1,26 @@
+source 'https://cdn.cocoapods.org/'
+
+platform :ios, '13.0'
+
+target 'iosApp' do
+  pod 'MMKV', '2.4.1'
+
+  pod 'Lynx', '4.0.0', :subspecs => [
+    'Framework',
+  ]
+
+  pod 'PrimJS', '4.0.0', :subspecs => ['quickjs', 'napi']
+
+  # integrate image-service and log-service; HTTP is implemented by the app
+  pod 'LynxService', '4.0.0', :subspecs => [
+      'Image',
+      'Log',
+  ]
+
+  # ImageService dependencies:
+  pod 'SDWebImage','5.15.5'
+  pod 'SDWebImageWebPCoder', '0.11.0'
+
+  # XElement
+  pod 'XElement', '4.0.0'
+end

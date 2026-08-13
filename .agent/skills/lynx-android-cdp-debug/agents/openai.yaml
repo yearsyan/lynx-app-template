@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lynx Android Debug"
+  short_description: "Build and validate the Android Lynx debug host"
+  default_prompt: "Use $lynx-android-cdp-debug to build and validate this repository's Android Lynx debug host."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lynx DevTool"
+  short_description: "Inspect running Lynx apps with agent-lynx"
+  default_prompt: "Use $lynx-devtool to inspect and interact with the selected running Lynx page."

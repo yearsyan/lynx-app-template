@@ -1,0 +1,231 @@
+.App {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  padding: 48px 20px 32px;
+  background-color: #0f1419;
+  box-sizing: border-box;
+}
+
+.Header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.Title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.Subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #8a93a0;
+}
+
+.Card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 24px 20px;
+  border-radius: 16px;
+  background-color: #1a212b;
+  box-sizing: border-box;
+}
+
+.CardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #c7cfd9;
+}
+
+.CardBody {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #8a93a0;
+}
+
+.Counter {
+  margin: 16px 0;
+  font-size: 56px;
+  font-weight: bold;
+  color: #4cc2ff;
+}
+
+.Row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.Button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 44px;
+  margin: 0 6px;
+  padding: 0 20px;
+  border-radius: 22px;
+  background-color: #2a3340;
+}
+
+.Button--primary {
+  background-color: #4cc2ff;
+}
+
+.Button:active {
+  opacity: 0.7;
+}
+
+.ButtonLabel {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e6ebf0;
+}
+
+.ButtonLabel--primary {
+  color: #0f1419;
+}
+
+.Status {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #5b6470;
+}
+
+.FieldRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.FieldLabel {
+  font-size: 14px;
+  color: #e6ebf0;
+}
+
+/* Lynx fallback switch (Android / HarmonyOS) */
+.FallbackSwitch {
+  display: flex;
+  align-items: center;
+  width: 52px;
+  height: 32px;
+  padding: 2px;
+  border-radius: 16px;
+  background-color: #3a4552;
+  transition: background-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.FallbackSwitch--on {
+  background-color: #4cc2ff;
+}
+
+.FallbackSwitch--disabled {
+  opacity: 0.4;
+}
+
+.FallbackSwitch__thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background-color: #ffffff;
+  transform: translateX(0px);
+  transition: transform 0.2s ease;
+}
+
+.FallbackSwitch__thumb--on {
+  transform: translateX(20px);
+}
+
+/* Lynx fallback dropdown (Android / HarmonyOS) — menu floats in an <overlay> */
+.FallbackDropdown {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.FallbackDropdown__backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.FallbackDropdown__button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  background-color: #2a3340;
+  box-sizing: border-box;
+}
+
+.FallbackDropdown__button--disabled {
+  opacity: 0.4;
+}
+
+.FallbackDropdown__label {
+  font-size: 14px;
+  color: #e6ebf0;
+}
+
+.FallbackDropdown__chevron {
+  font-size: 10px;
+  color: #8a93a0;
+}
+
+.FallbackDropdown__menu {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background-color: #232b36;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.FallbackDropdown__option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 42px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.FallbackDropdown__option:active {
+  background-color: #2a3340;
+}
+
+.FallbackDropdown__option--selected {
+  background-color: #243244;
+}
+
+.FallbackDropdown__optionLabel {
+  font-size: 14px;
+  color: #c7cfd9;
+}
+
+.FallbackDropdown__optionLabel--selected {
+  color: #4cc2ff;
+  font-weight: 600;
+}

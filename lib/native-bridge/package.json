@@ -1,0 +1,17 @@
+{
+  "name": "@lynx-template/native-bridge",
+  "description": "Shared native host contracts and APIs exposed to Lynx bundles",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@lynx-js/react": "catalog:",
+    "@lynx-js/types": "catalog:"
+  },
+  "private": true
+}
