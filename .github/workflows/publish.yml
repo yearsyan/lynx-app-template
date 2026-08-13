@@ -1,0 +1,65 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # npm Trusted Publisher (OIDC) 发布必需
+
+jobs:
+  publish:
+    name: Publish @lynfe packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify tag points to main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not point to a commit on main."
+            exit 1
+          fi
+
+      - name: Derive release version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not encode a valid semver."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate template snapshot
+        run: node scripts/export-template.mjs
+
+      - name: Verify snapshot has no residual identifiers
+        run: |
+          if grep -rEn "com\.lynxapp|LynxTemplate|@lynx-template" create-lynx-app/template/; then
+            echo "::error::Template snapshot still contains real identifiers."
+            exit 1
+          fi
+
+      - name: Apply release version
+        run: node scripts/apply_release_version.mjs "${{ steps.version.outputs.version }}"
+
+      # 先发主包，再发别名包（别名依赖主包的同一版本）。
+      - name: Publish @lynfe/lynx-app
+        working-directory: create-lynx-app
+        run: npm publish --provenance --access public
+
+      - name: Publish @lynfe/create-lynx-app
+        working-directory: create-lynx-app-alias
+        run: npm publish --provenance --access public
