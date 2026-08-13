@@ -21,6 +21,7 @@
     ".agent",
     ".zcode",
     ".idea",
+    ".github",
     "node_modules",
     ".pnpm-store",
     "Pods",
