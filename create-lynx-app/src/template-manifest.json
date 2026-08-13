@@ -59,6 +59,7 @@
     "local.properties",
     "lynx-bundles.json",
     "Podfile.lock",
-    "export-template.mjs"
+    "export-template.mjs",
+    "apply_release_version.mjs"
   ]
 }
