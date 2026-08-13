@@ -30,6 +30,7 @@
     "new:bundle": "node ./scripts/create-bundle.mjs",
     "release": "pnpm run build && pnpm run sync:native",
     "sync:native": "node ./scripts/sync-native.mjs",
+    "template:export": "node ./scripts/export-template.mjs",
     "typecheck": "pnpm -r --if-present run typecheck"
   },
   "devDependencies": {

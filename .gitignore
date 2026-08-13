@@ -2,6 +2,7 @@
 .DS_Store
 Thumbs.db
 .idea/
+.zcode/
 *.iml
 .vscode/*
 !.vscode/extensions.json
@@ -98,3 +99,6 @@ app/harmonyApp/**/.cxx/
 app/harmonyApp/**/.test/
 app/harmonyApp/.appanalyzer/
 app/harmonyApp/**/local.properties
+
+# create-lynx-app scaffold snapshot (regenerated before publish)
+create-lynx-app/template/

@@ -1,0 +1,32 @@
+{
+  "name": "@lynfe/lynx-app",
+  "version": "0.1.1",
+  "description": "Scaffold a multi-platform Lynx 4.0 host (Android / iOS / HarmonyOS) from a template.",
+  "type": "module",
+  "bin": {
+    "lynx-app": "bin/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "template"
+  ],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "lynx",
+    "lynxjs",
+    "react-lynx",
+    "scaffold",
+    "template",
+    "android",
+    "ios",
+    "harmonyos"
+  ],
+  "license": "Apache-2.0"
+}
