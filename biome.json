@@ -7,6 +7,21 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "bundle/main/src/App.tsx",
+        "bundle/main/src/components/PlatformDropdown.tsx"
+      ],
+      "assist": {
+        "actions": {
+          "source": {
+            "organizeImports": "off"
+          }
+        }
+      }
+    }
+  ],
   "files": {
     "includes": [
       "package.json",

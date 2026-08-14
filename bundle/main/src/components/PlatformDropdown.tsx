@@ -1,6 +1,10 @@
+// organizeImports is disabled for this file in biome.json: the scaffolder
+// rewrites the workspace scope below (@lynx-template -> @<user scope>), which
+// changes the sort order relative to the @lynx-js/* imports.
+import { nativeBack } from '@lynx-template/native-bridge';
+
 import { useCallback, useEffect, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent } from '@lynx-js/types';
-import { nativeBack } from '@lynx-template/native-bridge';
 
 import type { GlassDropdownEvent } from './native-elements.js';
 

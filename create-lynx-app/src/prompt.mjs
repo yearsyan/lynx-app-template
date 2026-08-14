@@ -2,9 +2,17 @@ import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
-const REVERSE_DNS = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+// Android applicationId rules are the strictest of the three hosts: every
+// dot-separated segment starts with a letter and contains only letters,
+// digits, and underscores. The same value also feeds iOS and HarmonyOS.
+const BUNDLE_ID = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/;
 const SCOPE = /^[a-z0-9][a-z0-9-]*$/;
 const PLATFORMS = new Set(['android', 'ios', 'harmony']);
+
+// Kebab-case names cannot become package segments as-is (no hyphens allowed).
+function defaultBundleId(name) {
+  return `com.${name.replace(/-/g, '')}`;
+}
 
 function kebabToPascalCase(value) {
   return value
@@ -82,9 +90,9 @@ export async function resolveOptions(argv) {
         validate: (v) => SCOPE.test(v),
         fallback: scope,
       });
-      bundleId = await prompt(rl, `bundle ID [com.${name}]: `, {
-        validate: (v) => REVERSE_DNS.test(v),
-        fallback: bundleId ?? `com.${name}`,
+      bundleId = await prompt(rl, `bundle ID [${defaultBundleId(name)}]: `, {
+        validate: (v) => BUNDLE_ID.test(v),
+        fallback: bundleId ?? defaultBundleId(name),
       });
       displayName = await prompt(
         rl,
@@ -105,12 +113,17 @@ export async function resolveOptions(argv) {
     }
   }
 
-  bundleId ??= `com.${name}`;
+  bundleId ??= defaultBundleId(name);
   displayName ??= kebabToTitleCase(name);
   platforms ??= ['android', 'ios', 'harmony'];
 
   if (!SCOPE.test(scope)) fail(`invalid npm scope: ${scope}`);
-  if (!REVERSE_DNS.test(bundleId)) fail(`invalid bundle ID: ${bundleId}`);
+  if (!BUNDLE_ID.test(bundleId)) {
+    fail(
+      `invalid bundle ID: ${bundleId} (segments must start with a letter and ` +
+        'contain only letters, digits, and underscores)',
+    );
+  }
   for (const platform of platforms) {
     if (!PLATFORMS.has(platform)) fail(`unknown platform: ${platform}`);
   }
@@ -127,4 +140,4 @@ export async function resolveOptions(argv) {
   };
 }
 
-export { kebabToPascalCase, kebabToTitleCase, lastSegment };
+export { kebabToPascalCase, kebabToTitleCase, lastSegment, defaultBundleId };

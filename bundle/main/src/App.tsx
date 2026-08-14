@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useState } from '@lynx-js/react';
+// organizeImports is disabled for this file in biome.json: the scaffolder
+// rewrites the workspace scope below (@lynx-template -> @<user scope>), which
+// changes the sort order relative to the @lynx-js/* imports.
 import { nativeKV } from '@lynx-template/native-bridge';
+
+import { useCallback, useEffect, useState } from '@lynx-js/react';
 
 import './App.css';
 import { PlatformDropdown } from './components/PlatformDropdown.js';
