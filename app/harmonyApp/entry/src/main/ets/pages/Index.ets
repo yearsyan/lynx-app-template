@@ -1,8 +1,6 @@
 import {
-  Behavior,
   LynxContext,
   LynxGenericResourceFetcher,
-  LynxMediaResourceFetcher,
   LynxTemplateResourceFetcher,
   LynxUpdateMeta,
   LynxView,
@@ -31,10 +29,8 @@ import {
   NativeWebSocketModule,
 } from '../native/NativeWebSocketModule';
 import { LaunchpadGenericResourceFetcher } from '../provider/LaunchpadGenericResourceFetcher';
-import { LaunchpadMediaResourceFetcher } from '../provider/LaunchpadMediaResourceFetcher';
 import { LaunchpadTemplateResourceFetcher } from '../provider/LaunchpadTemplateResourceFetcher';
 import { LynxBundleRepository } from '../provider/LynxBundleRepository';
-import { NativeWebViewUI } from '../component/NativeWebView';
 import {
   DevelopmentSettingsEntry,
   DevelopmentSettingsPage,
@@ -127,15 +123,11 @@ struct LynxBundlePage {
   nativeBackController: NativeBackController = new NativeBackController();
   private nativeWebSocketController: NativeWebSocketController = new NativeWebSocketController();
   private templateResourceFetcher: LynxTemplateResourceFetcher = new LaunchpadTemplateResourceFetcher();
-  private mediaResourceFetcher: LynxMediaResourceFetcher = new LaunchpadMediaResourceFetcher();
   private genericResourceFetcher: LynxGenericResourceFetcher = new LaunchpadGenericResourceFetcher();
   private bundleRepository: LynxBundleRepository = new LynxBundleRepository();
   private safeAreaInsets: SafeAreaInsets = new SafeAreaInsets();
   private metaData: MetaData = new MetaData(nativeEnvironmentData(this.safeAreaInsets, NativeRoute.main()));
   private modules: Map<string, ModuleClassWrapper> = new Map();
-  private behaviors: Map<string, Behavior> = new Map([
-    ['webview', new Behavior(NativeWebViewUI, undefined)],
-  ]);
   private mainWindow: window.Window | undefined = undefined;
   private lynxContext: LynxContext | undefined = undefined;
   private avoidAreaChangeCallback = (_options: window.AvoidAreaOptions): void => {
@@ -193,7 +185,7 @@ struct LynxBundlePage {
       return developmentURL;
     }
     if (this.route.bundle === BundleConfig.BUNDLE_NAME) {
-      return BundleConfig.EMBEDDED_BUNDLE;
+      return BundleConfig.EMBEDDED_BUNDLE_PATH;
     }
     return this.route.bundleURL();
   }
@@ -309,10 +301,8 @@ struct LynxBundlePage {
     Column() {
       LynxView({
         templateResourceFetcher: this.templateResourceFetcher,
-        mediaResourceFetcher: this.mediaResourceFetcher,
         genericResourceFetcher: this.genericResourceFetcher,
         modules: this.modules,
-        behaviors: this.behaviors,
         metaData: this.metaData,
         onCreate: this.lynxCreateCallback,
         url: this.url,

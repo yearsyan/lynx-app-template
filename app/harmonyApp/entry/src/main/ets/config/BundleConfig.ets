@@ -9,7 +9,9 @@ import BuildProfile from 'BuildProfile';
 export class BundleConfig {
   static readonly ENGINE_VERSION: string = '3.9';
   static readonly BUNDLE_NAME: string = 'main';
+  static readonly EMBEDDED_BUNDLE_DIRECTORY: string = 'lynxbundle';
   static readonly EMBEDDED_BUNDLE: string = 'main.lynx.bundle';
+  static readonly EMBEDDED_BUNDLE_PATH: string = 'lynxbundle/main.lynx.bundle';
 
   // Development URL: http://192.168.1.50:3000/main.lynx.bundle
   static readonly DEV_BUNDLE_URL: string = '';

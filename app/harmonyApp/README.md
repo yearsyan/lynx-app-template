@@ -7,9 +7,9 @@ in the app. It stores an API server and per-bundle development server mappings
 on the device. `BundleConfig.ets` remains the fallback for a fixed main-bundle
 development URL and the OTA endpoint.
 
-The `debug` and `release` targets use different ArkTS source roots. Only the
-Debug root contains the settings page, MMKV keys, validation, and URL resolver;
-the Release root contains inert replacements.
+The development settings live in `src/main` (the bundle repository is shared
+by both build modes); every read and write is guarded by `BuildProfile.DEBUG`,
+so release builds never observe debug values.
 
 For command-line builds, use the Node runtime bundled with DevEco Studio. Newer
 system Node releases can be incompatible with the bundled hvigor plugin:

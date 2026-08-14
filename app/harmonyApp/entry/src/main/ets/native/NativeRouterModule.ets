@@ -1,6 +1,8 @@
 import { UIContext } from '@kit.ArkUI';
 import { LynxContext, LynxModule } from '@lynx/lynx';
 
+import { BundleConfig } from '../config/BundleConfig';
+
 export interface NativeRouteOptions {
   bundle: string;
   presentation?: string;
@@ -35,7 +37,7 @@ export class NativeRoute {
   }
 
   bundleURL(): string {
-    return `${this.bundle}.lynx.bundle`;
+    return `${BundleConfig.EMBEDDED_BUNDLE_DIRECTORY}/${this.bundle}.lynx.bundle`;
   }
 }
 

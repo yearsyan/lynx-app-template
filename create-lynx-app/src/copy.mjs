@@ -2,6 +2,7 @@ import { access, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { materializeTree } from './transform.mjs';
+import { assertTokensSupplied } from './template-tokens.mjs';
 
 const PLATFORM_DIRS = {
   android: 'app/androidApp',
@@ -18,6 +19,7 @@ export async function copyTemplate(templateDir, targetDir, tokens) {
     throw new Error(`target directory already exists: ${targetDir}`);
   }
 
+  assertTokensSupplied(tokens);
   await materializeTree(templateDir, targetDir, tokens);
 
   const selected = new Set(tokens.platforms);

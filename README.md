@@ -17,8 +17,7 @@
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
 ├── bundle           # 可独立构建和发布的 Lynx bundles
-│   ├── main         # 默认 Lynx bundle
-│   └── native-capabilities # 原生能力与路由 bundle
+│   └── main         # 默认 Lynx bundle
 ├── lib              # bundles 共享的基础库 workspace packages
 │   └── native-bridge # 共享宿主环境、NativeModules 类型与调用封装
 └── scripts          # 原生配置、bundle 创建与发布同步脚本
@@ -27,7 +26,7 @@
 项目级 skills 统一维护在根目录 `.agent/skills`：
 
 - `lynx-devtool`：调试已经运行的 Lynx 页面、会话和组件。
-- `lynx-android-cdp-debug`：构建、安装并验证本仓库 Android Debug 宿主及 DevTool 连通性。
+- `lynx-native-debug`：构建、安装并验证 Android、iOS 与 HarmonyOS Debug 宿主、HMR 和可用的 CDP 链路。
 
 不要在 `bundle/*` 或其他子项目中复制 skills；通用命令细节放在对应
 `references/` 中按需加载。
@@ -44,7 +43,7 @@
 
 - Node.js `20.19+` 或 `22.12+`
 - pnpm `10.28+`
-- Android Studio / JDK 17+ / Android SDK 34 / Android SDK Build Tools 36.0.0
+- Android Studio / JDK 17+ / Android SDK 36 / Android SDK Build Tools 36.0.0
 - Xcode / CocoaPods 1.11.3+
 - DevEco Studio 6.1.1 与 HarmonyOS SDK 24
 
@@ -67,7 +66,12 @@ pnpm native:apply          # 将 package.json 的应用标识同步到三端
 pnpm native:check          # 检查三端应用标识是否同步
 pnpm release               # 构建、生成发布清单、同步三端内置资源
 pnpm new:bundle profile    # 新建 bundle/profile
+pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/template/
 ```
+
+## 模板发布
+
+`create-lynx-app`（npm 包 `@lynfe/lynx-app`）通过 `pnpm template:export` 生成的快照脚手架新项目；推送 `v*` 标签会触发 GitHub Actions 重新导出模板并发布 npm 包。流程与本地验证方法见 [create-lynx-app/README.md](create-lynx-app/README.md)。
 
 ## 原生应用标识
 
@@ -95,6 +99,21 @@ pnpm new:bundle profile    # 新建 bundle/profile
 
 `bundleId` 是三端默认值；需要平台使用不同标识时，可分别设置 `android.applicationId`、`ios.bundleId` 或 `harmony.bundleName` 覆盖。`pnpm check` 会先执行 `native:check`，防止提交未同步的配置。
 
+## Lynx 版本
+
+根目录 `package.json` 的 `lynx` 字段是引擎与 SDK 版本的唯一来源，`pnpm release` 会把它写入发布清单：
+
+```json
+{
+  "lynx": {
+    "engineVersion": "3.9",
+    "sdkVersion": "4.0.0"
+  }
+}
+```
+
+各 bundle 的 `lynx.config.ts` 和三个宿主各自硬编码同一 `engineVersion`（原生侧无法读取 package.json）。`pnpm native:check` 会校验这些副本与 `lynx.engineVersion` 一致，修改版本时先改 `package.json`，再同步这些文件。
+
 模板默认生成 `com.lynxapp`（Android Release）、`com.lynxapp.debug`（Android Debug）和 `com.lynxapp`（iOS）。HarmonyOS 要求 `bundleName` 至少三段，因此工程显式覆盖为 `com.lynxapp.harmony`。Android 两个变体可以同时安装；AGP 会把 `applicationIdSuffix` 作为点分隔的包名片段，Kotlin `namespace` 则保持 `com.lynxapp`，不随安装标识变化。
 
 ## 打包内置资源
@@ -105,9 +124,9 @@ pnpm release
 
 命令会把所有声明了 `lynxBundle` 的 workspace 包构建为自包含 bundle，生成 `bundle/artifacts/latest/manifest.json`，并同步到：
 
-- Android：`app/androidApp/app/src/main/assets/`
-- iOS：`app/iosApp/`
-- HarmonyOS：`app/harmonyApp/entry/src/main/resources/rawfile/`
+- Android：`app/androidApp/app/src/main/assets/lynxbundle/`
+- iOS：`app/iosApp/lynxbundle/`
+- HarmonyOS：`app/harmonyApp/entry/src/main/resources/rawfile/lynxbundle/`
 
 默认构建会内联脚本和静态资源，因此每个入口只需发布一个 `.lynx.bundle`。如果启用异步 chunk、external bundle 或关闭资源内联，还需要把额外文件加入 manifest，并扩展三端资源解析逻辑。
 

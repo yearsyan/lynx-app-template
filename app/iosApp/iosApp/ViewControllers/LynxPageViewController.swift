@@ -49,6 +49,8 @@ class LynxPageViewController: UIViewController {
     )
     let lynxView = LynxView { builder in
       builder.config = config
+      builder.genericResourceFetcher = AppGenericResourceFetcher()
+      builder.enableGenericResourceFetcher = .true
       builder.screenSize = self.view.frame.size
       builder.fontScale = 1.0
     }

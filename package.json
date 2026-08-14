@@ -16,6 +16,10 @@
       "bundleName": "com.lynxapp.harmony"
     }
   },
+  "lynx": {
+    "engineVersion": "3.9",
+    "sdkVersion": "4.0.0"
+  },
   "scripts": {
     "build": "pnpm -r --if-present run build",
     "check": "pnpm run native:check && pnpm run typecheck && pnpm run lint",

@@ -11,11 +11,20 @@ target 'iosApp' do
 
   pod 'PrimJS', '4.0.0', :subspecs => ['quickjs', 'napi']
 
-  # integrate image-service and log-service; HTTP is implemented by the app
+  # integrate image-service and log-service; HTTP is implemented by the app.
+  # The Devtool subspec exposes the debug-tool service registration glue.
   pod 'LynxService', '4.0.0', :subspecs => [
       'Image',
       'Log',
+      'Devtool',
   ]
+
+  # Lynx DevTool, Debug builds only (mirrors the Android debugImplementation
+  # setup). See https://lynxjs.org/guide/start/integrate-lynx-devtool?platform=ios
+  pod 'LynxDevtool', '4.0.0', :configurations => ['Debug']
+  pod 'BaseDevtool', '4.0.0', :configurations => ['Debug']
+  pod 'DebugRouter', '5.0.15', :configurations => ['Debug']
+  pod 'DebugRouter/MessageTransceiverEnable', '5.0.15', :configurations => ['Debug']
 
   # ImageService dependencies:
   pod 'SDWebImage','5.15.5'

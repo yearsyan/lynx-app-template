@@ -10,7 +10,6 @@
   "files": {
     "includes": [
       "package.json",
-      "biome.json",
       "tsconfig.*.json",
       "scripts/**/*.mjs",
       "bundle/**",
@@ -18,6 +17,7 @@
       "!bundle/**/dist",
       "!bundle/artifacts",
       "!lib/**/dist",
+      "!create-lynx-app/template",
       "!**/node_modules"
     ]
   },

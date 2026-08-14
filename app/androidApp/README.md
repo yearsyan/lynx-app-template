@@ -17,8 +17,8 @@ cp local.properties.example local.properties
 ```
 
 `MainActivity` renders the configured development URL, a verified OTA cache, or
-`app/src/main/assets/main.lynx.bundle`. See the repository root README for the
-configuration keys and release workflow.
+`app/src/main/assets/lynxbundle/main.lynx.bundle`. See the repository root
+README for the configuration keys and release workflow.
 
 Both variants target `arm64-v8a`. DevTool wiring and dependencies live only in
 the `debug` source set; the minified release APK uses PrimJS and excludes every

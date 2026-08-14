@@ -19,11 +19,17 @@ class UpdateManifest {
   bundles: BundleEntry[] = [];
 }
 
+class CacheMetadata {
+  engineVersion: string = '';
+  version: string = '';
+  sha256: string = '';
+}
+
 /** Shared source resolver and verified OTA cache for the HarmonyOS host. */
 export class LynxBundleRepository {
   private static readonly CACHE_SCHEME: string = 'lynx-cache';
   private static readonly CACHE_DIRECTORY: string = 'lynx-bundles';
-  private static readonly CACHE_METADATA: string = 'main.metadata';
+  private static readonly CACHE_METADATA: string = 'main.metadata.json';
 
   developmentURL(bundleName: string): string {
     const override: string = DevelopmentSettings.developmentURL(bundleName);
@@ -57,21 +63,21 @@ export class LynxBundleRepository {
     const bundlePath: string = this.cacheBundlePath(context);
     const metadataPath: string = this.cacheMetadataPath(context);
     if (!fs.accessSync(bundlePath) || !fs.accessSync(metadataPath)) {
-      return BundleConfig.EMBEDDED_BUNDLE;
+      return BundleConfig.EMBEDDED_BUNDLE_PATH;
     }
 
     try {
-      const metadata: string[] = fs.readTextSync(metadataPath).trim().split('\n');
-      if (metadata.length < 2 || metadata[0] !== BundleConfig.ENGINE_VERSION) {
-        return BundleConfig.EMBEDDED_BUNDLE;
+      const metadata: CacheMetadata | null = this.readCacheMetadata(metadataPath);
+      if (metadata === null || metadata.engineVersion !== BundleConfig.ENGINE_VERSION) {
+        return BundleConfig.EMBEDDED_BUNDLE_PATH;
       }
       const digest: string = (await hash.hash(bundlePath, 'sha256')).toLowerCase();
-      return digest === metadata[1]
+      return digest === metadata.sha256
         ? this.cachedURL(digest)
-        : BundleConfig.EMBEDDED_BUNDLE;
+        : BundleConfig.EMBEDDED_BUNDLE_PATH;
     } catch (error) {
       console.error(`Unable to validate Lynx bundle cache: ${error}`);
-      return BundleConfig.EMBEDDED_BUNDLE;
+      return BundleConfig.EMBEDDED_BUNDLE_PATH;
     }
   }
 
@@ -122,11 +128,9 @@ export class LynxBundleRepository {
 
     const expectedDigest: string = entry.sha256.toLowerCase();
     const metadataPath: string = this.cacheMetadataPath(context);
-    if (fs.accessSync(metadataPath)) {
-      const metadata: string[] = fs.readTextSync(metadataPath).trim().split('\n');
-      if (metadata.length >= 2 && metadata[1] === expectedDigest) {
-        return null;
-      }
+    const cachedMetadata: CacheMetadata | null = this.readCacheMetadata(metadataPath);
+    if (cachedMetadata !== null && cachedMetadata.sha256 === expectedDigest) {
+      return null;
     }
 
     const bundleURL: string = this.resolveURL(manifestURL, entry.url);
@@ -165,9 +169,12 @@ export class LynxBundleRepository {
     }
 
     fs.moveFileSync(temporaryBundle, this.cacheBundlePath(context), 0);
-    const metadata: string = `${BundleConfig.ENGINE_VERSION}\n${actualDigest}\n${entry.version}\n`;
+    const metadata: CacheMetadata = new CacheMetadata();
+    metadata.engineVersion = BundleConfig.ENGINE_VERSION;
+    metadata.sha256 = actualDigest;
+    metadata.version = entry.version;
     const temporaryMetadata: string = `${metadataPath}.tmp`;
-    this.writeTextFile(temporaryMetadata, metadata);
+    this.writeTextFile(temporaryMetadata, JSON.stringify(metadata));
     fs.moveFileSync(temporaryMetadata, metadataPath, 0);
     return this.cachedURL(actualDigest);
   }
@@ -191,6 +198,14 @@ export class LynxBundleRepository {
 
   private cacheMetadataPath(context: common.UIAbilityContext): string {
     return `${this.cacheDirectory(context)}/${LynxBundleRepository.CACHE_METADATA}`;
+  }
+
+  private readCacheMetadata(path: string): CacheMetadata | null {
+    try {
+      return JSON.parse(fs.readTextSync(path)) as CacheMetadata;
+    } catch (error) {
+      return null;
+    }
   }
 
   private resolveURL(baseURL: string, relativeURL: string): string {

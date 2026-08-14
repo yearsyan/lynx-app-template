@@ -13,18 +13,18 @@
 		2B94A3D22D6613740060892C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B94A3D12D6613740060892C /* Assets.xcassets */; };
 		2B94A3D52D6613740060892C /* Base in Resources */ = {isa = PBXBuildFile; fileRef = 2B94A3D42D6613740060892C /* Base */; };
 		2B94A3DD2D6614980060892C /* LynxBundleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B94A3DC2D6614980060892C /* LynxBundleRepository.swift */; };
-		2BE49E032D7720F0000D068C /* main.lynx.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2BE49E022D7720F0000D068C /* main.lynx.bundle */; };
+		2BE49E032D7720F0000D068C /* lynxbundle in Resources */ = {isa = PBXBuildFile; fileRef = 2BE49E022D7720F0000D068C /* lynxbundle */; };
 		63972E0D34F86B0706325BCE /* libPods-iosApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C4B67B2104D0445A811952B8 /* libPods-iosApp.a */; };
 		9B0001010000000000000001 /* NativeKVModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000010000000000000001 /* NativeKVModule.swift */; };
 		9B0001020000000000000001 /* NativeBackModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000020000000000000001 /* NativeBackModule.swift */; };
 		9B0001030000000000000001 /* NativeRouterModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000030000000000000001 /* NativeRouterModule.swift */; };
 		9C0001010000000000000001 /* LynxPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000010000000000000001 /* LynxPageViewController.swift */; };
 		9C0001020000000000000001 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000020000000000000001 /* ViewController.swift */; };
-		AA0000010000000000000001 /* lynx-bundles.json in Resources */ = {isa = PBXBuildFile; fileRef = AA0000020000000000000002 /* lynx-bundles.json */; };
 		AA1000010000000000000001 /* LynxTemplateHttpService.m in Sources */ = {isa = PBXBuildFile; fileRef = AA1000020000000000000002 /* LynxTemplateHttpService.m */; };
 		CC0000010000000000000001 /* DevelopmentSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000020000000000000002 /* DevelopmentSettings.swift */; };
 		CC0000030000000000000003 /* DebugSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000040000000000000004 /* DebugSettingsViewController.swift */; };
 		EE0000010000000000000001 /* NativeWebSocketModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0000020000000000000002 /* NativeWebSocketModule.swift */; };
+		AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */ = {isa = PBXBuildFile; fileRef = AB0000020000000000000002 /* LynxGenericResourceFetcher.m */; };
 		FF0000010000000000000001 /* LiquidGlassElements.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000020000000000000002 /* LiquidGlassElements.swift */; };
 /* End PBXBuildFile section */
 
@@ -38,7 +38,7 @@
 		2B94A3D62D6613740060892C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2B94A3DC2D6614980060892C /* LynxBundleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynxBundleRepository.swift; sourceTree = "<group>"; };
 		2B94A3DE2D6614DC0060892C /* iosApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "iosApp-Bridging-Header.h"; sourceTree = "<group>"; };
-		2BE49E022D7720F0000D068C /* main.lynx.bundle */ = {isa = PBXFileReference; lastKnownFileType = file; path = main.lynx.bundle; sourceTree = "<group>"; };
+		2BE49E022D7720F0000D068C /* lynxbundle */ = {isa = PBXFileReference; lastKnownFileType = folder; path = lynxbundle; sourceTree = "<group>"; };
 		61CE2062BA0F77A3DF32F268 /* Pods-iosApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iosApp.release.xcconfig"; path = "Target Support Files/Pods-iosApp/Pods-iosApp.release.xcconfig"; sourceTree = "<group>"; };
 		72043EE1F9E3529358168057 /* Pods-iosApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iosApp.debug.xcconfig"; path = "Target Support Files/Pods-iosApp/Pods-iosApp.debug.xcconfig"; sourceTree = "<group>"; };
 		9B0000010000000000000001 /* NativeKVModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKVModule.swift; sourceTree = "<group>"; };
@@ -46,11 +46,12 @@
 		9B0000030000000000000001 /* NativeRouterModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRouterModule.swift; sourceTree = "<group>"; };
 		9C0000010000000000000001 /* LynxPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynxPageViewController.swift; sourceTree = "<group>"; };
 		9C0000020000000000000001 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
-		AA0000020000000000000002 /* lynx-bundles.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "lynx-bundles.json"; sourceTree = "<group>"; };
 		AA1000020000000000000002 /* LynxTemplateHttpService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxTemplateHttpService.m; sourceTree = "<group>"; };
 		CC0000020000000000000002 /* DevelopmentSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevelopmentSettings.swift; sourceTree = "<group>"; };
 		CC0000040000000000000004 /* DebugSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSettingsViewController.swift; sourceTree = "<group>"; };
 		EE0000020000000000000002 /* NativeWebSocketModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeWebSocketModule.swift; sourceTree = "<group>"; };
+		AB0000020000000000000002 /* LynxGenericResourceFetcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxGenericResourceFetcher.m; sourceTree = "<group>"; };
+		AB0000030000000000000003 /* LynxGenericResourceFetcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LynxGenericResourceFetcher.h; sourceTree = "<group>"; };
 		FF0000020000000000000002 /* LiquidGlassElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassElements.swift; sourceTree = "<group>"; };
 		C4B67B2104D0445A811952B8 /* libPods-iosApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iosApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -70,8 +71,7 @@
 		2B94A3BC2D6613730060892C = {
 			isa = PBXGroup;
 			children = (
-				2BE49E022D7720F0000D068C /* main.lynx.bundle */,
-				AA0000020000000000000002 /* lynx-bundles.json */,
+				2BE49E022D7720F0000D068C /* lynxbundle */,
 				2B94A3C72D6613730060892C /* iosApp */,
 				2B94A3C62D6613730060892C /* Products */,
 				C6D18F00D0E7395AB3C4C81F /* Pods */,
@@ -97,6 +97,8 @@
 				2B94A3D32D6613740060892C /* LaunchScreen.storyboard */,
 				2B94A3D62D6613740060892C /* Info.plist */,
 				2B94A3DC2D6614980060892C /* LynxBundleRepository.swift */,
+				AB0000020000000000000002 /* LynxGenericResourceFetcher.m */,
+				AB0000030000000000000003 /* LynxGenericResourceFetcher.h */,
 				AA1000020000000000000002 /* LynxTemplateHttpService.m */,
 				FF0000020000000000000002 /* LiquidGlassElements.swift */,
 				CC0000020000000000000002 /* DevelopmentSettings.swift */,
@@ -205,8 +207,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2BE49E032D7720F0000D068C /* main.lynx.bundle in Resources */,
-				AA0000010000000000000001 /* lynx-bundles.json in Resources */,
+				2BE49E032D7720F0000D068C /* lynxbundle in Resources */,
 				2B94A3D22D6613740060892C /* Assets.xcassets in Resources */,
 				2B94A3D52D6613740060892C /* Base in Resources */,
 				2B94A3D02D6613730060892C /* Base in Resources */,
@@ -267,6 +268,7 @@
 				9B0001020000000000000001 /* NativeBackModule.swift in Sources */,
 				9B0001030000000000000001 /* NativeRouterModule.swift in Sources */,
 				EE0000010000000000000001 /* NativeWebSocketModule.swift in Sources */,
+				AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */,
 				FF0000010000000000000001 /* LiquidGlassElements.swift in Sources */,
 				AA1000010000000000000001 /* LynxTemplateHttpService.m in Sources */,
 				9C0001010000000000000001 /* LynxPageViewController.swift in Sources */,

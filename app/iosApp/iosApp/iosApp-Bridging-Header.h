@@ -9,3 +9,8 @@
 #import <Lynx/LynxUIContext.h>
 #import <Lynx/LynxView.h>
 #import <MMKV/MMKV.h>
+#import "LynxGenericResourceFetcher.h"
+#if DEBUG
+#import <LynxServiceAPI/ServiceAPI.h>
+#import <LynxService/LynxDevToolService.h>
+#endif

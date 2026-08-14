@@ -1,13 +1,13 @@
 ---
 name: lynx-devtool
-description: Inspect and interact with an already running Lynx app through agent-lynx on Android, iOS, OpenHarmony, or Desktop. Use for client or session discovery, LynxView CDP or App commands, DOM and CSS inspection, JavaScript evaluation, console logs, sources, snapshot refs and interactions, screenshots, heap or memory capture, recordings, traces, and ReactLynx component inspection or mutation. For this repository's Android host build, install, native DevTool setup, or DebugRouter connectivity, use lynx-android-cdp-debug instead.
+description: Inspect and interact with an already running Lynx app through agent-lynx on Android, iOS, OpenHarmony, or Desktop. Use for client or session discovery, LynxView CDP or App commands, DOM and CSS inspection, JavaScript evaluation, console logs, sources, snapshot refs and interactions, screenshots, heap or memory capture, recordings, traces, and ReactLynx component inspection or mutation. For this repository's Android, iOS, or HarmonyOS host build, install, signing, native DevTool setup, DebugRouter connectivity, LAN development bundle, or HMR verification, use lynx-native-debug instead.
 ---
 
 # Lynx DevTool
 
 Use `agent-lynx` to inspect a live Lynx runtime. Keep this Skill focused on
-runtime operations; delegate repository-specific Android setup to
-`$lynx-android-cdp-debug`.
+runtime operations; delegate repository-specific host setup to
+`$lynx-native-debug`.
 
 This project copy is adapted from `@lynx-js/skill-lynx-devtool` 0.14.2
 (`lynx-community/skills`, Apache-2.0). Treat `agent-lynx <command> --help`

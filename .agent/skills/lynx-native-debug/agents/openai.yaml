@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lynx Native Debug"
+  short_description: "Debug Android, iOS, and HarmonyOS Lynx hosts"
+  default_prompt: "Use $lynx-native-debug to build, install, and verify the selected native Lynx hosts with HMR and supported CDP probes."

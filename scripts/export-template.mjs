@@ -2,8 +2,8 @@ import {
   chmod,
   copyFile,
   mkdir,
-  readFile,
   readdir,
+  readFile,
   rename,
   rm,
   stat,
@@ -11,6 +11,13 @@ import {
 } from 'node:fs/promises';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// The replacement rules (real identifier -> {{token}}) live next to the
+// scaffolder that substitutes them back, so the two directions cannot drift.
+import {
+  templateReplacements as globalReplacements,
+  scopedTemplateReplacements as scopedReplacements,
+} from '../create-lynx-app/src/template-tokens.mjs';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const templateRoot = join(repositoryRoot, 'create-lynx-app', 'template');
@@ -26,29 +33,6 @@ const binaryExtensions = new Set(manifest.binaryExtensions);
 const excludeNames = new Set(manifest.excludeNames);
 const excludeSuffixes = manifest.excludeSuffixes;
 const excludeFiles = new Set(manifest.excludeFiles);
-
-/**
- * Real identifiers in the buildable repo become placeholders in the template
- * snapshot. Order matters: longer, more specific values are replaced first.
- */
-const globalReplacements = [
-  // Context-specific: rootProject.name is the kebab project name, not the
-  // PascalCase app class name used elsewhere by LynxTemplate.
-  ['rootProject.name = "LynxTemplate"', 'rootProject.name = "{{name}}"'],
-  // Harmony vendor is the standalone "lynxapp" (not the com.lynxapp prefix).
-  ['"vendor": "lynxapp"', '"vendor": "{{vendor}}"'],
-  ['com.lynxapp.harmony', '{{harmonyBundle}}'],
-  ['com.lynxapp.debug', '{{package}}.debug'],
-  ['com.lynxapp', '{{package}}'],
-  ['Lynx Template', '{{displayName}}'],
-  ['LynxTemplate', '{{appName}}'],
-  ['@lynx-template', '@{{scope}}'],
-];
-
-/** File-extension scoped replacements applied after the global ones. */
-const scopedReplacements = {
-  '.plist': [['>iosApp<', '>{{displayName}}<']],
-};
 
 function replaceAll(text, replacements) {
   let updated = text;
@@ -164,6 +148,9 @@ async function main() {
   );
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   await main();
 }

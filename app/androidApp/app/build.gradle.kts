@@ -20,12 +20,12 @@ fun buildConfigString(property: String): String {
 
 android {
     namespace = "com.lynxapp"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.lynxapp"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -35,7 +35,6 @@ android {
             abiFilters += listOf("arm64-v8a")
         }
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -75,21 +74,6 @@ android {
     buildFeatures {
         buildConfig = true
     }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-        jniLibs {
-            // Lynx publishes optional V8 bridges in the core AAR. This host
-            // deliberately uses PrimJS, including for debug DevTool sessions.
-            excludes += listOf(
-                "**/liblynx_v8_bridge.so",
-                "**/liblynxdevtool_v8_bridge.so",
-                "**/libnapi_v8.so",
-                "**/libv8_libfull.cr.so",
-            )
-        }
-    }
 }
 
 dependencies {
@@ -101,9 +85,6 @@ dependencies {
     // unique namespaces as required by AGP 9.
     implementation(libs.androidx.vectordrawable)
     implementation(libs.androidx.vectordrawable.animated)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
 
     // lynx dependencies
     implementation("org.lynxsdk.lynx:lynx:4.0.0")

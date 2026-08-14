@@ -54,6 +54,11 @@ coverage/
 # Generated Lynx bundles and release manifests
 /bundle/*/dist/
 /bundle/artifacts/
+/app/androidApp/app/src/main/assets/lynxbundle/
+/app/iosApp/lynxbundle/
+/app/harmonyApp/entry/src/main/resources/rawfile/lynxbundle/
+
+# Legacy generated locations retained here so old worktrees stay clean.
 /app/androidApp/app/src/main/assets/*.lynx.bundle
 /app/androidApp/app/src/main/assets/lynx-bundles.json
 /app/iosApp/*.lynx.bundle

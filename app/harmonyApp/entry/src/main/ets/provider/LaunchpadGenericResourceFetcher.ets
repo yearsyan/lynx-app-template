@@ -1,14 +1,19 @@
-import { LynxError, LynxSubErrorCode, LynxGenericResourceFetcher, LynxResourceRequest, LynxResourceType, LynxStreamDelegate } from '@lynx/lynx';
+import { LynxError, LynxSubErrorCode, LynxGenericResourceFetcher, LynxResourceRequest, LynxResourceType } from '@lynx/lynx';
 import { AsyncCallback, BusinessError } from '@ohos.base';
 import http from '@ohos.net.http';
 import { ImageKnife, ImageKnifeOption, CacheStrategy } from  '@ohos/imageknife';
 
 export class LaunchpadGenericResourceFetcher extends LynxGenericResourceFetcher {
+  // In-flight downloads keyed by URL so cancel() can destroy them.
+  private activeRequests: Map<string, Set<http.HttpRequest>> = new Map();
+
   fetchResource(request: LynxResourceRequest, callback: AsyncCallback<ArrayBuffer, void>): void {
     let httpRequest = http.createHttp();
+    this.trackRequest(request.url, httpRequest);
     httpRequest.request(request.url, {
       expectDataType: http.HttpDataType.ARRAY_BUFFER
     }, (err: BusinessError, data: http.HttpResponse) => {
+      this.untrackRequest(request.url, httpRequest);
       callback(err, data?.result as ArrayBuffer)
       httpRequest.destroy();
     })
@@ -48,15 +53,34 @@ export class LaunchpadGenericResourceFetcher extends LynxGenericResourceFetcher 
     }
   }
 
-  fetchStream(request: LynxResourceRequest, delegate: LynxStreamDelegate): void {
-    // TODO(nihao.royal): support fetching stream.
-    delegate.onStart(100);
-    let a = new ArrayBuffer(10);
-    delegate.onData(a, 0, 10);
-    delegate.onEnd();
+  cancel(request: LynxResourceRequest): void {
+    const pending: Set<http.HttpRequest> | undefined = this.activeRequests.get(request.url);
+    if (pending === undefined) {
+      return;
+    }
+    for (const httpRequest of pending) {
+      httpRequest.destroy();
+    }
+    this.activeRequests.delete(request.url);
   }
 
-  cancel(request: LynxResourceRequest): void {
-    // TODO(nihao.royal)
+  private trackRequest(url: string, httpRequest: http.HttpRequest): void {
+    let pending: Set<http.HttpRequest> | undefined = this.activeRequests.get(url);
+    if (pending === undefined) {
+      pending = new Set<http.HttpRequest>();
+      this.activeRequests.set(url, pending);
+    }
+    pending.add(httpRequest);
+  }
+
+  private untrackRequest(url: string, httpRequest: http.HttpRequest): void {
+    const pending: Set<http.HttpRequest> | undefined = this.activeRequests.get(url);
+    if (pending === undefined) {
+      return;
+    }
+    pending.delete(httpRequest);
+    if (pending.size === 0) {
+      this.activeRequests.delete(url);
+    }
   }
 }

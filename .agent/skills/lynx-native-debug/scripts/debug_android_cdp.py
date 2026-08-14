@@ -26,16 +26,37 @@ class WorkflowError(RuntimeError):
     pass
 
 
+ANDROID_APPLICATION_ID = re.compile(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+")
+
+
 def load_debug_application_id() -> str:
-    sys.path.insert(0, str(REPO_ROOT))
+    # Mirrors scripts/apply_native_config.mjs: package.json#nativeApp.bundleId,
+    # optional android.applicationId override and android.debugApplicationIdSuffix.
+    package_file = REPO_ROOT / "package.json"
     try:
-        from scripts.apply_native_config import NativeConfigError, load_native_config
-    except ImportError as error:
-        raise WorkflowError(f"cannot load native configuration helper: {error}") from error
-    try:
-        return load_native_config().android_debug_application_id
-    except (NativeConfigError, OSError) as error:
-        raise WorkflowError(f"cannot resolve Android Debug applicationId: {error}") from error
+        package_data = json.loads(package_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(f"cannot read {package_file}: {error}") from error
+    native_app = package_data.get("nativeApp")
+    if not isinstance(native_app, dict):
+        raise WorkflowError("package.json#nativeApp must be a JSON object")
+    bundle_id = native_app.get("bundleId")
+    if not isinstance(bundle_id, str) or not bundle_id:
+        raise WorkflowError("package.json#nativeApp.bundleId must be a non-empty string")
+    android = native_app.get("android", {})
+    if not isinstance(android, dict):
+        raise WorkflowError("package.json#nativeApp.android must be a JSON object")
+    application_id = android.get("applicationId", bundle_id)
+    suffix = android.get("debugApplicationIdSuffix", "")
+    if not isinstance(application_id, str) or not isinstance(suffix, str):
+        raise WorkflowError("package.json#nativeApp.android values must be strings")
+    debug_id = application_id
+    if suffix:
+        separator = "" if suffix.startswith(".") else "."
+        debug_id = f"{application_id}{separator}{suffix}"
+    if not ANDROID_APPLICATION_ID.fullmatch(debug_id):
+        raise WorkflowError(f"effective Android Debug applicationId is invalid: {debug_id!r}")
+    return debug_id
 
 
 def run(
@@ -168,10 +189,17 @@ def discover_session(client_id: str, bundle_url: str, env: dict[str, str]) -> di
             agent_lynx(["list-sessions", "--client", client_id], env),
             "list-sessions",
         )
+        # The session URL carries the loader prefix: the built-in assets bundle
+        # reports "lynxbundle/main.lynx.bundle", a dev server reports its full
+        # URL. Match on the trailing bundle name.
         matches = [
             session
             for session in sessions
-            if session.get("type") == "lynx" and session.get("url") == bundle_url
+            if session.get("type") == "lynx"
+            and (
+                session.get("url") == bundle_url
+                or str(session.get("url", "")).endswith(f"/{bundle_url}")
+            )
         ]
         if matches:
             return matches[0]
@@ -225,6 +253,11 @@ def main() -> int:
         if not args.skip_install:
             run([adb, "-s", device, "install", "-r", str(APK_PATH)])
         launcher_component = resolve_launcher_component(adb, device, package_name)
+        # A plain `am start` reuses an existing Activity and therefore can keep
+        # the HMR endpoint embedded in an older development bundle. Restart only
+        # the selected package so every probe fetches the current bundle and its
+        # current WebSocket host/port.
+        run([adb, "-s", device, "shell", "am", "force-stop", package_name])
         run(
             [
                 adb,

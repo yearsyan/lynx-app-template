@@ -85,7 +85,8 @@ final class LynxBundleRepository: NSObject, LynxTemplateProvider {
       : url
     guard let fileURL = Bundle.main.url(
       forResource: resource,
-      withExtension: "bundle"
+      withExtension: "bundle",
+      subdirectory: Constants.embeddedBundleDirectory
     ) else {
       callback(nil, RepositoryError.missingEmbeddedBundle)
       return
@@ -285,6 +286,7 @@ final class LynxBundleRepository: NSObject, LynxTemplateProvider {
   private enum Constants {
     static let bundleName = "main"
     static let cacheScheme = "lynx-cache"
+    static let embeddedBundleDirectory = "lynxbundle"
     static let embeddedBundle = "main.lynx.bundle"
     static let engineVersion = "3.9"
   }

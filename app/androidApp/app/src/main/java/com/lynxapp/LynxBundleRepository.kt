@@ -32,7 +32,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
         if (BuildConfig.DEBUG && developmentUrl.isNotEmpty()) {
             return developmentUrl
         }
-        return if (hasValidCachedBundle()) cachedUrl() else EMBEDDED_BUNDLE
+        return if (hasValidCachedBundle()) cachedUrl() else EMBEDDED_BUNDLE_PATH
     }
 
     fun cachedUrl(): String = "$CACHE_SCHEME://$BUNDLE_NAME"
@@ -40,7 +40,11 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     /** OTA policy currently applies to main; every bundle may have a debug override. */
     fun urlForBundle(bundleName: String): String {
         DevelopmentSettings.developmentUrl(appContext, bundleName)?.let { return it }
-        return if (bundleName == BUNDLE_NAME) startupUrl() else "$bundleName.lynx.bundle"
+        return if (bundleName == BUNDLE_NAME) {
+            startupUrl()
+        } else {
+            "$EMBEDDED_BUNDLE_DIRECTORY/$bundleName.lynx.bundle"
+        }
     }
 
     override fun loadTemplate(uri: String, callback: Callback) {
@@ -259,7 +263,9 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
         const val CACHE_SCHEME = "lynx-cache"
         const val CACHE_METADATA = "main.metadata.json"
         const val BUNDLE_NAME = "main"
+        const val EMBEDDED_BUNDLE_DIRECTORY = "lynxbundle"
         const val EMBEDDED_BUNDLE = "main.lynx.bundle"
+        const val EMBEDDED_BUNDLE_PATH = "lynxbundle/main.lynx.bundle"
         const val ENGINE_VERSION = "3.9"
         val SHA_256 = Regex("^[a-f0-9]{64}$")
     }

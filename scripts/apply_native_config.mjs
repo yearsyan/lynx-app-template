@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   chmod,
+  readdir,
   readFile,
   rename,
   stat,
@@ -18,6 +19,28 @@ const managedFiles = {
   ios: join(repositoryDirectory, 'app/iosApp/iosApp.xcodeproj/project.pbxproj'),
   harmony: join(repositoryDirectory, 'app/harmonyApp/AppScope/app.json5'),
 };
+
+// package.json#lynx.engineVersion is the single source for the engine version
+// stamped into release manifests. Bundle builds and native hosts cannot read
+// package.json, so they each hardcode the value; these patterns locate every
+// copy so the audit below can keep them from drifting apart. The Kotlin file
+// is found by name because its package directory differs per app
+// (java/com/lynxapp here, java/<dotted bundle id segments> when scaffolded).
+const engineVersionReferences = [
+  {
+    searchRoot: 'app/androidApp/app/src/main/java',
+    searchFor: 'LynxBundleRepository.kt',
+    pattern: /const val ENGINE_VERSION = "([^"]+)"/,
+  },
+  {
+    path: 'app/iosApp/iosApp/LynxBundleRepository.swift',
+    pattern: /static let engineVersion = "([^"]+)"/,
+  },
+  {
+    path: 'app/harmonyApp/entry/src/main/ets/config/BundleConfig.ets',
+    pattern: /static readonly ENGINE_VERSION: string = '([^']+)'/,
+  },
+];
 
 const androidApplicationId =
   /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/;
@@ -153,7 +176,91 @@ async function loadNativeConfig() {
     harmonyBundleName,
     'package.json#nativeApp.harmony.bundleName',
   );
+
+  const lynx = requireRecord(packageData.lynx, 'package.json#lynx');
+  config.engineVersion = requiredString(
+    lynx,
+    'engineVersion',
+    'package.json#lynx',
+  );
   return config;
+}
+
+async function findFileByName(rootDirectory, fileName) {
+  let entries;
+  try {
+    entries = await readdir(rootDirectory, { withFileTypes: true });
+  } catch (error) {
+    throw new NativeConfigError(
+      `cannot read ${rootDirectory}: ${errorMessage(error)}`,
+    );
+  }
+  for (const entry of entries) {
+    const path = join(rootDirectory, entry.name);
+    if (entry.isDirectory()) {
+      const found = await findFileByName(path, fileName);
+      if (found !== null) return found;
+    } else if (entry.isFile() && entry.name === fileName) {
+      return path;
+    }
+  }
+  return null;
+}
+
+async function collectEngineVersionMismatches(engineVersion) {
+  const references = [];
+  const bundleDirectory = join(repositoryDirectory, 'bundle');
+  let bundleEntries;
+  try {
+    bundleEntries = await readdir(bundleDirectory, { withFileTypes: true });
+  } catch (error) {
+    throw new NativeConfigError(
+      `cannot read ${bundleDirectory}: ${errorMessage(error)}`,
+    );
+  }
+  for (const entry of bundleEntries) {
+    if (!entry.isDirectory()) continue;
+    references.push({
+      path: join(bundleDirectory, entry.name, 'lynx.config.ts'),
+      pattern: /engineVersion: '([^']+)'/,
+      optional: true,
+    });
+  }
+  for (const reference of engineVersionReferences) {
+    if (reference.searchFor) {
+      const root = join(repositoryDirectory, reference.searchRoot);
+      const found = await findFileByName(root, reference.searchFor);
+      if (found === null) {
+        throw new NativeConfigError(
+          `cannot find ${reference.searchFor} under ${reference.searchRoot}`,
+        );
+      }
+      references.push({ path: found, pattern: reference.pattern });
+      continue;
+    }
+    references.push({
+      pattern: reference.pattern,
+      path: join(repositoryDirectory, reference.path),
+    });
+  }
+
+  const mismatches = [];
+  for (const reference of references) {
+    let content;
+    try {
+      content = await readFile(reference.path, 'utf8');
+    } catch (error) {
+      if (reference.optional && error?.code === 'ENOENT') continue;
+      throw new NativeConfigError(
+        `cannot read ${reference.path}: ${errorMessage(error)}`,
+      );
+    }
+    const found = content.match(reference.pattern)?.[1];
+    if (found !== engineVersion) {
+      mismatches.push({ path: reference.path, found });
+    }
+  }
+  return mismatches;
 }
 
 function replaceManagedValue(text, pattern, value, expectedCount, label) {
@@ -266,7 +373,8 @@ function printIdentifiers(config) {
 function printHelp() {
   console.info(`usage: node scripts/apply_native_config.mjs [--check]
 
-Apply package.json#nativeApp identifiers to the three native hosts.
+Apply package.json#nativeApp identifiers to the three native hosts and verify
+that every Lynx engine version reference matches package.json#lynx.
 
 options:
   --check  fail when native files do not match package.json without writing
@@ -287,6 +395,23 @@ async function main(args = process.argv.slice(2)) {
   try {
     const config = await loadNativeConfig();
     const updates = await buildUpdates(config);
+    const engineMismatches = await collectEngineVersionMismatches(
+      config.engineVersion,
+    );
+    if (engineMismatches.length > 0) {
+      console.error(
+        `Lynx engine version references do not match package.json#lynx.engineVersion (${JSON.stringify(config.engineVersion)}):`,
+      );
+      for (const mismatch of engineMismatches) {
+        console.error(
+          `  - ${repositoryRelative(mismatch.path)} declares ${JSON.stringify(mismatch.found ?? 'no value')}`,
+        );
+      }
+      console.error(
+        'Update these files to the value from package.json (native:apply cannot rewrite them).',
+      );
+      return 1;
+    }
     const changed = updates.filter((update) => update.before !== update.after);
 
     if (args.includes('--check')) {
