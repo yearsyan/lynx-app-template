@@ -6,13 +6,23 @@
  * snapshot; the {{tokenName}} names are the option keys derived in
  * src/prompt.mjs.
  *
- * Rule order matters when exporting: longer, more specific values must be
- * replaced first so overlapping identifiers cannot clobber each other.
+ * Every rule must match a COMPLETE identifier (or a contextual literal such
+ * as `rootProject.name = "LynxTemplate"`). A bare `LynxTemplate` prefix rule
+ * is forbidden: the Lynx SDK ships its own LynxTemplate* family
+ * (LynxTemplateProvider, LynxTemplateResourceFetcher, LynxTemplateData, ...)
+ * that tokenization must never rewrite, so app-owned names are enumerated
+ * explicitly here.
  */
 export const templateReplacements = [
   // rootProject.name is the kebab-case project name, not the PascalCase app
-  // class name that LynxTemplate refers to elsewhere.
+  // class name used elsewhere.
   ['rootProject.name = "LynxTemplate"', 'rootProject.name = "{{name}}"'],
+  // App-owned identifiers (class names, the Android theme, a log tag). The
+  // HttpService rule must run before the shorter log-tag rule.
+  ['LynxTemplateHttpService', '{{appName}}HttpService'],
+  ['LynxTemplateHttp', '{{appName}}Http'],
+  ['LynxTemplateApplication', '{{appName}}Application'],
+  ['Theme.LynxTemplate', 'Theme.{{appName}}'],
   // The HarmonyOS vendor directory is the standalone "lynxapp", not the
   // com.lynxapp prefix.
   ['"vendor": "lynxapp"', '"vendor": "{{vendor}}"'],
@@ -20,7 +30,6 @@ export const templateReplacements = [
   ['com.lynxapp.debug', '{{package}}.debug'],
   ['com.lynxapp', '{{package}}'],
   ['Lynx Template', '{{displayName}}'],
-  ['LynxTemplate', '{{appName}}'],
   ['@lynx-template', '@{{scope}}'],
 ];
 

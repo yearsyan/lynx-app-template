@@ -49,7 +49,10 @@ jobs:
 
       - name: Verify snapshot has no residual identifiers
         run: |
-          if grep -rEn "com\.lynxapp|LynxTemplate|@lynx-template" create-lynx-app/template/; then
+          # The LynxTemplate* names in the exclusion list are Lynx SDK classes
+          # referenced by the hosts; tokenization must leave them untouched.
+          if grep -rEn "com\.lynxapp|LynxTemplate|@lynx-template" create-lynx-app/template/ |
+            grep -Ev "LynxTemplate(ResourceFetcher|Provider|LoadBlock|Data\b|HTTPErrorStatusCode|HTTPStreamReceiver|DeprecatedStreamingFlag|Render\b)"; then
             echo "::error::Template snapshot still contains real identifiers."
             exit 1
           fi
