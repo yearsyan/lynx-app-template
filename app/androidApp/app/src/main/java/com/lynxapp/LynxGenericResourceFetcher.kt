@@ -42,7 +42,7 @@ internal object LynxGenericResourceFetcher : LynxGenericResourceFetcher() {
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
-                    val body = runCatching { it.body?.bytes() }.getOrElse { error ->
+                    val body = runCatching { it.body.bytes() }.getOrElse { error ->
                         deliverFailure(request.url, error, callback)
                         return
                     }
@@ -54,7 +54,7 @@ internal object LynxGenericResourceFetcher : LynxGenericResourceFetcher() {
                         )
                         return
                     }
-                    callback.onResponse(LynxResourceResponse.onSuccess(body ?: ByteArray(0)))
+                    callback.onResponse(LynxResourceResponse.onSuccess(body))
                 }
             }
         })

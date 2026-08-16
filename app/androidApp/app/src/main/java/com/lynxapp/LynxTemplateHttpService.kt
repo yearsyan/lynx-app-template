@@ -65,7 +65,7 @@ internal object LynxTemplateHttpService : ILynxHttpService {
                     if (streamingDelegate == null) return
 
                     try {
-                        it.body?.byteStream()?.use { bodyStream ->
+                        it.body.byteStream().use { bodyStream ->
                             if (
                                 lynxRequest.customConfig?.getBoolean(
                                     DEPRECATED_STREAMING_FLAG,
@@ -112,7 +112,7 @@ internal object LynxTemplateHttpService : ILynxHttpService {
         this.headers.toMultimap().forEach { (name, values) ->
             headers.putString(name, values.joinToString(","))
         }
-        val responseBody = if (includeBody) body?.bytes() ?: byteArrayOf() else null
+        val responseBody = if (includeBody) body.bytes() else null
         return LynxHttpResponse().apply {
             statusCode = code
             statusText = message

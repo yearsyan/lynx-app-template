@@ -20,7 +20,7 @@ fun buildConfigString(property: String): String {
 
 android {
     namespace = "com.lynxapp"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.lynxapp"
@@ -106,7 +106,8 @@ dependencies {
     implementation("org.lynxsdk.lynx:lynx-service-log:4.0.0")
 
     // App-owned Lynx HTTP service and bundle delivery share this transport.
-    implementation("com.squareup.okhttp3:okhttp:4.9.0")
+    // OkHttp 5.x resolves okio 3.x and kotlin-stdlib 2.x transitively.
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
 
     // LynxEnv uses Gson for its optional environment/FSP JSON helpers. DevTool
     // used to provide this transitively, so declare the runtime requirement.

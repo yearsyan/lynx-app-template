@@ -97,8 +97,8 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
 
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
-                        val body = it.body?.string()
-                        if (!it.isSuccessful || body == null) {
+                        val body = it.body.string()
+                        if (!it.isSuccessful) {
                             onComplete(false)
                             return
                         }
@@ -134,7 +134,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     val body = it.body
-                    if (!it.isSuccessful || body == null) {
+                    if (!it.isSuccessful) {
                         callback.onFailed("Bundle request returned HTTP ${it.code}")
                         return
                     }
@@ -187,7 +187,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     val body = it.body
-                    if (!it.isSuccessful || body == null) {
+                    if (!it.isSuccessful) {
                         onComplete(false)
                         return
                     }
