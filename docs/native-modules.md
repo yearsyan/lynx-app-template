@@ -1,4 +1,4 @@
-# NativeModules、原生路由、返回与 WebSocket
+# NativeModules、原生路由、状态栏、返回与 WebSocket
 
 ## 设计目标
 
@@ -6,9 +6,10 @@
 
 - `NativeKVModule`：以 MMKV 保存字符串；JSON 编解码由共享 TypeScript 层完成；
 - `NativeRouterModule`：打开另一个 bundle 对应的原生页面，或关闭当前页面；
+- `NativeStatusBarModule`：按页面切换状态栏图标与文字的深浅样式；
 - `NativeBackModule`：让当前 Lynx 页面同步声明是否接管系统返回，并接收返回生命周期事件；
 - `NativeWebSocketModule`：提供不依赖 DevTool 的长连接、文本/二进制收发和生命周期事件；
-- `native-capabilities.lynx.bundle`：覆盖普通原生页面和透明半弹窗。
+- `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
 
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
 
@@ -18,9 +19,10 @@
 
 ```tsx
 import {
-  nativeBack,
+  nativeBackStack,
   nativeKV,
   nativeRouter,
+  nativeStatusBar,
 } from '@lynx-template/native-bridge';
 
 async function saveSession() {
@@ -35,8 +37,14 @@ async function openProfile() {
   await nativeRouter.open({
     bundle: 'profile',
     presentation: 'push',
+    statusBarStyle: 'dark-content',
     params: { userID: '42' },
   });
+}
+
+async function useDarkPageChrome() {
+  'background only';
+  await nativeStatusBar.setStyle('light-content');
 }
 
 async function openSheet() {
@@ -73,6 +81,7 @@ interface NativeRouteOptions {
   bundle: string;
   presentation?: 'push' | 'modal' | 'sheet';
   transparent?: boolean;
+  statusBarStyle?: 'dark-content' | 'light-content';
   params?: Record<string, unknown>;
 }
 ```
@@ -85,6 +94,7 @@ interface NativeRouteOptions {
     "bundle": "native-capabilities",
     "presentation": "sheet",
     "transparent": true,
+    "statusBarStyle": "dark-content",
     "params": {
       "source": "main"
     }
@@ -94,14 +104,27 @@ interface NativeRouteOptions {
 
 页面调用 `nativeRouter.close()` 返回上一层；根页面不会被关闭，并会返回错误。
 
+### 状态栏样式
+
+`statusBarStyle` 和 `nativeStatusBar.setStyle()` 描述的是状态栏前景，而不是页面背景：
+
+- `dark-content`：深色图标和文字，适用于白色或其他浅色背景；
+- `light-content`：白色图标和文字，适用于深色背景。
+
+路由参数决定目标原生页面创建时的初始样式，默认是 `dark-content`；bridge 用于页面加载后动态切换当前页面。三个宿主都保持状态栏背景透明，让 Lynx 页面继续绘制到系统栏下面。路由 init data 中也包含 `route.statusBarStyle`，业务可以读取并保持自己的视觉状态一致。
+
 ### 返回拦截与进度
 
-`NativeBackModule` 使用“预先启用 + 事件通知”的模型。`setEnabled(true)` 会让当前原生页面从下一次返回开始同步接管平台回调；宿主不会在手势开始后等待异步 JavaScript 决定是否拦截。启用后，业务必须处理 `commit`（通常调用 `nativeRouter.close()`），否则原生返回会被消费而页面保持不动。
+`NativeBackModule` 使用“预先启用 + 事件通知”的模型。共享层的
+`nativeBackStack.addInterceptor()` 会在第一个拦截器入栈时启用原生返回，在最后一个
+拦截器出栈时关闭。宿主不会在手势开始后等待异步 JavaScript 决定是否拦截。启用后，
+栈顶业务必须处理 `commit`（关闭弹窗或调用 `nativeRouter.close()`），否则原生返回会被
+消费而界面保持不动。
 
 ```tsx
 useEffect(() => {
   'background only';
-  const removeListener = nativeBack.addListener((event) => {
+  const registration = nativeBackStack.addInterceptor((event) => {
     'background only';
     if (event.phase === 'progress') {
       // event.progress 为 0..1，可驱动 Lynx 自己的返回预览。
@@ -110,15 +133,16 @@ useEffect(() => {
       nativeRouter.close();
     }
   });
-
-  nativeBack.setEnabled(true);
-  return () => {
-    'background only';
-    removeListener();
-    nativeBack.setEnabled(false);
-  };
+  return registration.remove;
 }, []);
 ```
+
+拦截器按注册顺序组成后进先出栈。一次手势从 `start` 到 `cancel` / `commit` 固定交给
+同一个栈顶拦截器；即使它在手势中途被移除，剩余事件也不会泄漏给下面的弹窗。关闭
+顶层弹窗只会移除自己的注册项，下层弹窗自动成为新的栈顶，原生返回保持启用。
+
+底层 `nativeBack.setEnabled()` 与 `nativeBack.addListener()` 仍保留给需要自行管理生命周期
+的场景。普通弹窗、菜单和 sheet 应统一使用 `nativeBackStack`，不要混用两套生命周期。
 
 统一事件名为 `nativeBack`，共享封装已经完成订阅和结构校验：
 
@@ -156,7 +180,11 @@ iOS 在启用期间会暂停 `UINavigationController` 自带的侧滑返回，�
 
 Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest 主题确定，不能只在 `onCreate()` 中调用 `setTheme()`；否则透明 LynxView 后面会显示黑色窗口背景。
 
-每个新路由页都会重新注册四个 NativeModules，并继续注入 `nativeEnvironment.safeAreaInsets`。因此第二个 bundle 可以独立处理安全区、返回接管和 WebSocket，也可以继续打开下一层 bundle。
+仓库中的 `Open stack demo` 会打开 `predictive-back-sheet`。每次 `Push Activity` 都通过 `presentation: 'sheet'` 新建一个透明原生页面，因此三层弹窗对应三层真实 Activity / ViewController / NavDestination，而不是在根 bundle 内绘制三层 overlay。每层只注册自己的返回拦截器；预测手势进度驱动当前全宽 sheet 向下位移，`commit` 退场完成后调用 `nativeRouter.close()`，从而露出下面一层原生页面。
+
+这套行为已经封装在 `@lynx-template/activity-sheet`：`openActivityBottomSheet()` 负责以透明 sheet 路由打开目标 bundle，`useActivityBottomSheet()` 负责返回生命周期和关闭时序，`ActivityBottomSheet` 负责遮罩、全宽面板、grabber、动画与底部安全区。业务 bundle 只需要传入自己的内容；完整示例见 `lib/activity-sheet/README.md`。
+
+每个新路由页都会重新注册五个 NativeModules，并继续注入 `nativeEnvironment.safeAreaInsets`。因此第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层 bundle。
 
 ## 业务 WebSocket
 
@@ -215,12 +243,11 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 可以监听 `close` 后按网络状态和退避策略创建新连接。
 
 仓库提供 `pnpm dev:websocket` 启动监听 `0.0.0.0:8787` 的文本/二进制 echo
-服务。把 Debug 配置页的 API Server 设置为 `http://电脑局域网IP:8787`，主 bundle
-的 `WebSocket echo` 会保持 host、port、path 不变，只把 `http(s)` 转成
-`ws(s)` 后完成一次连接、发送、回显和关闭验证。端口可通过 `LYNX_WS_PORT` 覆盖。
+服务。Debug bundle 可直接使用 `ws://电脑局域网IP:8787` 完成连接、发送、回显和
+关闭验证；真机不能使用指向自身的 `localhost`。端口可通过 `LYNX_WS_PORT` 覆盖。
 
 ## 原生实现位置
 
-- Android：`NativeKVModule.kt`、`NativeRouterModule.kt`、`NativeBackModule.kt`、`NativeWebSocketModule.kt`、`LynxPageActivity.kt`；
-- iOS：`NativeModules.swift`、`NativeWebSocketModule.swift`、`ViewController.swift`；
-- HarmonyOS：`native/NativeModules.ets`、`native/NativeWebSocketModule.ets`、`pages/Index.ets`。
+- Android：`NativeKVModule.kt`、`NativeRouterModule.kt`、`NativeStatusBarModule.kt`、`NativeBackModule.kt`、`NativeWebSocketModule.kt`、`LynxPageActivity.kt`；
+- iOS：`NativeModules/` 下的各模块、`LynxPageViewController.swift`；
+- HarmonyOS：`native/` 下的各模块、`pages/Index.ets`。

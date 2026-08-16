@@ -1,3 +1,14 @@
+.AppRoot {
+  width: 100%;
+  height: 100%;
+  background-color: #f7f7fb;
+}
+
+.AppScroll {
+  width: 100%;
+  height: 100%;
+}
+
 .App {
   display: flex;
   flex-direction: column;
@@ -5,7 +16,7 @@
   width: 100%;
   min-height: 100%;
   padding: 48px 20px 32px;
-  background-color: #0f1419;
+  background-color: #f7f7fb;
   box-sizing: border-box;
 }
 
@@ -19,13 +30,13 @@
 .Title {
   font-size: 28px;
   font-weight: bold;
-  color: #ffffff;
+  color: #1d1b20;
 }
 
 .Subtitle {
   margin-top: 6px;
   font-size: 13px;
-  color: #8a93a0;
+  color: #625b71;
 }
 
 .Card {
@@ -35,28 +46,30 @@
   width: 100%;
   margin-bottom: 20px;
   padding: 24px 20px;
+  border: 1px solid #e7e0ec;
   border-radius: 16px;
-  background-color: #1a212b;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(29, 27, 32, 0.1);
   box-sizing: border-box;
 }
 
 .CardTitle {
   font-size: 15px;
   font-weight: 600;
-  color: #c7cfd9;
+  color: #1d1b20;
 }
 
 .CardBody {
   margin-top: 10px;
   font-size: 13px;
-  color: #8a93a0;
+  color: #49454f;
 }
 
 .Counter {
   margin: 16px 0;
   font-size: 56px;
   font-weight: bold;
-  color: #4cc2ff;
+  color: #6750a4;
 }
 
 .Row {
@@ -75,11 +88,11 @@
   margin: 0 6px;
   padding: 0 20px;
   border-radius: 22px;
-  background-color: #2a3340;
+  background-color: #e8def8;
 }
 
 .Button--primary {
-  background-color: #4cc2ff;
+  background-color: #6750a4;
 }
 
 .Button:active {
@@ -89,17 +102,17 @@
 .ButtonLabel {
   font-size: 15px;
   font-weight: 600;
-  color: #e6ebf0;
+  color: #1d192b;
 }
 
 .ButtonLabel--primary {
-  color: #0f1419;
+  color: #ffffff;
 }
 
 .Status {
   margin-top: 8px;
   font-size: 12px;
-  color: #5b6470;
+  color: #625b71;
 }
 
 .FieldRow {
@@ -113,7 +126,22 @@
 
 .FieldLabel {
   font-size: 14px;
-  color: #e6ebf0;
+  color: #1d1b20;
+}
+
+.PredictiveBackCard {
+  border: 1px solid #cac4d0;
+  background-color: #ffffff;
+}
+
+.PredictiveBackCard__body {
+  line-height: 19px;
+  text-align: center;
+}
+
+.PredictiveBackCard__button {
+  width: 100%;
+  margin-top: 18px;
 }
 
 /* Lynx fallback switch (Android / HarmonyOS) */
@@ -124,13 +152,15 @@
   height: 32px;
   padding: 2px;
   border-radius: 16px;
-  background-color: #3a4552;
+  border: 1px solid #79747e;
+  background-color: #e6e0e9;
   transition: background-color 0.2s ease;
   box-sizing: border-box;
 }
 
 .FallbackSwitch--on {
-  background-color: #4cc2ff;
+  border-color: #6750a4;
+  background-color: #6750a4;
 }
 
 .FallbackSwitch--disabled {
@@ -141,12 +171,13 @@
   width: 28px;
   height: 28px;
   border-radius: 14px;
-  background-color: #ffffff;
+  background-color: #79747e;
   transform: translateX(0px);
   transition: transform 0.2s ease;
 }
 
 .FallbackSwitch__thumb--on {
+  background-color: #ffffff;
   transform: translateX(20px);
 }
 
@@ -168,6 +199,7 @@
 }
 
 .FallbackDropdown__button {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -175,9 +207,18 @@
   width: 100%;
   height: 44px;
   padding: 0 16px;
-  border-radius: 22px;
-  background-color: #2a3340;
+  border: 1px solid #cac4d0;
+  border-radius: 12px;
+  background-color: #ffffff;
   box-sizing: border-box;
+}
+
+.FallbackDropdown__hitTarget {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .FallbackDropdown__button--disabled {
@@ -186,20 +227,21 @@
 
 .FallbackDropdown__label {
   font-size: 14px;
-  color: #e6ebf0;
+  color: #1d1b20;
 }
 
 .FallbackDropdown__chevron {
   font-size: 10px;
-  color: #8a93a0;
+  color: #49454f;
 }
 
 .FallbackDropdown__menu {
   display: flex;
   flex-direction: column;
   border-radius: 14px;
-  background-color: #232b36;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border: 1px solid #e7e0ec;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(29, 27, 32, 0.18);
   transition: height 320ms ease-in-out;
   overflow: hidden;
 }
@@ -215,19 +257,19 @@
 }
 
 .FallbackDropdown__option:active {
-  background-color: #2a3340;
+  background-color: #f7f2fa;
 }
 
 .FallbackDropdown__option--selected {
-  background-color: #243244;
+  background-color: #e8def8;
 }
 
 .FallbackDropdown__optionLabel {
   font-size: 14px;
-  color: #c7cfd9;
+  color: #1d1b20;
 }
 
 .FallbackDropdown__optionLabel--selected {
-  color: #4cc2ff;
+  color: #6750a4;
   font-weight: 600;
 }

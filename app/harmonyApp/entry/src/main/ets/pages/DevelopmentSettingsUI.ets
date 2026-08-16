@@ -3,6 +3,7 @@ import { window } from '@kit.ArkUI';
 import BuildProfile from 'BuildProfile';
 
 import {
+  BundleServer,
   DevelopmentSettings,
   DevelopmentSettingsSnapshot,
 } from '../config/DevelopmentSettings';
@@ -64,8 +65,13 @@ export struct DevelopmentSettingsEntry {
 @Component
 export struct DevelopmentSettingsPage {
   onClose: (changed: boolean) => void = (_changed: boolean): void => {};
-  @State private apiServer: string = '';
-  @State private bundleServers: string = '';
+  @State private bundleServers: BundleServer[] = [];
+  @State private loadedBundleIds: string[] = [];
+  @State private editing: boolean = false;
+  @State private editingIndex: number = -1;
+  @State private selectedLoadedIndex: number = 0;
+  @State private draftBundleId: string = '';
+  @State private draftServer: string = '';
   @State private errorMessage: string = '';
   @State private safeTop: number = 0;
   @State private safeBottom: number = 0;
@@ -79,14 +85,95 @@ export struct DevelopmentSettingsPage {
   }
 
   private populate(snapshot: DevelopmentSettingsSnapshot): void {
-    this.apiServer = snapshot.apiServer;
     this.bundleServers = snapshot.bundleServers;
+    this.loadedBundleIds = DevelopmentSettings.loadedBundleIds();
+    this.cancelEditor();
     this.errorMessage = '';
+  }
+
+  private loadedBundleOptions(): SelectOption[] {
+    const options: SelectOption[] = [{ value: 'Choose a loaded bundle…' }];
+    for (let index: number = 0; index < this.loadedBundleIds.length; index++) {
+      options.push({ value: this.loadedBundleIds[index] });
+    }
+    return options;
+  }
+
+  private beginAdd(): void {
+    this.editing = true;
+    this.editingIndex = -1;
+    this.selectedLoadedIndex = 0;
+    this.draftBundleId = '';
+    this.draftServer = '';
+    this.errorMessage = '';
+  }
+
+  private beginEdit(index: number): void {
+    if (index < 0 || index >= this.bundleServers.length) {
+      return;
+    }
+    const mapping: BundleServer = this.bundleServers[index];
+    this.editing = true;
+    this.editingIndex = index;
+    const loadedIndex: number = this.loadedBundleIds.indexOf(mapping.bundleId);
+    this.selectedLoadedIndex = loadedIndex < 0 ? 0 : loadedIndex + 1;
+    this.draftBundleId = mapping.bundleId;
+    this.draftServer = mapping.server;
+    this.errorMessage = '';
+  }
+
+  private cancelEditor(): void {
+    this.editing = false;
+    this.editingIndex = -1;
+    this.selectedLoadedIndex = 0;
+    this.draftBundleId = '';
+    this.draftServer = '';
+  }
+
+  private commitEditor(): void {
+    try {
+      const normalized: BundleServer = DevelopmentSettings.validatedBundleServer(
+        this.draftBundleId,
+        this.draftServer,
+      );
+      for (let index: number = 0; index < this.bundleServers.length; index++) {
+        if (index !== this.editingIndex &&
+          this.bundleServers[index].bundleId === normalized.bundleId) {
+          throw new Error(`A server is already configured for ${normalized.bundleId}.`);
+        }
+      }
+      const next: BundleServer[] = this.bundleServers.slice();
+      if (this.editingIndex < 0) {
+        next.push(normalized);
+      } else {
+        next[this.editingIndex] = normalized;
+      }
+      this.bundleServers = next;
+      this.cancelEditor();
+      this.errorMessage = '';
+    } catch (error) {
+      this.errorMessage = error instanceof Error
+        ? error.message
+        : JSON.stringify(error);
+    }
+  }
+
+  private deleteMapping(index: number): void {
+    const next: BundleServer[] = [];
+    for (let current: number = 0; current < this.bundleServers.length; current++) {
+      if (current !== index) {
+        next.push(this.bundleServers[current]);
+      }
+    }
+    this.bundleServers = next;
+    if (this.editingIndex === index) {
+      this.cancelEditor();
+    }
   }
 
   private save(): void {
     try {
-      this.populate(DevelopmentSettings.save(this.apiServer, this.bundleServers));
+      this.populate(DevelopmentSettings.save(this.bundleServers));
       this.onClose(true);
     } catch (error) {
       this.errorMessage = error instanceof Error
@@ -151,44 +238,149 @@ export struct DevelopmentSettingsPage {
             .fontColor('#9BB0AA')
             .width('100%');
 
-          Text('API Server')
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
-            .margin({ top: 14 })
-            .width('100%');
-          TextInput({
-            placeholder: 'http://192.168.1.10:8080',
-            text: this.apiServer,
-          })
-            .fontColor(Color.White)
-            .placeholderColor('#63736E')
-            .backgroundColor('#13211E')
-            .onChange((value: string) => this.apiServer = value);
-          Text('Injected into every bundle as nativeEnvironment.apiServer.')
-            .fontSize(13)
-            .fontColor('#9BB0AA')
-            .width('100%');
-
           Text('Bundle servers')
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
             .fontColor(Color.White)
             .margin({ top: 14 })
             .width('100%');
-          TextArea({
-            placeholder: 'main=http://192.168.1.10:3000\nnative-capabilities=http://192.168.1.10:3001',
-            text: this.bundleServers,
-          })
-            .height(180)
-            .fontColor(Color.White)
-            .placeholderColor('#63736E')
-            .backgroundColor('#13211E')
-            .onChange((value: string) => this.bundleServers = value);
-          Text('One bundle-id=URL per line. A server root becomes /<id>.lynx.bundle; a full .lynx.bundle URL is used unchanged.')
+          Text('Choose a bundle loaded on this device or enter an ID manually. A server root resolves to /<id>.lynx.bundle; a full bundle URL is used unchanged.')
             .fontSize(13)
             .fontColor('#9BB0AA')
             .width('100%');
+
+          if (this.bundleServers.length === 0) {
+            Text('No bundle servers configured.')
+              .fontSize(14)
+              .fontColor('#9BB0AA')
+              .width('100%')
+              .padding(14)
+              .backgroundColor('#13211E')
+              .borderRadius(8);
+          } else {
+            ForEach(this.bundleServers, (mapping: BundleServer, index: number) => {
+              Column({ space: 6 }) {
+                Text(mapping.bundleId)
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(Color.White)
+                  .width('100%');
+                Text(mapping.server)
+                  .fontSize(13)
+                  .fontColor('#B7C8C3')
+                  .width('100%');
+                Row({ space: 8 }) {
+                  Button('Edit')
+                    .fontSize(14)
+                    .fontColor('#6EA1FF')
+                    .layoutWeight(1)
+                    .height(38)
+                    .backgroundColor('#142C2926')
+                    .onClick(() => this.beginEdit(index));
+                  Button('Delete')
+                    .fontSize(14)
+                    .fontColor('#FF8A80')
+                    .layoutWeight(1)
+                    .height(38)
+                    .backgroundColor('#142C2926')
+                    .onClick(() => this.deleteMapping(index));
+                }
+                .width('100%');
+              }
+              .width('100%')
+              .padding(14)
+              .backgroundColor('#13211E')
+              .borderRadius(8);
+            }, (mapping: BundleServer): string =>
+              `${mapping.bundleId}:${mapping.server}`);
+          }
+
+          if (this.editing) {
+            Column({ space: 8 }) {
+              Text(this.editingIndex < 0 ? 'Add bundle server' : 'Edit bundle server')
+                .fontSize(17)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(Color.White)
+                .width('100%');
+
+              Text('Loaded bundle')
+                .fontSize(13)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#B7C8C3')
+                .width('100%');
+              Select(this.loadedBundleOptions())
+                .selected(this.selectedLoadedIndex)
+                .value(this.selectedLoadedIndex > 0
+                  ? this.loadedBundleIds[this.selectedLoadedIndex - 1]
+                  : 'Choose a loaded bundle…')
+                .fontColor(Color.White)
+                .selectedOptionFontColor(Color.White)
+                .optionFontColor('#07100F')
+                .width('100%')
+                .backgroundColor('#1C302C')
+                .onSelect((index: number, value: string) => {
+                  this.selectedLoadedIndex = index;
+                  if (index > 0) {
+                    this.draftBundleId = value;
+                  }
+                });
+
+              Text('Bundle ID (or enter manually)')
+                .fontSize(13)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#B7C8C3')
+                .width('100%');
+              TextInput({
+                placeholder: 'native-capabilities',
+                text: this.draftBundleId,
+              })
+                .fontColor(Color.White)
+                .placeholderColor('#63736E')
+                .backgroundColor('#1C302C')
+                .onChange((value: string) => this.draftBundleId = value);
+
+              Text('Server URL')
+                .fontSize(13)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#B7C8C3')
+                .width('100%');
+              TextInput({
+                placeholder: 'http://192.168.1.10:3000',
+                text: this.draftServer,
+              })
+                .fontColor(Color.White)
+                .placeholderColor('#63736E')
+                .backgroundColor('#1C302C')
+                .onChange((value: string) => this.draftServer = value);
+
+              Row({ space: 8 }) {
+                Button(this.editingIndex < 0 ? 'Add' : 'Update')
+                  .layoutWeight(1)
+                  .height(42)
+                  .fontWeight(FontWeight.Bold)
+                  .backgroundColor('#2B63F1')
+                  .onClick(() => this.commitEditor());
+                Button('Cancel')
+                  .layoutWeight(1)
+                  .height(42)
+                  .fontWeight(FontWeight.Bold)
+                  .backgroundColor('#34423E')
+                  .onClick(() => this.cancelEditor());
+              }
+              .width('100%');
+            }
+            .width('100%')
+            .padding(14)
+            .backgroundColor('#0F1D1A')
+            .border({ width: 1, color: '#36534B' })
+            .borderRadius(8);
+          } else {
+            Button('Add bundle server')
+              .width('100%')
+              .height(46)
+              .fontWeight(FontWeight.Bold)
+              .onClick(() => this.beginAdd());
+          }
 
           if (this.errorMessage.length > 0) {
             Text(this.errorMessage)
@@ -202,6 +394,7 @@ export struct DevelopmentSettingsPage {
             .height(48)
             .fontWeight(FontWeight.Bold)
             .backgroundColor('#2B63F1')
+            .margin({ top: 14 })
             .onClick(() => this.save());
           Button('Clear overrides & reload')
             .width('100%')

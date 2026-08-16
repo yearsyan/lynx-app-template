@@ -2,11 +2,16 @@ import { UIContext } from '@kit.ArkUI';
 import { LynxContext, LynxModule } from '@lynx/lynx';
 
 import { BundleConfig } from '../config/BundleConfig';
+import {
+  isNativeStatusBarStyle,
+  STATUS_BAR_STYLE_DARK_CONTENT,
+} from './NativeStatusBarModule';
 
 export interface NativeRouteOptions {
   bundle: string;
   presentation?: string;
   transparent?: boolean;
+  statusBarStyle?: string;
   params?: Record<string, Object>;
 }
 
@@ -15,6 +20,7 @@ export class NativeRoute {
   bundle: string;
   presentation: string;
   transparent: boolean;
+  statusBarStyle: string;
   params: Record<string, Object>;
   readonly nativeBackID: string;
 
@@ -22,11 +28,13 @@ export class NativeRoute {
     bundle: string,
     presentation: string = 'push',
     transparent: boolean = false,
+    statusBarStyle: string = STATUS_BAR_STYLE_DARK_CONTENT,
     params: Record<string, Object> = {},
   ) {
     this.bundle = bundle;
     this.presentation = presentation;
     this.transparent = transparent;
+    this.statusBarStyle = statusBarStyle;
     this.params = params;
     this.nativeBackID = `native-back-${NativeRoute.nextNativeBackID}`;
     NativeRoute.nextNativeBackID += 1;
@@ -110,11 +118,17 @@ export class NativeRouterModule extends LynxModule {
       return;
     }
     const presentation = options.presentation ?? 'push';
+    const statusBarStyle = options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT;
+    if (!isNativeStatusBarStyle(statusBarStyle)) {
+      callback(`Invalid status bar style: ${statusBarStyle}`);
+      return;
+    }
     this.router.open(
       new NativeRoute(
         options.bundle,
         presentation,
         options.transparent ?? presentation === 'sheet',
+        statusBarStyle,
         options.params ?? {},
       ),
       callback,

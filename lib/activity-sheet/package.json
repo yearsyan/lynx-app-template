@@ -1,0 +1,21 @@
+{
+  "name": "@lynx-template/activity-sheet",
+  "description": "Reusable transparent native Activity bottom sheet for ReactLynx",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@lynx-js/react": "catalog:",
+    "@lynx-template/native-bridge": "workspace:*"
+  },
+  "devDependencies": {
+    "@lynx-js/types": "catalog:",
+    "@types/react": "catalog:"
+  }
+}

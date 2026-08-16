@@ -31,6 +31,7 @@ final class LynxBundleRepository: NSObject, LynxTemplateProvider {
   )
 
   func startupURL() -> String {
+    DevelopmentSettings.recordLoadedBundle(Constants.bundleName)
     if let developmentURL = developmentURL(for: Constants.bundleName) {
       return developmentURL.absoluteString
     }
@@ -43,6 +44,7 @@ final class LynxBundleRepository: NSObject, LynxTemplateProvider {
 
   /// OTA policy currently applies to main; every bundle may have a debug override.
   func url(forBundle bundleName: String) -> String {
+    DevelopmentSettings.recordLoadedBundle(bundleName)
     if let developmentURL = developmentURL(for: bundleName) {
       return developmentURL.absoluteString
     }

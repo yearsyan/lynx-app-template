@@ -1,9 +1,10 @@
 {
-  "name": "@lynx-template/main",
+  "name": "@lynx-template/predictive-back-sheet",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "lynxBundle": {
-    "name": "main",
+    "name": "predictive-back-sheet",
     "entry": "main"
   },
   "scripts": {
@@ -25,6 +26,5 @@
     "@lynx-js/types": "catalog:",
     "@rsbuild/plugin-type-check": "catalog:",
     "@types/react": "catalog:"
-  },
-  "private": true
+  }
 }

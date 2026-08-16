@@ -11,14 +11,22 @@ export interface NativeEnvironment {
   schemaVersion: number;
   /** All native geometry is converted to Lynx logical px before delivery. */
   unit: 'px';
-  /** Optional business API base URL selected by the native Debug host. */
-  apiServer?: string;
   safeAreaInsets: SafeAreaInsets;
+}
+
+/** Route metadata injected by native hosts for secondary Lynx pages. */
+export interface NativeRouteEnvironment {
+  bundle: string;
+  presentation: 'push' | 'modal' | 'sheet';
+  transparent: boolean;
+  statusBarStyle: 'dark-content' | 'light-content';
+  params: Record<string, unknown>;
 }
 
 declare module '@lynx-js/react' {
   interface InitData {
     nativeEnvironment?: NativeEnvironment;
+    route?: NativeRouteEnvironment;
   }
 }
 
@@ -38,9 +46,4 @@ export function readSafeAreaInsets(
     bottom: normalizeInset(insets?.bottom),
     left: normalizeInset(insets?.left),
   };
-}
-
-export function readApiServer(initData: InitData | null | undefined): string {
-  const value = initData?.nativeEnvironment?.apiServer;
-  return typeof value === 'string' ? value : '';
 }

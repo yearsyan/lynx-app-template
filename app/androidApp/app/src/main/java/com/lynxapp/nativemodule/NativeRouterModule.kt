@@ -9,6 +9,8 @@ import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.ReadableMap
 import com.lynxapp.activity.LynxPageActivity
 import com.lynxapp.activity.TransparentLynxPageActivity
+import com.lynxapp.component.STATUS_BAR_STYLE_DARK_CONTENT
+import com.lynxapp.component.isLynxStatusBarStyle
 import org.json.JSONObject
 
 /** Opens another Lynx bundle in a real Android Activity. */
@@ -34,6 +36,14 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
             "transparent",
             presentation == PRESENTATION_SHEET,
         )
+        val statusBarStyle = options.getString(
+            "statusBarStyle",
+            STATUS_BAR_STYLE_DARK_CONTENT,
+        )
+        if (!isLynxStatusBarStyle(statusBarStyle)) {
+            callback.invoke("Invalid status bar style: $statusBarStyle")
+            return
+        }
         val params = options.getMap("params")?.toHashMap().orEmpty()
         host.runOnUiThread {
             runCatching {
@@ -47,6 +57,7 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
                         putExtra(LynxPageActivity.EXTRA_BUNDLE, bundle)
                         putExtra(LynxPageActivity.EXTRA_PRESENTATION, presentation)
                         putExtra(LynxPageActivity.EXTRA_TRANSPARENT, transparent)
+                        putExtra(LynxPageActivity.EXTRA_STATUS_BAR_STYLE, statusBarStyle)
                         putExtra(
                             LynxPageActivity.EXTRA_PARAMS_JSON,
                             JSONObject(params).toString(),

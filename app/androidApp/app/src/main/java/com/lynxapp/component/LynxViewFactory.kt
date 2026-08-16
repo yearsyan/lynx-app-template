@@ -12,6 +12,7 @@ import com.lynxapp.nativemodule.NativeBackController
 import com.lynxapp.nativemodule.NativeBackModule
 import com.lynxapp.nativemodule.NativeKVModule
 import com.lynxapp.nativemodule.NativeRouterModule
+import com.lynxapp.nativemodule.NativeStatusBarModule
 import com.lynxapp.nativemodule.NativeWebSocketController
 import com.lynxapp.nativemodule.NativeWebSocketModule
 
@@ -31,6 +32,11 @@ internal fun Activity.createLynxView(
     builder.registerModule(
         NativeRouterModule.NAME,
         NativeRouterModule::class.java,
+        this,
+    )
+    builder.registerModule(
+        NativeStatusBarModule.NAME,
+        NativeStatusBarModule::class.java,
         this,
     )
     builder.registerModule(

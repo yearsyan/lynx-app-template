@@ -3,9 +3,10 @@
 ArkTS Stage-model host based on the official Lynx 4.0 integration reference.
 
 For interactive development, build the `debug` target and use the `DEV` button
-in the app. It stores an API server and per-bundle development server mappings
-on the device. `BundleConfig.ets` remains the fallback for a fixed main-bundle
-development URL and the OTA endpoint.
+in the app. It stores per-bundle development server mappings on the device and
+offers previously loaded bundle IDs when adding a mapping. `BundleConfig.ets`
+remains the fallback for a fixed main-bundle development URL and the OTA
+endpoint.
 
 The development settings live in `src/main` (the bundle repository is shared
 by both build modes); every read and write is guarded by `BuildProfile.DEBUG`,

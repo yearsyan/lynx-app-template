@@ -29,11 +29,18 @@ final class NativeRouterModule: NSObject, LynxModule {
 
     let presentation = options["presentation"] as? String ?? "push"
     let transparent = (options["transparent"] as? Bool) ?? (presentation == "sheet")
+    let rawStatusBarStyle = options["statusBarStyle"] as? String
+      ?? NativeStatusBarStyle.darkContent.rawValue
+    guard let statusBarStyle = NativeStatusBarStyle(rawValue: rawStatusBarStyle) else {
+      callback("Invalid status bar style: \(rawStatusBarStyle)")
+      return
+    }
     let params = options["params"] as? [String: Any] ?? [:]
     let route: [String: Any] = [
       "bundle": bundle,
       "presentation": presentation,
       "transparent": transparent,
+      "statusBarStyle": statusBarStyle.rawValue,
       "params": params,
     ]
 
@@ -45,7 +52,8 @@ final class NativeRouterModule: NSObject, LynxModule {
       let page = LynxPageViewController(
         bundleName: bundle,
         route: route,
-        transparent: transparent
+        transparent: transparent,
+        statusBarStyle: statusBarStyle
       )
       if transparent || presentation == "sheet" {
         page.modalPresentationStyle = .overFullScreen

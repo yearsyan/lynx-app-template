@@ -5,7 +5,6 @@ import androidx.core.view.WindowInsetsCompat
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxUpdateMeta
 import com.lynx.tasm.TemplateData
-import com.lynxapp.DevelopmentSettings
 
 /**
  * Publishes native window geometry using Lynx logical px (Android dp).
@@ -95,7 +94,6 @@ internal class NativeEnvironmentBridge(
             "nativeEnvironment" to mapOf(
                 "schemaVersion" to 1,
                 "unit" to "px",
-                "apiServer" to DevelopmentSettings.apiServer(lynxView.context),
                 "safeAreaInsets" to mapOf(
                     "top" to insets.top,
                     "right" to insets.right,

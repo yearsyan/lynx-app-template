@@ -1,34 +1,35 @@
 import Foundation
 
 struct DevelopmentSettingsSnapshot {
-  let apiServer: String
-  let bundleServers: String
+  let bundleServers: [BundleServer]
+}
+
+struct BundleServer: Equatable {
+  let bundleID: String
+  let server: String
 }
 
 /// Device-local Debug overrides shared by every iOS Lynx page.
 enum DevelopmentSettings {
   static var snapshot: DevelopmentSettingsSnapshot {
     #if DEBUG
+    let serialized = UserDefaults.standard.string(
+      forKey: Keys.bundleServers
+    ) ?? ""
     return DevelopmentSettingsSnapshot(
-      apiServer: UserDefaults.standard.string(forKey: Keys.apiServer) ?? "",
-      bundleServers: UserDefaults.standard.string(
-        forKey: Keys.bundleServers
-      ) ?? ""
+      bundleServers: (try? parseMappings(serialized)) ?? []
     )
     #else
-    return DevelopmentSettingsSnapshot(apiServer: "", bundleServers: "")
+    return DevelopmentSettingsSnapshot(bundleServers: [])
     #endif
-  }
-
-  static var apiServer: String {
-    snapshot.apiServer
   }
 
   static func developmentURL(for bundleID: String) -> URL? {
     #if DEBUG
     guard isValidBundleID(bundleID),
-          let mappings = try? parseMappings(snapshot.bundleServers),
-          let mapping = mappings.first(where: { $0.bundleID == bundleID })
+          let mapping = snapshot.bundleServers.first(where: {
+            $0.bundleID == bundleID
+          })
     else {
       return nil
     }
@@ -40,41 +41,62 @@ enum DevelopmentSettings {
 
   @discardableResult
   static func save(
-    apiServer: String,
-    bundleServers: String
+    bundleServers: [BundleServer]
   ) throws -> DevelopmentSettingsSnapshot {
     #if DEBUG
-    let normalizedAPI = try normalizeAPI(apiServer)
-    let mappings = try parseMappings(bundleServers)
+    let mappings = try normalizeMappings(bundleServers)
     let normalizedMappings = mappings
       .map { "\($0.bundleID)=\($0.server)" }
       .joined(separator: "\n")
-    UserDefaults.standard.set(normalizedAPI, forKey: Keys.apiServer)
     UserDefaults.standard.set(normalizedMappings, forKey: Keys.bundleServers)
-    return DevelopmentSettingsSnapshot(
-      apiServer: normalizedAPI,
-      bundleServers: normalizedMappings
-    )
+    return DevelopmentSettingsSnapshot(bundleServers: mappings)
     #else
     throw SettingsError.unavailable
     #endif
   }
 
+  static func validatedBundleServer(
+    bundleID: String,
+    server: String
+  ) throws -> BundleServer {
+    try normalizeMapping(
+      BundleServer(bundleID: bundleID, server: server),
+      label: "Bundle server"
+    )
+  }
+
+  static var loadedBundleIDs: [String] {
+    #if DEBUG
+    return (UserDefaults.standard.stringArray(forKey: Keys.loadedBundles) ?? [])
+      .filter(isValidBundleID)
+      .sorted()
+    #else
+    return []
+    #endif
+  }
+
+  static func recordLoadedBundle(_ bundleID: String) {
+    #if DEBUG
+    guard isValidBundleID(bundleID) else { return }
+    loadedBundlesLock.lock()
+    defer { loadedBundlesLock.unlock() }
+    var loaded = Set(
+      UserDefaults.standard.stringArray(forKey: Keys.loadedBundles) ?? []
+    )
+    guard loaded.insert(bundleID).inserted else { return }
+    UserDefaults.standard.set(loaded.sorted(), forKey: Keys.loadedBundles)
+    #endif
+  }
+
   static func clear() {
     #if DEBUG
-    UserDefaults.standard.removeObject(forKey: Keys.apiServer)
     UserDefaults.standard.removeObject(forKey: Keys.bundleServers)
     #endif
   }
 
-  private static func normalizeAPI(_ value: String) throws -> String {
-    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { return "" }
-    return try validHTTPURL(trimmed, label: "API Server").absoluteString
-  }
-
-  private static func parseMappings(_ value: String) throws -> [BundleMapping] {
-    var mappings: [BundleMapping] = []
+  /// Reads the previous line-based format so existing Debug installs migrate in place.
+  private static func parseMappings(_ value: String) throws -> [BundleServer] {
+    var mappings: [BundleServer] = []
     var seen = Set<String>()
     for (offset, originalLine) in value.components(separatedBy: .newlines)
       .enumerated() {
@@ -106,12 +128,51 @@ enum DevelopmentSettings {
         server,
         label: "Line \(offset + 1)"
       ).absoluteString
-      mappings.append(BundleMapping(
+      mappings.append(BundleServer(
         bundleID: bundleID,
         server: normalizedServer
       ))
     }
     return mappings
+  }
+
+  private static func normalizeMappings(
+    _ mappings: [BundleServer]
+  ) throws -> [BundleServer] {
+    var seen = Set<String>()
+    return try mappings.enumerated().map { offset, mapping in
+      let normalized = try normalizeMapping(
+        mapping,
+        label: "Entry \(offset + 1)"
+      )
+      guard seen.insert(normalized.bundleID).inserted else {
+        throw SettingsError.invalid(
+          "Entry \(offset + 1) repeats bundle ID: \(normalized.bundleID)"
+        )
+      }
+      return normalized
+    }
+  }
+
+  private static func normalizeMapping(
+    _ mapping: BundleServer,
+    label: String
+  ) throws -> BundleServer {
+    let bundleID = mapping.bundleID.trimmingCharacters(
+      in: .whitespacesAndNewlines
+    )
+    guard isValidBundleID(bundleID) else {
+      throw SettingsError.invalid(
+        "\(label) has an invalid bundle ID: \(bundleID)"
+      )
+    }
+    let server = mapping.server.trimmingCharacters(
+      in: .whitespacesAndNewlines
+    )
+    return BundleServer(
+      bundleID: bundleID,
+      server: try validHTTPURL(server, label: label).absoluteString
+    )
   }
 
   private static func validHTTPURL(_ value: String, label: String) throws -> URL {
@@ -153,15 +214,12 @@ enum DevelopmentSettings {
     ) != nil
   }
 
-  private struct BundleMapping {
-    let bundleID: String
-    let server: String
+  private enum Keys {
+    static let bundleServers = "lynx.debug.bundle-servers"
+    static let loadedBundles = "lynx.debug.loaded-bundles"
   }
 
-  private enum Keys {
-    static let apiServer = "lynx.debug.api-server"
-    static let bundleServers = "lynx.debug.bundle-servers"
-  }
+  private static let loadedBundlesLock = NSLock()
 
   private enum SettingsError: LocalizedError {
     case invalid(String)

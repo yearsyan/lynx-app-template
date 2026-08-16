@@ -4,16 +4,9 @@ iOS、Android 和 HarmonyOS 的 Debug App 都在主页面右上角提供原生 `
 
 ## 字段
 
-`API Server` 是业务接口根地址。保存后，宿主会在加载每个 Lynx bundle 时通过 `nativeEnvironment.apiServer` 注入；字段结构、默认值和更新行为统一由 [Native Environment 数据契约](native-environment.md) 定义。
+`Bundle servers` 用于决定指定 ID 的 bundle 从哪里加载。配置页以列表展示当前映射，每项包含 bundle ID 和服务 URL，并提供编辑、删除和新增操作。
 
-`Bundle servers` 用于决定指定 ID 的 bundle 从哪里加载，每行一条：
-
-```text
-# 空行和注释会被忽略
-main=http://192.168.1.10:3000
-native-capabilities=http://192.168.1.10:3001
-profile=http://192.168.1.10:3002/profile.lynx.bundle
-```
+新增时可以从下拉菜单选择当前设备已经加载过的 bundle；宿主会记录主 bundle 和通过原生路由打开过的 bundle ID。也可以直接手动输入尚未加载的 bundle ID，因此不要求先打开目标页面。
 
 bundle ID 只允许小写字母、数字和连字符，且不能重复。URL 必须是 `http://` 或 `https://`：
 
@@ -22,11 +15,11 @@ bundle ID 只允许小写字母、数字和连字符，且不能重复。URL 必
 - 保存前会统一校验并规范化，错误会直接显示在配置页；
 - 保存和清空都会关闭配置页并重新加载主 bundle。
 
+旧版本保存的 `bundle-id=URL` 多行配置会继续读取，并在新列表中逐项展示。
+
 ## 加载优先级
 
 对任意 bundle，Debug 设备映射优先于工程中的旧式固定开发 URL。`main` 没有设备映射时继续依次使用旧式 Debug URL、已校验的热更新缓存和安装包内资源；其他 bundle 没有设备映射时使用安装包内资源。主 bundle 使用开发映射时会暂停热更新检查，避免开发内容被切换掉。
-
-业务 `API Server` 与 bundle 开发服务器相互独立：前者只注入 JS，后者只决定 `.lynx.bundle` 的加载地址。
 
 ## Release 隔离
 

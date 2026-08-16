@@ -63,10 +63,10 @@ export default class EntryAbility extends UIAbility {
       mainWindow.setWindowSystemBarProperties({
         statusBarColor: '#00000000',
         navigationBarColor: '#00000000',
-        statusBarContentColor: '#FFFFFFFF',
-        navigationBarContentColor: '#FFFFFFFF',
-        isStatusBarLightIcon: true,
-        isNavigationBarLightIcon: true,
+        statusBarContentColor: '#FF1D1B20',
+        navigationBarContentColor: '#FF1D1B20',
+        isStatusBarLightIcon: false,
+        isNavigationBarLightIcon: false,
       }).catch((error: BusinessError) => {
         hilog.error(
           DOMAIN,

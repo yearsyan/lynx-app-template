@@ -19,17 +19,27 @@ export interface NativeKVModule {
 }
 
 export type NativeRoutePresentation = 'push' | 'modal' | 'sheet';
+export type NativeStatusBarStyle = 'dark-content' | 'light-content';
 
 export interface NativeRouteOptions {
   bundle: string;
   presentation?: NativeRoutePresentation;
   transparent?: boolean;
+  /** Foreground style for status-bar icons and text on the destination page. */
+  statusBarStyle?: NativeStatusBarStyle;
   params?: Record<string, unknown>;
 }
 
 export interface NativeRouterModule {
   open(options: NativeRouteOptions, callback: (error: string) => void): void;
   close(callback: (error: string) => void): void;
+}
+
+export interface NativeStatusBarModule {
+  setStyle(
+    style: NativeStatusBarStyle,
+    callback: (error: string) => void,
+  ): void;
 }
 
 export type NativeBackPlatform = 'android' | 'ios' | 'harmony';
@@ -53,11 +63,19 @@ export interface NativeBackModule {
 
 export type NativeBackListener = (event: NativeBackEvent) => void;
 
+export interface NativeBackInterceptorRegistration {
+  /** Resolves after the native host has enabled back interception. */
+  readonly ready: Promise<void>;
+  /** Removes this interceptor. Calling remove more than once is safe. */
+  remove(): void;
+}
+
 export const NATIVE_BACK_EVENT = 'nativeBack';
 
 interface TemplateNativeModules {
   NativeKVModule?: NativeKVModule;
   NativeRouterModule?: NativeRouterModule;
+  NativeStatusBarModule?: NativeStatusBarModule;
   NativeBackModule?: NativeBackModule;
 }
 
@@ -80,6 +98,17 @@ function requireRouterModule(): NativeRouterModule {
   const module = nativeModules().NativeRouterModule;
   if (module === undefined) {
     throw new Error('NativeRouterModule is not registered by the native host');
+  }
+  return module;
+}
+
+function requireStatusBarModule(): NativeStatusBarModule {
+  'background only';
+  const module = nativeModules().NativeStatusBarModule;
+  if (module === undefined) {
+    throw new Error(
+      'NativeStatusBarModule is not registered by the native host',
+    );
   }
   return module;
 }
@@ -124,6 +153,16 @@ function validateKey(key: string): void {
   if (key.trim().length === 0) {
     throw new Error('MMKV key must not be empty');
   }
+}
+
+function validateStatusBarStyle(
+  style: NativeStatusBarStyle,
+): NativeStatusBarStyle {
+  'background only';
+  if (style !== 'dark-content' && style !== 'light-content') {
+    throw new Error(`Invalid status bar style: ${String(style)}`);
+  }
+  return style;
 }
 
 function complete(
@@ -209,6 +248,9 @@ export const nativeRouter = {
       bundle: options.bundle,
       presentation: options.presentation ?? 'push',
       transparent: options.transparent ?? options.presentation === 'sheet',
+      statusBarStyle: validateStatusBarStyle(
+        options.statusBarStyle ?? 'dark-content',
+      ),
       params: options.params ?? {},
     };
     return complete((callback) =>
@@ -219,6 +261,17 @@ export const nativeRouter = {
   close(): Promise<void> {
     'background only';
     return complete((callback) => requireRouterModule().close(callback));
+  },
+};
+
+/** Controls the foreground color of the current native status bar. */
+export const nativeStatusBar = {
+  setStyle(style: NativeStatusBarStyle): Promise<void> {
+    'background only';
+    const normalized = validateStatusBarStyle(style);
+    return complete((callback) =>
+      requireStatusBarModule().setStyle(normalized, callback),
+    );
   },
 };
 
@@ -244,5 +297,115 @@ export const nativeBack = {
       'background only';
       emitter.removeListener(NATIVE_BACK_EVENT, adapter);
     };
+  },
+};
+
+interface NativeBackInterceptorEntry {
+  listener: NativeBackListener;
+  removed: boolean;
+}
+
+const nativeBackInterceptors: NativeBackInterceptorEntry[] = [];
+let activeNativeBackInterceptor: NativeBackInterceptorEntry | null = null;
+let removeNativeBackStackListener: (() => void) | null = null;
+let nativeBackStackEnabled = false;
+let nativeBackStackDesiredEnabled = false;
+let nativeBackStackSync: Promise<void> = Promise.resolve();
+
+function topNativeBackInterceptor(): NativeBackInterceptorEntry | null {
+  'background only';
+  return nativeBackInterceptors[nativeBackInterceptors.length - 1] ?? null;
+}
+
+function dispatchNativeBackStackEvent(event: NativeBackEvent): void {
+  'background only';
+  if (event.phase === 'start' || activeNativeBackInterceptor === null) {
+    activeNativeBackInterceptor = topNativeBackInterceptor();
+  }
+
+  const target = activeNativeBackInterceptor;
+  const isTerminal = event.phase === 'cancel' || event.phase === 'commit';
+  try {
+    // Keep a gesture pinned to the interceptor that received `start`. If that
+    // popup disappears mid-gesture, never leak the remaining phases to the
+    // popup underneath it.
+    if (target !== null && !target.removed) {
+      target.listener(event);
+    }
+  } finally {
+    if (isTerminal) {
+      activeNativeBackInterceptor = null;
+    }
+  }
+}
+
+function ensureNativeBackStackListener(): void {
+  'background only';
+  if (removeNativeBackStackListener !== null) {
+    return;
+  }
+  removeNativeBackStackListener = nativeBack.addListener(
+    dispatchNativeBackStackEvent,
+  );
+}
+
+function reportNativeBackStackError(error: unknown): void {
+  'background only';
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`Unable to synchronize native back stack: ${message}`);
+}
+
+function reconcileNativeBackStack(): Promise<void> {
+  'background only';
+  nativeBackStackDesiredEnabled = nativeBackInterceptors.length > 0;
+  nativeBackStackSync = nativeBackStackSync
+    .catch(() => {})
+    .then(async () => {
+      'background only';
+      while (nativeBackStackEnabled !== nativeBackStackDesiredEnabled) {
+        const nextEnabled = nativeBackStackDesiredEnabled;
+        await nativeBack.setEnabled(nextEnabled);
+        nativeBackStackEnabled = nextEnabled;
+      }
+    });
+  return nativeBackStackSync;
+}
+
+/**
+ * LIFO back dispatcher for nested Lynx UI such as dropdowns, dialogs and
+ * sheets. Only the most recently added interceptor receives a gesture. Native
+ * interception stays enabled until the final entry is removed.
+ */
+export const nativeBackStack = {
+  addInterceptor(
+    listener: NativeBackListener,
+  ): NativeBackInterceptorRegistration {
+    'background only';
+    ensureNativeBackStackListener();
+    const entry: NativeBackInterceptorEntry = { listener, removed: false };
+    nativeBackInterceptors.push(entry);
+    const ready = reconcileNativeBackStack();
+    ready.catch(reportNativeBackStackError);
+
+    return {
+      ready,
+      remove(): void {
+        'background only';
+        if (entry.removed) {
+          return;
+        }
+        entry.removed = true;
+        const index = nativeBackInterceptors.lastIndexOf(entry);
+        if (index >= 0) {
+          nativeBackInterceptors.splice(index, 1);
+        }
+        reconcileNativeBackStack().catch(reportNativeBackStackError);
+      },
+    };
+  },
+
+  get size(): number {
+    'background only';
+    return nativeBackInterceptors.length;
   },
 };

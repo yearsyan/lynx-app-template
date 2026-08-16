@@ -1,10 +1,10 @@
 // organizeImports is disabled for this file in biome.json: the scaffolder
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
-import { nativeBack } from '@lynx-template/native-bridge';
+import { nativeBackStack } from '@lynx-template/native-bridge';
 
 import { useCallback, useEffect, useState } from '@lynx-js/react';
-import type { LayoutChangeEvent } from '@lynx-js/types';
+import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
 
 import type { GlassDropdownEvent } from './native-elements.js';
 
@@ -18,10 +18,27 @@ export interface PlatformDropdownProps {
 
 interface AnchorRect {
   left: number;
+  right: number;
   top: number;
+  bottom: number;
   width: number;
   height: number;
 }
+
+interface MenuRect {
+  left: number;
+  top: number;
+  width: number;
+}
+
+interface TriggerSize {
+  width: number;
+  height: number;
+}
+
+const DROPDOWN_GAP = 6;
+const MENU_EDGE_INSET = 8;
+const OPTION_HEIGHT = 42;
 
 const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
 
@@ -35,23 +52,30 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
   const { title, options, selected, disabled = false, onSelect } = props;
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [anchor, setAnchor] = useState<AnchorRect>({
-    left: 0,
-    top: 0,
+  const [triggerSize, setTriggerSize] = useState<TriggerSize>({
     width: 0,
     height: 0,
   });
+  const [menuRect, setMenuRect] = useState<MenuRect>({
+    left: 0,
+    top: 0,
+    width: 0,
+  });
 
-  // While the fallback menu is open, intercept the system back button/gesture
-  // so it closes the menu instead of leaving the page.
+  // Registering puts this menu on top of every popup that was opened before
+  // it. Removing it reveals the previous interceptor without disabling native
+  // back while another popup still needs it.
   useEffect(() => {
     if (isIOS || !open) {
       return;
     }
-    nativeBack.setEnabled(true).catch(() => {});
-    return () => {
-      nativeBack.setEnabled(false).catch(() => {});
-    };
+    const registration = nativeBackStack.addInterceptor((event) => {
+      'background only';
+      if (event.phase === 'commit') {
+        setOpen(false);
+      }
+    });
+    return registration.remove;
   }, [open]);
 
   useEffect(() => {
@@ -66,18 +90,6 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
-  useEffect(() => {
-    if (isIOS) {
-      return;
-    }
-    return nativeBack.addListener((event) => {
-      'background only';
-      if (event.phase === 'commit') {
-        setOpen(false);
-      }
-    });
-  }, []);
-
   const handleNativeSelect = useCallback(
     (event: GlassDropdownEvent) => {
       'background only';
@@ -86,29 +98,91 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     [onSelect],
   );
 
-  const toggle = useCallback(() => {
+  const toggle = useCallback(
+    (event: TouchEvent) => {
+      'background only';
+      if (disabled) {
+        return;
+      }
+
+      if (open) {
+        setOpen(false);
+        return;
+      }
+
+      const touch = event.changedTouches[0] ?? event.touches[0];
+      if (touch === undefined || triggerSize.width <= 0) {
+        return;
+      }
+
+      const pixelRatio = SystemInfo.pixelRatio;
+      const viewportWidth = SystemInfo.pixelWidth / pixelRatio;
+      const viewportHeight = SystemInfo.pixelHeight / pixelRatio;
+      // Touch and layout coordinates already use Lynx layout px. Only the
+      // physical SystemInfo viewport dimensions need pixel-ratio conversion.
+      const anchorLeft = touch.clientX - touch.x;
+      const anchorTop = touch.clientY - touch.y;
+      const anchor: AnchorRect = {
+        left: anchorLeft,
+        right: anchorLeft + triggerSize.width,
+        top: anchorTop,
+        bottom: anchorTop + triggerSize.height,
+        width: triggerSize.width,
+        height: triggerSize.height,
+      };
+      const viewport: AnchorRect = {
+        left: 0,
+        right: viewportWidth,
+        top: 0,
+        bottom: viewportHeight,
+        width: viewportWidth,
+        height: viewportHeight,
+      };
+      const menuHeight = options.length * OPTION_HEIGHT;
+      const spaceBelow =
+        viewport.bottom - MENU_EDGE_INSET - anchor.bottom - DROPDOWN_GAP;
+      const spaceAbove =
+        anchor.top - DROPDOWN_GAP - viewport.top - MENU_EDGE_INSET;
+      const openBelow = spaceBelow >= menuHeight || spaceBelow >= spaceAbove;
+      const requestedTop = openBelow
+        ? anchor.bottom + DROPDOWN_GAP
+        : anchor.top - DROPDOWN_GAP - menuHeight;
+      const minTop = viewport.top + MENU_EDGE_INSET;
+      const maxTop = Math.max(
+        minTop,
+        viewport.bottom - MENU_EDGE_INSET - menuHeight,
+      );
+      const maxLeft = Math.max(
+        viewport.left + MENU_EDGE_INSET,
+        viewport.right - MENU_EDGE_INSET - anchor.width,
+      );
+
+      setMenuRect({
+        left: Math.min(
+          Math.max(anchor.left, viewport.left + MENU_EDGE_INSET),
+          maxLeft,
+        ),
+        top: Math.min(Math.max(requestedTop, minTop), maxTop),
+        width: anchor.width,
+      });
+      setOpen(true);
+    },
+    [disabled, open, options.length, triggerSize.height, triggerSize.width],
+  );
+
+  const trackTriggerSize = useCallback((event: LayoutChangeEvent) => {
     'background only';
-    if (!disabled) {
-      setOpen((current) => !current);
-    }
-  }, [disabled]);
+    const { width, height } = event.detail;
+    setTriggerSize((current) =>
+      current.width === width && current.height === height
+        ? current
+        : { width, height },
+    );
+  }, []);
 
   const close = useCallback(() => {
     'background only';
     setOpen(false);
-  }, []);
-
-  const trackAnchor = useCallback((event: LayoutChangeEvent) => {
-    'background only';
-    const { left, top, width, height } = event.detail;
-    setAnchor((current) =>
-      current.left === left &&
-      current.top === top &&
-      current.width === width &&
-      current.height === height
-        ? current
-        : { left, top, width, height },
-    );
   }, []);
 
   const label =
@@ -133,11 +207,11 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
         className={`FallbackDropdown__button ${
           disabled ? 'FallbackDropdown__button--disabled' : ''
         }`}
-        bindtap={toggle}
-        bindlayoutchange={trackAnchor}
+        bindlayoutchange={trackTriggerSize}
       >
         <text className="FallbackDropdown__label">{label}</text>
         <text className="FallbackDropdown__chevron">{open ? '▲' : '▼'}</text>
+        <view className="FallbackDropdown__hitTarget" bindtap={toggle} />
       </view>
       {open ? (
         <view className="FallbackDropdown__backdrop" bindtap={close}>
@@ -145,10 +219,10 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
             className="FallbackDropdown__menu"
             style={{
               position: 'absolute',
-              left: `${anchor.left}px`,
-              top: `${anchor.top + anchor.height + 6}px`,
-              width: `${anchor.width}px`,
-              height: expanded ? `${options.length * 42}px` : '0px',
+              left: `${menuRect.left}px`,
+              top: `${menuRect.top}px`,
+              width: `${menuRect.width}px`,
+              height: expanded ? `${options.length * OPTION_HEIGHT}px` : '0px',
             }}
           >
             {options.map((option, index) => (

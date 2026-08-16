@@ -2,23 +2,21 @@ import BuildProfile from 'BuildProfile';
 import url from '@ohos.url';
 import { MMKV } from '@tencent/mmkv';
 
-export class DevelopmentSettingsSnapshot {
-  apiServer: string;
-  bundleServers: string;
-
-  constructor(apiServer: string = '', bundleServers: string = '') {
-    this.apiServer = apiServer;
-    this.bundleServers = bundleServers;
-  }
-}
-
-class BundleServerMapping {
+export class BundleServer {
   bundleId: string;
   server: string;
 
   constructor(bundleId: string, server: string) {
     this.bundleId = bundleId;
     this.server = server;
+  }
+}
+
+export class DevelopmentSettingsSnapshot {
+  bundleServers: BundleServer[];
+
+  constructor(bundleServers: BundleServer[] = []) {
+    this.bundleServers = bundleServers;
   }
 }
 
@@ -31,37 +29,30 @@ class BundleServerMapping {
  */
 export class DevelopmentSettings {
   private static readonly STORAGE_ID: string = 'lynx.debug.development-settings';
-  private static readonly API_SERVER: string = 'api-server';
   private static readonly BUNDLE_SERVERS: string = 'bundle-servers';
+  private static readonly LOADED_BUNDLES: string = 'loaded-bundles';
 
   static snapshot(): DevelopmentSettingsSnapshot {
     if (!BuildProfile.DEBUG) {
-      return new DevelopmentSettingsSnapshot('', '');
+      return new DevelopmentSettingsSnapshot();
     }
-    const storage: MMKV = DevelopmentSettings.storage();
-    return new DevelopmentSettingsSnapshot(
-      storage.decodeString(DevelopmentSettings.API_SERVER, '') ?? '',
-      storage.decodeString(DevelopmentSettings.BUNDLE_SERVERS, '') ?? '',
-    );
-  }
-
-  static apiServer(): string {
-    return DevelopmentSettings.snapshot().apiServer;
+    const serialized: string = DevelopmentSettings.storage()
+      .decodeString(DevelopmentSettings.BUNDLE_SERVERS, '') ?? '';
+    try {
+      return new DevelopmentSettingsSnapshot(
+        DevelopmentSettings.parseMappings(serialized),
+      );
+    } catch (error) {
+      console.error(`Invalid persisted Lynx development settings: ${JSON.stringify(error)}`);
+      return new DevelopmentSettingsSnapshot();
+    }
   }
 
   static developmentURL(bundleId: string): string {
     if (!BuildProfile.DEBUG || !DevelopmentSettings.validBundleId(bundleId)) {
       return '';
     }
-    let mappings: BundleServerMapping[];
-    try {
-      mappings = DevelopmentSettings.parseMappings(
-        DevelopmentSettings.snapshot().bundleServers,
-      );
-    } catch (error) {
-      console.error(`Invalid persisted Lynx development settings: ${JSON.stringify(error)}`);
-      return '';
-    }
+    const mappings: BundleServer[] = DevelopmentSettings.snapshot().bundleServers;
     for (let index: number = 0; index < mappings.length; index++) {
       if (mappings[index].bundleId === bundleId) {
         return DevelopmentSettings.resolveBundleURL(bundleId, mappings[index].server);
@@ -70,45 +61,84 @@ export class DevelopmentSettings {
     return '';
   }
 
-  static save(apiServer: string, bundleServers: string): DevelopmentSettingsSnapshot {
+  static save(bundleServers: BundleServer[]): DevelopmentSettingsSnapshot {
     if (!BuildProfile.DEBUG) {
       throw new Error('Development settings are unavailable in release builds.');
     }
-    const normalizedAPI: string = DevelopmentSettings.normalizeAPI(apiServer);
-    const mappings: BundleServerMapping[] = DevelopmentSettings.parseMappings(bundleServers);
+    const normalized: BundleServer[] = DevelopmentSettings.normalizeMappings(bundleServers);
     const normalizedLines: string[] = [];
-    for (let index: number = 0; index < mappings.length; index++) {
-      normalizedLines.push(`${mappings[index].bundleId}=${mappings[index].server}`);
+    for (let index: number = 0; index < normalized.length; index++) {
+      normalizedLines.push(`${normalized[index].bundleId}=${normalized[index].server}`);
     }
-    const normalizedMappings: string = normalizedLines.join('\n');
-    const storage: MMKV = DevelopmentSettings.storage();
-    if (!storage.encodeString(DevelopmentSettings.API_SERVER, normalizedAPI) ||
-      !storage.encodeString(DevelopmentSettings.BUNDLE_SERVERS, normalizedMappings)) {
+    if (!DevelopmentSettings.storage().encodeString(
+      DevelopmentSettings.BUNDLE_SERVERS,
+      normalizedLines.join('\n'),
+    )) {
       throw new Error('Unable to persist development settings.');
     }
-    return new DevelopmentSettingsSnapshot(normalizedAPI, normalizedMappings);
+    return new DevelopmentSettingsSnapshot(normalized);
+  }
+
+  static validatedBundleServer(bundleId: string, server: string): BundleServer {
+    return DevelopmentSettings.normalizeMapping(
+      new BundleServer(bundleId, server),
+      'Bundle server',
+    );
+  }
+
+  static loadedBundleIds(): string[] {
+    if (!BuildProfile.DEBUG) {
+      return [];
+    }
+    const serialized: string = DevelopmentSettings.storage()
+      .decodeString(DevelopmentSettings.LOADED_BUNDLES, '[]') ?? '[]';
+    try {
+      const stored: string[] = JSON.parse(serialized) as string[];
+      const loaded: string[] = [];
+      for (let index: number = 0; index < stored.length; index++) {
+        if (DevelopmentSettings.validBundleId(stored[index]) &&
+          !loaded.includes(stored[index])) {
+          loaded.push(stored[index]);
+        }
+      }
+      return loaded.sort();
+    } catch (error) {
+      return [];
+    }
+  }
+
+  static recordLoadedBundle(bundleId: string): void {
+    if (!BuildProfile.DEBUG || !DevelopmentSettings.validBundleId(bundleId)) {
+      return;
+    }
+    const loaded: string[] = DevelopmentSettings.loadedBundleIds();
+    if (loaded.includes(bundleId)) {
+      return;
+    }
+    loaded.push(bundleId);
+    loaded.sort();
+    if (!DevelopmentSettings.storage().encodeString(
+      DevelopmentSettings.LOADED_BUNDLES,
+      JSON.stringify(loaded),
+    )) {
+      console.error(`Unable to record loaded Lynx bundle: ${bundleId}`);
+    }
   }
 
   static clear(): void {
     if (!BuildProfile.DEBUG) {
       return;
     }
-    DevelopmentSettings.storage().clearAll();
+    DevelopmentSettings.storage().removeValueForKey(DevelopmentSettings.BUNDLE_SERVERS);
   }
 
   private static storage(): MMKV {
     return MMKV.mmkvWithID(DevelopmentSettings.STORAGE_ID);
   }
 
-  private static normalizeAPI(value: string): string {
-    const trimmed: string = value.trim();
-    return trimmed.length === 0
-      ? ''
-      : DevelopmentSettings.requireHTTPURL(trimmed, 'API Server');
-  }
-
-  private static parseMappings(value: string): BundleServerMapping[] {
-    const mappings: BundleServerMapping[] = [];
+  /** Reads the previous line-based format so existing Debug installs migrate in place. */
+  private static parseMappings(value: string): BundleServer[] {
+    const mappings: BundleServer[] = [];
     const seen: Set<string> = new Set<string>();
     const lines: string[] = value.split('\n');
     for (let index: number = 0; index < lines.length; index++) {
@@ -129,12 +159,40 @@ export class DevelopmentSettings {
         throw new Error(`Line ${index + 1} repeats bundle ID: ${bundleId}`);
       }
       seen.add(bundleId);
-      mappings.push(new BundleServerMapping(
+      mappings.push(new BundleServer(
         bundleId,
         DevelopmentSettings.requireHTTPURL(server, `Line ${index + 1}`),
       ));
     }
     return mappings;
+  }
+
+  private static normalizeMappings(mappings: BundleServer[]): BundleServer[] {
+    const normalized: BundleServer[] = [];
+    const seen: Set<string> = new Set<string>();
+    for (let index: number = 0; index < mappings.length; index++) {
+      const mapping: BundleServer = DevelopmentSettings.normalizeMapping(
+        mappings[index],
+        `Entry ${index + 1}`,
+      );
+      if (seen.has(mapping.bundleId)) {
+        throw new Error(`Entry ${index + 1} repeats bundle ID: ${mapping.bundleId}`);
+      }
+      seen.add(mapping.bundleId);
+      normalized.push(mapping);
+    }
+    return normalized;
+  }
+
+  private static normalizeMapping(mapping: BundleServer, label: string): BundleServer {
+    const bundleId: string = mapping.bundleId.trim();
+    if (!DevelopmentSettings.validBundleId(bundleId)) {
+      throw new Error(`${label} has an invalid bundle ID: ${bundleId}`);
+    }
+    return new BundleServer(
+      bundleId,
+      DevelopmentSettings.requireHTTPURL(mapping.server.trim(), label),
+    );
   }
 
   private static requireHTTPURL(value: string, label: string): string {

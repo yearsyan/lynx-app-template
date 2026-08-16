@@ -25,6 +25,11 @@ import {
   NativeRouterModule,
 } from '../native/NativeRouterModule';
 import {
+  NativeStatusBarController,
+  NativeStatusBarModule,
+  NativeStatusBarRegistration,
+} from '../native/NativeStatusBarModule';
+import {
   NativeWebSocketController,
   NativeWebSocketModule,
 } from '../native/NativeWebSocketModule';
@@ -67,7 +72,6 @@ interface SafeAreaInsetsPayload {
 interface NativeEnvironmentPayload {
   schemaVersion: number;
   unit: string;
-  apiServer: string;
   safeAreaInsets: SafeAreaInsetsPayload;
 }
 
@@ -80,6 +84,7 @@ interface NativeRoutePayload {
   bundle: string;
   presentation: string;
   transparent: boolean;
+  statusBarStyle: string;
   params: Record<string, Object>;
 }
 
@@ -88,7 +93,6 @@ function nativeEnvironmentData(insets: SafeAreaInsets, route: NativeRoute): Temp
     nativeEnvironment: {
       schemaVersion: 1,
       unit: 'px',
-      apiServer: DevelopmentSettings.apiServer(),
       safeAreaInsets: {
         top: insets.top,
         right: insets.right,
@@ -100,6 +104,7 @@ function nativeEnvironmentData(insets: SafeAreaInsets, route: NativeRoute): Temp
       bundle: route.bundle,
       presentation: route.presentation,
       transparent: route.transparent,
+      statusBarStyle: route.statusBarStyle,
       params: route.params,
     },
   };
@@ -121,6 +126,7 @@ struct LynxBundlePage {
   route: NativeRoute = NativeRoute.main();
   routerController: NativeRouterController = new NativeRouterController(new NavPathStack());
   nativeBackController: NativeBackController = new NativeBackController();
+  nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
   private nativeWebSocketController: NativeWebSocketController = new NativeWebSocketController();
   private templateResourceFetcher: LynxTemplateResourceFetcher = new LaunchpadTemplateResourceFetcher();
   private genericResourceFetcher: LynxGenericResourceFetcher = new LaunchpadGenericResourceFetcher();
@@ -144,6 +150,11 @@ struct LynxBundlePage {
     // run. Build route-scoped objects here so they capture the injected route and
     // the Navigation host's shared controller instead of their default values.
     this.nativeBackController.activate(this.route.nativeBackID);
+    this.nativeStatusBarController.activate(
+      this.route.nativeBackID,
+      this.route.statusBarStyle,
+    );
+    DevelopmentSettings.recordLoadedBundle(this.route.bundle);
     this.modules = this.createModules();
     this.metaData.templateData = nativeEnvironmentData(this.safeAreaInsets, this.route);
     this.url = this.initialURL();
@@ -175,6 +186,7 @@ struct LynxBundlePage {
 
   aboutToDisappear(): void {
     this.nativeBackController.deactivate(this.route.nativeBackID);
+    this.nativeStatusBarController.deactivate(this.route.nativeBackID);
     this.nativeWebSocketController.destroy();
     this.unsubscribeFromSafeArea();
   }
@@ -205,6 +217,16 @@ struct LynxBundlePage {
       new NativeModuleRegistration(
         NativeBackModule,
         new NativeBackRegistration(this.nativeBackController, this.route.nativeBackID),
+      ),
+    );
+    modules.set(
+      NativeStatusBarModule.NAME,
+      new NativeModuleRegistration(
+        NativeStatusBarModule,
+        new NativeStatusBarRegistration(
+          this.nativeStatusBarController,
+          this.route.nativeBackID,
+        ),
       ),
     );
     modules.set(
@@ -321,12 +343,14 @@ struct Index {
   private pathStack: NavPathStack = new NavPathStack();
   private routerController: NativeRouterController = new NativeRouterController(this.pathStack);
   private nativeBackController: NativeBackController = new NativeBackController();
+  private nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
   private rootRoute: NativeRoute = NativeRoute.main();
   @State private showDevelopmentSettings: boolean = false;
 
   aboutToAppear(): void {
     this.routerController.attach(this.getUIContext());
     this.nativeBackController.attach(this.getUIContext());
+    this.nativeStatusBarController.attach(this.getUIContext());
   }
 
   @Builder
@@ -337,6 +361,7 @@ struct Index {
           route: param as NativeRoute,
           routerController: this.routerController,
           nativeBackController: this.nativeBackController,
+          nativeStatusBarController: this.nativeStatusBarController,
         });
       }
       .hideTitleBar(true)
@@ -369,6 +394,7 @@ struct Index {
             route: this.rootRoute,
             routerController: this.routerController,
             nativeBackController: this.nativeBackController,
+            nativeStatusBarController: this.nativeStatusBarController,
           });
         }
         .hideTitleBar(true)

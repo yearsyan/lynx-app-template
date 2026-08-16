@@ -8,6 +8,8 @@
 	<string></string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to the local Rspeedy server while developing Lynx bundles.</string>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDarkContent</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

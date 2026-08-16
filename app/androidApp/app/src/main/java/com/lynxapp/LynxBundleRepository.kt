@@ -27,6 +27,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     }
 
     fun startupUrl(): String {
+        DevelopmentSettings.recordLoadedBundle(appContext, BUNDLE_NAME)
         DevelopmentSettings.developmentUrl(appContext, BUNDLE_NAME)?.let { return it }
         val developmentUrl = BuildConfig.LYNX_DEV_BUNDLE_URL.trim()
         if (BuildConfig.DEBUG && developmentUrl.isNotEmpty()) {
@@ -39,6 +40,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
 
     /** OTA policy currently applies to main; every bundle may have a debug override. */
     fun urlForBundle(bundleName: String): String {
+        DevelopmentSettings.recordLoadedBundle(appContext, bundleName)
         DevelopmentSettings.developmentUrl(appContext, bundleName)?.let { return it }
         return if (bundleName == BUNDLE_NAME) {
             startupUrl()

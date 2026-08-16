@@ -8,6 +8,7 @@ import com.google.gson.Gson
 import com.lynx.tasm.LynxView
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.component.NativeEnvironmentBridge
+import com.lynxapp.component.STATUS_BAR_STYLE_DARK_CONTENT
 import com.lynxapp.component.createLynxView
 import com.lynxapp.component.enableLynxEdgeToEdge
 import com.lynxapp.nativemodule.NativeBackController
@@ -32,13 +33,17 @@ open class LynxPageActivity : Activity() {
     private val isTransparent: Boolean
         get() = intent.getBooleanExtra(EXTRA_TRANSPARENT, false)
 
+    private val statusBarStyle: String
+        get() = intent.getStringExtra(EXTRA_STATUS_BAR_STYLE)
+            ?: STATUS_BAR_STYLE_DARK_CONTENT
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (isTransparent) {
             window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             window.decorView.setBackgroundColor(Color.TRANSPARENT)
         }
-        enableLynxEdgeToEdge()
+        enableLynxEdgeToEdge(statusBarStyle)
         bundleRepository = LynxBundleRepository(this)
         nativeBackController = NativeBackController(this)
         nativeWebSocketController = NativeWebSocketController(this)
@@ -93,6 +98,7 @@ open class LynxPageActivity : Activity() {
                 "bundle" to bundleName,
                 "presentation" to routePresentation,
                 "transparent" to isTransparent,
+                "statusBarStyle" to statusBarStyle,
                 "params" to params,
             ),
         )
@@ -102,8 +108,9 @@ open class LynxPageActivity : Activity() {
         const val EXTRA_BUNDLE = "lynx.route.bundle"
         const val EXTRA_PRESENTATION = "lynx.route.presentation"
         const val EXTRA_TRANSPARENT = "lynx.route.transparent"
+        const val EXTRA_STATUS_BAR_STYLE = "lynx.route.statusBarStyle"
         const val EXTRA_PARAMS_JSON = "lynx.route.params"
         private const val DEFAULT_BUNDLE = "main"
-        private const val PAGE_BACKGROUND = 0xFF07100F.toInt()
+        private const val PAGE_BACKGROUND = 0xFFF7F7FB.toInt()
     }
 }

@@ -6,6 +6,7 @@ class LynxPageViewController: UIViewController {
   private let bundleName: String
   private let route: [String: Any]?
   private let transparent: Bool
+  private var nativeStatusBarStyle: NativeStatusBarStyle
   private var lynxView: LynxView?
   private var nativeBackController: NativeBackController?
   private var nativeWebSocketController: NativeWebSocketController?
@@ -16,11 +17,13 @@ class LynxPageViewController: UIViewController {
   init(
     bundleName: String,
     route: [String: Any],
-    transparent: Bool
+    transparent: Bool,
+    statusBarStyle: NativeStatusBarStyle
   ) {
     self.bundleName = bundleName
     self.route = route
     self.transparent = transparent
+    nativeStatusBarStyle = statusBarStyle
     super.init(nibName: nil, bundle: nil)
   }
 
@@ -28,6 +31,7 @@ class LynxPageViewController: UIViewController {
     bundleName = "main"
     route = nil
     transparent = false
+    nativeStatusBarStyle = .darkContent
     super.init(coder: coder)
   }
 
@@ -35,13 +39,14 @@ class LynxPageViewController: UIViewController {
     super.viewDidLoad()
     view.backgroundColor = transparent
       ? .clear
-      : UIColor(red: 7 / 255, green: 16 / 255, blue: 15 / 255, alpha: 1)
+      : UIColor(red: 247 / 255, green: 247 / 255, blue: 251 / 255, alpha: 1)
 
     let config = LynxConfig(provider: bundleRepository)
     let nativeBackController = NativeBackController(host: self)
     let nativeWebSocketController = NativeWebSocketController()
     config.register(NativeKVModule.self)
     config.register(NativeRouterModule.self, param: self)
+    config.register(NativeStatusBarModule.self, param: self)
     config.register(NativeBackModule.self, param: nativeBackController)
     config.register(
       NativeWebSocketModule.self,
@@ -98,6 +103,15 @@ class LynxPageViewController: UIViewController {
     loadInitialBundleIfReady()
   }
 
+  override var preferredStatusBarStyle: UIStatusBarStyle {
+    nativeStatusBarStyle.uiStyle
+  }
+
+  func setNativeStatusBarStyle(_ style: NativeStatusBarStyle) {
+    nativeStatusBarStyle = style
+    setNeedsStatusBarAppearanceUpdate()
+  }
+
   override func viewWillDisappear(_ animated: Bool) {
     nativeBackController?.setVisible(false)
     super.viewWillDisappear(animated)
@@ -151,7 +165,6 @@ class LynxPageViewController: UIViewController {
       "nativeEnvironment": [
         "schemaVersion": 1,
         "unit": "px",
-        "apiServer": DevelopmentSettings.apiServer,
         "safeAreaInsets": [
           "top": Double(insets.top),
           "right": Double(insets.right),

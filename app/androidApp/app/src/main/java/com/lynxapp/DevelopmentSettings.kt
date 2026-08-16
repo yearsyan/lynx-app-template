@@ -11,61 +11,80 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * so a release build cannot observe values left behind by a debug install.
  */
 internal object DevelopmentSettings {
+    data class BundleServer(
+        val bundleId: String,
+        val server: String,
+    )
+
     data class Snapshot(
-        val apiServer: String,
-        val bundleServers: String,
+        val bundleServers: List<BundleServer>,
     )
 
     fun snapshot(context: Context): Snapshot {
-        if (!BuildConfig.DEBUG) return Snapshot("", "")
+        if (!BuildConfig.DEBUG) return Snapshot(emptyList())
         val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        return Snapshot(
-            apiServer = preferences.getString(API_SERVER, "").orEmpty(),
-            bundleServers = preferences.getString(BUNDLE_SERVERS, "").orEmpty(),
-        )
+        val mappings = runCatching {
+            parseMappings(preferences.getString(BUNDLE_SERVERS, "").orEmpty())
+        }.getOrDefault(emptyList())
+        return Snapshot(mappings)
     }
-
-    fun apiServer(context: Context): String = snapshot(context).apiServer
 
     fun developmentUrl(context: Context, bundleId: String): String? {
         if (!BuildConfig.DEBUG || !BUNDLE_ID.matches(bundleId)) return null
-        val mappings = runCatching { parseMappings(snapshot(context).bundleServers) }
-            .getOrDefault(emptyMap())
-        return mappings[bundleId]?.let { resolveBundleUrl(bundleId, it) }
+        val mapping = snapshot(context).bundleServers.firstOrNull { it.bundleId == bundleId }
+        return mapping?.let { resolveBundleUrl(bundleId, it.server) }
     }
 
-    /** Returns normalized values suitable for showing again in the editor. */
-    fun save(context: Context, apiServer: String, bundleServers: String): Snapshot {
+    /** Returns normalized values suitable for showing again in the list UI. */
+    fun save(context: Context, bundleServers: List<BundleServer>): Snapshot {
         check(BuildConfig.DEBUG) { "Development settings are unavailable in release builds" }
-        val normalizedApiServer = normalizeApiServer(apiServer)
-        val mappings = parseMappings(bundleServers)
-        val normalizedMappings = mappings.entries.joinToString("\n") { (bundleId, server) ->
-            "$bundleId=$server"
+        val normalizedMappings = normalizeMappings(bundleServers)
+        val serializedMappings = normalizedMappings.joinToString("\n") { mapping ->
+            "${mapping.bundleId}=${mapping.server}"
         }
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
-            .putString(API_SERVER, normalizedApiServer)
-            .putString(BUNDLE_SERVERS, normalizedMappings)
+            .putString(BUNDLE_SERVERS, serializedMappings)
             .apply()
-        return Snapshot(normalizedApiServer, normalizedMappings)
+        return Snapshot(normalizedMappings)
+    }
+
+    fun validatedBundleServer(bundleId: String, server: String): BundleServer =
+        normalizeMapping(BundleServer(bundleId, server), "Bundle server")
+
+    fun loadedBundleIds(context: Context): List<String> {
+        if (!BuildConfig.DEBUG) return emptyList()
+        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .getStringSet(LOADED_BUNDLES, emptySet())
+            .orEmpty()
+            .filter(BUNDLE_ID::matches)
+            .sorted()
+    }
+
+    @Synchronized
+    fun recordLoadedBundle(context: Context, bundleId: String) {
+        if (!BuildConfig.DEBUG || !BUNDLE_ID.matches(bundleId)) return
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val loaded = preferences.getStringSet(LOADED_BUNDLES, emptySet())
+            .orEmpty()
+            .toMutableSet()
+        if (loaded.add(bundleId)) {
+            preferences.edit().putStringSet(LOADED_BUNDLES, loaded).apply()
+        }
     }
 
     fun clear(context: Context) {
         if (!BuildConfig.DEBUG) return
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
-            .clear()
+            .remove(BUNDLE_SERVERS)
             .apply()
     }
 
-    private fun normalizeApiServer(value: String): String {
-        val trimmed = value.trim()
-        if (trimmed.isEmpty()) return ""
-        return requireHttpUrl(trimmed, "API Server")
-    }
-
-    private fun parseMappings(value: String): LinkedHashMap<String, String> {
-        val mappings = linkedMapOf<String, String>()
+    /** Reads the previous line-based format so existing Debug installs migrate in place. */
+    private fun parseMappings(value: String): List<BundleServer> {
+        val mappings = mutableListOf<BundleServer>()
+        val seen = mutableSetOf<String>()
         value.lineSequence().forEachIndexed { index, originalLine ->
             val line = originalLine.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEachIndexed
@@ -78,12 +97,37 @@ internal object DevelopmentSettings {
             require(BUNDLE_ID.matches(bundleId)) {
                 "Line ${index + 1} has an invalid bundle ID: $bundleId"
             }
-            require(!mappings.containsKey(bundleId)) {
+            require(seen.add(bundleId)) {
                 "Line ${index + 1} repeats bundle ID: $bundleId"
             }
-            mappings[bundleId] = requireHttpUrl(server, "Line ${index + 1}")
+            mappings += BundleServer(
+                bundleId = bundleId,
+                server = requireHttpUrl(server, "Line ${index + 1}"),
+            )
         }
         return mappings
+    }
+
+    private fun normalizeMappings(value: List<BundleServer>): List<BundleServer> {
+        val seen = mutableSetOf<String>()
+        return value.mapIndexed { index, mapping ->
+            val normalized = normalizeMapping(mapping, "Entry ${index + 1}")
+            require(seen.add(normalized.bundleId)) {
+                "Entry ${index + 1} repeats bundle ID: ${normalized.bundleId}"
+            }
+            normalized
+        }
+    }
+
+    private fun normalizeMapping(mapping: BundleServer, label: String): BundleServer {
+        val bundleId = mapping.bundleId.trim()
+        require(BUNDLE_ID.matches(bundleId)) {
+            "$label has an invalid bundle ID: $bundleId"
+        }
+        return BundleServer(
+            bundleId = bundleId,
+            server = requireHttpUrl(mapping.server.trim(), label),
+        )
     }
 
     private fun requireHttpUrl(value: String, label: String): String {
@@ -104,7 +148,7 @@ internal object DevelopmentSettings {
     }
 
     private const val PREFERENCES = "lynx.debug.development-settings"
-    private const val API_SERVER = "api-server"
     private const val BUNDLE_SERVERS = "bundle-servers"
+    private const val LOADED_BUNDLES = "loaded-bundles"
     private val BUNDLE_ID = Regex("^[a-z0-9][a-z0-9-]*$")
 }
