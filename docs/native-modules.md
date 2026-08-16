@@ -268,10 +268,6 @@ LynxContext 被长连接持有。
 reason 限制。模块不内置自动重连、心跳或离线队列，因为这些策略依赖具体业务；上层
 可以监听 `close` 后按网络状态和退避策略创建新连接。
 
-仓库提供 `pnpm dev:websocket` 启动监听 `0.0.0.0:8787` 的文本/二进制 echo
-服务。Debug bundle 可直接使用 `ws://电脑局域网IP:8787` 完成连接、发送、回显和
-关闭验证；真机不能使用指向自身的 `localhost`。端口可通过 `LYNX_WS_PORT` 覆盖。
-
 ## 原生实现位置
 
 - Android：`NativeKVModule.kt`、`NativeRouterModule.kt`、`NativeStatusBarModule.kt`、`NativeBackModule.kt`、`NativeClipboardModule.kt`、`NativeHapticsModule.kt`、`NativeWebSocketModule.kt`、`LynxPageActivity.kt`；

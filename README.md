@@ -52,7 +52,6 @@
 ```bash
 pnpm install
 pnpm dev:main
-pnpm dev:websocket # 可选：启动 ws://0.0.0.0:8787 echo 验证服务
 ```
 
 Rspeedy 默认监听 `0.0.0.0`，终端会给出 bundle URL 和二维码。修改 `bundle/main/src` 后，开发 bundle 内置的 HMR 客户端会接收更新。

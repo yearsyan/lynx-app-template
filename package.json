@@ -24,7 +24,6 @@
     "build": "pnpm -r --if-present run build",
     "check": "pnpm run native:check && pnpm run typecheck && pnpm run lint",
     "dev:main": "pnpm --filter @lynx-template/main dev",
-    "dev:websocket": "node ./scripts/websocket-echo.mjs",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome check .",
