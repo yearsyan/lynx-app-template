@@ -22,6 +22,7 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present run build",
+    "build:lynx": "pnpm run build && pnpm run sync:native",
     "check": "pnpm run native:check && pnpm run typecheck && pnpm run lint",
     "dev:main": "pnpm --filter @lynx-template/main dev",
     "format": "biome format --write .",
@@ -31,7 +32,6 @@
     "native:apply": "node ./scripts/apply_native_config.mjs",
     "native:check": "node ./scripts/apply_native_config.mjs --check",
     "new:bundle": "node ./scripts/create-bundle.mjs",
-    "release": "pnpm run build && pnpm run sync:native",
     "sync:native": "node ./scripts/sync-native.mjs",
     "template:export": "node ./scripts/export-template.mjs",
     "typecheck": "pnpm -r --if-present run typecheck"

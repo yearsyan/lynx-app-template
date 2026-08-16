@@ -23,7 +23,7 @@ async function main() {
   console.info('\nNext steps:');
   console.info(`  cd ${options.name}`);
   console.info('  pnpm install');
-  console.info('  pnpm release          # build bundles and sync embedded assets');
+  console.info('  pnpm build:lynx       # build bundles and sync embedded assets');
   console.info('  # then build each selected native host (see README.md)');
 }
 

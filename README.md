@@ -63,7 +63,7 @@ pnpm check                 # TypeScript + Biome
 pnpm build                 # 构建所有 workspace bundle
 pnpm native:apply          # 将 package.json 的应用标识同步到三端
 pnpm native:check          # 检查三端应用标识是否同步
-pnpm release               # 构建、生成发布清单、同步三端内置资源
+pnpm build:lynx           # 构建、生成发布清单、同步三端内置资源
 pnpm new:bundle profile    # 新建 bundle/profile
 pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/template/
 ```
@@ -100,7 +100,7 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 
 ## Lynx 版本
 
-根目录 `package.json` 的 `lynx` 字段是引擎与 SDK 版本的唯一来源，`pnpm release` 会把它写入发布清单：
+根目录 `package.json` 的 `lynx` 字段是引擎与 SDK 版本的唯一来源，`pnpm build:lynx` 会把它写入发布清单：
 
 ```json
 {
@@ -118,7 +118,7 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 ## 打包内置资源
 
 ```bash
-pnpm release
+pnpm build:lynx
 ```
 
 命令会把所有声明了 `lynxBundle` 的 workspace 包构建为自包含 bundle，生成 `bundle/artifacts/latest/manifest.json`，并同步到：
@@ -131,7 +131,7 @@ pnpm release
 
 这些目录中的 `*.lynx.bundle` 和 `lynx-bundles.json` 都是可重建产物，
 已由根目录 `.gitignore` 排除。新克隆仓库在打包任一原生宿主前必须先运行
-`pnpm release`。
+`pnpm build:lynx`。
 
 随后按普通原生项目打包：
 

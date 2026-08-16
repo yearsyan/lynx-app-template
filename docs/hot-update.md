@@ -2,7 +2,7 @@
 
 ## Manifest v1
 
-`pnpm release` 生成如下结构：
+`pnpm build:lynx` 生成如下结构：
 
 ```json
 {
@@ -51,7 +51,7 @@ OTA 校验通过后，三个宿主把同一份 JSON 元数据与 bundle 一起�
 
 启动时宿主重新计算缓存 bundle 的 SHA-256 并与 `sha256` 比对；`engineVersion` 不匹配或校验失败都会回退到安装包内资源。
 
-manifest 中的 `engineVersion` 与 `sdkVersion` 来源于根目录 `package.json` 的 `lynx` 字段，由 `pnpm release` 读取写入。三个宿主与各 bundle 的 `lynx.config.ts` 各自硬编码同一 `engineVersion`，`pnpm native:check` 会校验这些副本与 `package.json` 一致。
+manifest 中的 `engineVersion` 与 `sdkVersion` 来源于根目录 `package.json` 的 `lynx` 字段，由 `pnpm build:lynx` 读取写入。三个宿主与各 bundle 的 `lynx.config.ts` 各自硬编码同一 `engineVersion`，`pnpm native:check` 会校验这些副本与 `package.json` 一致。
 
 ## 发布建议
 

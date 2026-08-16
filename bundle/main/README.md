@@ -15,7 +15,7 @@ The production artifact is `dist/main.lynx.bundle`. Run the following to build
 all workspace bundles and copy them into every native host:
 
 ```bash
-pnpm release
+pnpm build:lynx
 ```
 
 See the repository root README for native development and OTA configuration.
