@@ -200,12 +200,14 @@
   border-radius: 14px;
   background-color: #232b36;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transition: height 320ms ease-in-out;
   overflow: hidden;
 }
 
 .FallbackDropdown__option {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   width: 100%;
   height: 42px;
   padding: 0 16px;

@@ -34,6 +34,7 @@ const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
 export function PlatformDropdown(props: PlatformDropdownProps) {
   const { title, options, selected, disabled = false, onSelect } = props;
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [anchor, setAnchor] = useState<AnchorRect>({
     left: 0,
     top: 0,
@@ -51,6 +52,18 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     return () => {
       nativeBack.setEnabled(false).catch(() => {});
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (isIOS) {
+      return;
+    }
+    if (!open) {
+      setExpanded(false);
+      return;
+    }
+    const frame = requestAnimationFrame(() => setExpanded(true));
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   useEffect(() => {
@@ -135,6 +148,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
               left: `${anchor.left}px`,
               top: `${anchor.top + anchor.height + 6}px`,
               width: `${anchor.width}px`,
+              height: expanded ? `${options.length * 42}px` : '0px',
             }}
           >
             {options.map((option, index) => (
