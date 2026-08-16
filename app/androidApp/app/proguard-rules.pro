@@ -28,3 +28,19 @@
 -dontwarn com.lynx.markdown.Markdown
 -dontwarn com.lynx.markdown.MarkdownValuePack
 -dontwarn com.lynx.markdown.ServalMarkdownView
+
+# Lynx instantiates annotation-generated `$$PropsSetter` classes at runtime
+# via string-based reflection; they have no direct code references, so R8
+# strips them and every UI element fails to render (blank screen, errCode
+# 9901 "Unable to instantiate methods getter").
+-keep class **$$PropsSetter { *; }
+-keep class **$$PropsSetter$* { *; }
+
+# liblynxbase.so invokes LynxLog#log/logByte from native code via JNI by exact
+# name and signature. Both are private static methods with no Java callers,
+# so without this rule R8 removes/renames them and the release app aborts with
+# "Failed to find static log(ILjava/lang/String;Ljava/lang/String;IJII)V".
+-keepclassmembers class com.lynx.base.log.LynxLog {
+    private static void log(int, java.lang.String, java.lang.String, int, long, int, int);
+    private static void logByte(int, java.lang.String, byte[], int, long, int, int);
+}
