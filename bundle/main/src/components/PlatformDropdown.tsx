@@ -3,7 +3,7 @@
 // changes the sort order relative to the @lynx-js/* imports.
 import { nativeBackStack } from '@lynx-template/native-bridge';
 
-import { useCallback, useEffect, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
 
 import type { GlassDropdownEvent } from './native-elements.js';
@@ -41,6 +41,9 @@ interface TriggerSize {
 const DROPDOWN_GAP = 6;
 const MENU_EDGE_INSET = 8;
 const OPTION_HEIGHT = 42;
+// Finger travel (layout px) past which a touch on the backdrop counts as a
+// scroll drag rather than a sloppy tap.
+const SCROLL_DISMISS_SLOP = 10;
 
 const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
 
@@ -48,7 +51,8 @@ const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
  * iOS renders the native Liquid Glass menu button; other platforms get a
  * Lynx-built dropdown whose menu floats above the page via `position: fixed`
  * (recommended over <overlay> for fully Lynx-rendered pages) and closes on
- * backdrop tap or the system back button (nativeBack interception).
+ * backdrop tap, a scroll drag behind it, or the system back button
+ * (nativeBack interception).
  */
 export function PlatformDropdown(props: PlatformDropdownProps) {
   const { title, options, selected, disabled = false, onSelect } = props;
@@ -65,6 +69,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     top: 0,
     width: 0,
   });
+  const gestureStart = useRef<{ x: number; y: number } | null>(null);
 
   // Registering puts this menu on top of every popup that was opened before
   // it. Removing it reveals the previous interceptor without disabling native
@@ -192,6 +197,49 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     setOpen(false);
   }, []);
 
+  // While open, the fixed backdrop is hit-tested before the page, so every
+  // scroll gesture starts on it. The menu is anchored to viewport
+  // coordinates and cannot follow the scrolling content, so once the finger
+  // travels past the tap slop the gesture belongs to the underlying
+  // scroll-view: dismiss the menu and let the scroll continue. The slop
+  // keeps a slightly shaky tap on a menu option from being misread.
+  const trackGestureStart = useCallback((event: TouchEvent) => {
+    'background only';
+    const touch = event.changedTouches[0] ?? event.touches[0];
+    gestureStart.current =
+      touch === undefined ? null : { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const dismissOnScrollDrag = useCallback((event: TouchEvent) => {
+    'background only';
+    const start = gestureStart.current;
+    const touch = event.changedTouches[0] ?? event.touches[0];
+    if (start === null || touch === undefined) {
+      return;
+    }
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (deltaX * deltaX + deltaY * deltaY > SCROLL_DISMISS_SLOP ** 2) {
+      gestureStart.current = null;
+      setOpen(false);
+    }
+  }, []);
+
+  const endGestureTracking = useCallback(() => {
+    'background only';
+    gestureStart.current = null;
+  }, []);
+
+  // Some platforms cancel the backdrop's touch stream as soon as the
+  // scroll-view takes over the gesture, without delivering any touchmove.
+  // That tap can no longer land anywhere useful, so close instead of
+  // leaving the menu stuck above moving content.
+  const interruptGesture = useCallback(() => {
+    'background only';
+    gestureStart.current = null;
+    setOpen(false);
+  }, []);
+
   const label =
     selected >= 0 && selected < options.length ? options[selected] : title;
 
@@ -221,7 +269,14 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
         <view className="FallbackDropdown__hitTarget" bindtap={toggle} />
       </view>
       {open ? (
-        <view className="FallbackDropdown__backdrop" bindtap={close}>
+        <view
+          className="FallbackDropdown__backdrop"
+          bindtap={close}
+          bindtouchstart={trackGestureStart}
+          bindtouchmove={dismissOnScrollDrag}
+          bindtouchend={endGestureTracking}
+          bindtouchcancel={interruptGesture}
+        >
           <view
             className="FallbackDropdown__menu"
             style={{
