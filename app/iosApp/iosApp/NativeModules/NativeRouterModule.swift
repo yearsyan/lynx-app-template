@@ -1,5 +1,19 @@
 import UIKit
 
+enum NativeRouteAnimation: String {
+  case standard = "default"
+  case fade
+  case none
+}
+
+private func withRouteFadeTransition(on layer: CALayer, action: () -> Void) {
+  let transition = CATransition()
+  transition.duration = 0.25
+  transition.type = .fade
+  layer.add(transition, forKey: "lynx.route.fade")
+  action()
+}
+
 @objcMembers
 final class NativeRouterModule: NSObject, LynxModule {
   static let name = "NativeRouterModule"
@@ -29,6 +43,12 @@ final class NativeRouterModule: NSObject, LynxModule {
 
     let presentation = options["presentation"] as? String ?? "push"
     let transparent = (options["transparent"] as? Bool) ?? (presentation == "sheet")
+    let rawAnimation = options["animation"] as? String
+      ?? NativeRouteAnimation.standard.rawValue
+    guard let animation = NativeRouteAnimation(rawValue: rawAnimation) else {
+      callback("Invalid route animation: \(rawAnimation)")
+      return
+    }
     let rawStatusBarStyle = options["statusBarStyle"] as? String
       ?? NativeStatusBarStyle.darkContent.rawValue
     guard let statusBarStyle = NativeStatusBarStyle(rawValue: rawStatusBarStyle) else {
@@ -41,6 +61,7 @@ final class NativeRouterModule: NSObject, LynxModule {
       "presentation": presentation,
       "transparent": transparent,
       "statusBarStyle": statusBarStyle.rawValue,
+      "animation": animation.rawValue,
       "params": params,
     ]
 
@@ -58,13 +79,25 @@ final class NativeRouterModule: NSObject, LynxModule {
       if transparent || presentation == "sheet" {
         page.modalPresentationStyle = .overFullScreen
         page.modalTransitionStyle = .crossDissolve
-        host.present(page, animated: true) { callback("") }
+        host.present(page, animated: animation != .none) { callback("") }
       } else if presentation == "push", let navigation = host.navigationController {
-        navigation.pushViewController(page, animated: true)
+        switch animation {
+        case .standard:
+          navigation.pushViewController(page, animated: true)
+        case .fade:
+          withRouteFadeTransition(on: navigation.view.layer) {
+            navigation.pushViewController(page, animated: false)
+          }
+        case .none:
+          navigation.pushViewController(page, animated: false)
+        }
         callback("")
       } else {
         page.modalPresentationStyle = .fullScreen
-        host.present(page, animated: true) { callback("") }
+        if animation == .fade {
+          page.modalTransitionStyle = .crossDissolve
+        }
+        host.present(page, animated: animation != .none) { callback("") }
       }
     }
   }
@@ -75,11 +108,18 @@ final class NativeRouterModule: NSObject, LynxModule {
         callback("Native router has no UIViewController host")
         return
       }
+      let animated = host.routeAnimation != .none
       if host.presentingViewController != nil {
-        host.dismiss(animated: true) { callback("") }
+        host.dismiss(animated: animated) { callback("") }
       } else if let navigation = host.navigationController,
                 navigation.viewControllers.first !== host {
-        navigation.popViewController(animated: true)
+        if host.routeAnimation == .fade {
+          withRouteFadeTransition(on: navigation.view.layer) {
+            navigation.popViewController(animated: false)
+          }
+        } else {
+          navigation.popViewController(animated: animated)
+        }
         callback("")
       } else {
         callback("The root route cannot be closed")

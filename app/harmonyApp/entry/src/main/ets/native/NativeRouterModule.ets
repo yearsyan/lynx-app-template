@@ -12,7 +12,29 @@ export interface NativeRouteOptions {
   presentation?: string;
   transparent?: boolean;
   statusBarStyle?: string;
+  animation?: string;
   params?: Record<string, Object>;
+}
+
+export const ROUTE_ANIMATION_DEFAULT = 'default';
+export const ROUTE_ANIMATION_FADE = 'fade';
+export const ROUTE_ANIMATION_NONE = 'none';
+
+export function isNativeRouteAnimation(value: string): boolean {
+  return value === ROUTE_ANIMATION_DEFAULT ||
+    value === ROUTE_ANIMATION_FADE ||
+    value === ROUTE_ANIMATION_NONE;
+}
+
+/** Maps the route animation to the NavDestination system transition. */
+export function nativeRouteTransitionType(animation: string): NavigationSystemTransitionType {
+  if (animation === ROUTE_ANIMATION_FADE) {
+    return NavigationSystemTransitionType.FADE;
+  }
+  if (animation === ROUTE_ANIMATION_NONE) {
+    return NavigationSystemTransitionType.NONE;
+  }
+  return NavigationSystemTransitionType.DEFAULT;
 }
 
 export class NativeRoute {
@@ -21,6 +43,7 @@ export class NativeRoute {
   presentation: string;
   transparent: boolean;
   statusBarStyle: string;
+  animation: string;
   params: Record<string, Object>;
   readonly nativeBackID: string;
 
@@ -29,12 +52,14 @@ export class NativeRoute {
     presentation: string = 'push',
     transparent: boolean = false,
     statusBarStyle: string = STATUS_BAR_STYLE_DARK_CONTENT,
+    animation: string = ROUTE_ANIMATION_DEFAULT,
     params: Record<string, Object> = {},
   ) {
     this.bundle = bundle;
     this.presentation = presentation;
     this.transparent = transparent;
     this.statusBarStyle = statusBarStyle;
+    this.animation = animation;
     this.params = params;
     this.nativeBackID = `native-back-${NativeRoute.nextNativeBackID}`;
     NativeRoute.nextNativeBackID += 1;
@@ -118,6 +143,11 @@ export class NativeRouterModule extends LynxModule {
       return;
     }
     const presentation = options.presentation ?? 'push';
+    const animation = options.animation ?? ROUTE_ANIMATION_DEFAULT;
+    if (!isNativeRouteAnimation(animation)) {
+      callback(`Invalid route animation: ${animation}`);
+      return;
+    }
     const statusBarStyle = options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT;
     if (!isNativeStatusBarStyle(statusBarStyle)) {
       callback(`Invalid status bar style: ${statusBarStyle}`);
@@ -129,6 +159,7 @@ export class NativeRouterModule extends LynxModule {
         presentation,
         options.transparent ?? presentation === 'sheet',
         statusBarStyle,
+        animation,
         options.params ?? {},
       ),
       callback,

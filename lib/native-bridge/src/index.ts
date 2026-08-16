@@ -18,7 +18,8 @@ export interface NativeKVModule {
   contains(key: string, callback: (contains: boolean) => void): void;
 }
 
-export type NativeRoutePresentation = 'push' | 'modal' | 'sheet';
+export type NativeRoutePresentation = 'push' | 'sheet';
+export type NativeRouteAnimation = 'default' | 'fade' | 'none';
 export type NativeStatusBarStyle = 'dark-content' | 'light-content';
 
 export interface NativeRouteOptions {
@@ -27,6 +28,11 @@ export interface NativeRouteOptions {
   transparent?: boolean;
   /** Foreground style for status-bar icons and text on the destination page. */
   statusBarStyle?: NativeStatusBarStyle;
+  /**
+   * Native open/close transition. 'default' keeps each platform's standard
+   * push transition, 'fade' cross-fades, and 'none' opens/closes instantly.
+   */
+  animation?: NativeRouteAnimation;
   params?: Record<string, unknown>;
 }
 
@@ -165,6 +171,16 @@ function validateStatusBarStyle(
   return style;
 }
 
+function validateRouteAnimation(
+  animation: NativeRouteAnimation,
+): NativeRouteAnimation {
+  'background only';
+  if (animation !== 'default' && animation !== 'fade' && animation !== 'none') {
+    throw new Error(`Invalid route animation: ${String(animation)}`);
+  }
+  return animation;
+}
+
 function complete(
   action: (callback: (error: string) => void) => void,
 ): Promise<void> {
@@ -251,6 +267,7 @@ export const nativeRouter = {
       statusBarStyle: validateStatusBarStyle(
         options.statusBarStyle ?? 'dark-content',
       ),
+      animation: validateRouteAnimation(options.animation ?? 'default'),
       params: options.params ?? {},
     };
     return complete((callback) =>

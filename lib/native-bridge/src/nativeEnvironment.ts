@@ -17,9 +17,10 @@ export interface NativeEnvironment {
 /** Route metadata injected by native hosts for secondary Lynx pages. */
 export interface NativeRouteEnvironment {
   bundle: string;
-  presentation: 'push' | 'modal' | 'sheet';
+  presentation: 'push' | 'sheet';
   transparent: boolean;
   statusBarStyle: 'dark-content' | 'light-content';
+  animation: 'default' | 'fade' | 'none';
   params: Record<string, unknown>;
 }
 

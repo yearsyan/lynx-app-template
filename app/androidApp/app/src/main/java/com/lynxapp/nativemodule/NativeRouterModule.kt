@@ -36,6 +36,11 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
             "transparent",
             presentation == PRESENTATION_SHEET,
         )
+        val animation = options.getString("animation", ANIMATION_DEFAULT)
+        if (!isLynxRouteAnimation(animation)) {
+            callback.invoke("Invalid route animation: $animation")
+            return
+        }
         val statusBarStyle = options.getString(
             "statusBarStyle",
             STATUS_BAR_STYLE_DARK_CONTENT,
@@ -56,6 +61,7 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
                     Intent(host, destination).apply {
                         putExtra(LynxPageActivity.EXTRA_BUNDLE, bundle)
                         putExtra(LynxPageActivity.EXTRA_PRESENTATION, presentation)
+                        putExtra(LynxPageActivity.EXTRA_ANIMATION, animation)
                         putExtra(LynxPageActivity.EXTRA_TRANSPARENT, transparent)
                         putExtra(LynxPageActivity.EXTRA_STATUS_BAR_STYLE, statusBarStyle)
                         putExtra(
@@ -64,8 +70,14 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
                         )
                     },
                 )
-                if (presentation == PRESENTATION_SHEET || presentation == PRESENTATION_MODAL) {
-                    host.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                when {
+                    animation == ANIMATION_NONE ->
+                        host.overridePendingTransition(0, 0)
+                    animation == ANIMATION_FADE || presentation == PRESENTATION_SHEET ->
+                        host.overridePendingTransition(
+                            android.R.anim.fade_in,
+                            android.R.anim.fade_out,
+                        )
                 }
             }.onSuccess {
                 callback.invoke("")
@@ -84,8 +96,15 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
         }
         host.runOnUiThread {
             host.finish()
-            if (host.routePresentation != PRESENTATION_PUSH) {
-                host.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+            when {
+                host.routeAnimation == ANIMATION_NONE ->
+                    host.overridePendingTransition(0, 0)
+                host.routeAnimation == ANIMATION_FADE ||
+                    host.routePresentation == PRESENTATION_SHEET ->
+                    host.overridePendingTransition(
+                        android.R.anim.fade_in,
+                        android.R.anim.fade_out,
+                    )
             }
             callback.invoke("")
         }
@@ -94,8 +113,13 @@ class NativeRouterModule(context: Context, param: Any?) : LynxModule(context, pa
     companion object {
         const val NAME = "NativeRouterModule"
         const val PRESENTATION_PUSH = "push"
-        const val PRESENTATION_MODAL = "modal"
         const val PRESENTATION_SHEET = "sheet"
+        const val ANIMATION_DEFAULT = "default"
+        const val ANIMATION_FADE = "fade"
+        const val ANIMATION_NONE = "none"
         private val BUNDLE_NAME = Regex("^[a-z0-9][a-z0-9-]*$")
+
+        fun isLynxRouteAnimation(value: String): Boolean =
+            value == ANIMATION_DEFAULT || value == ANIMATION_FADE || value == ANIMATION_NONE
     }
 }

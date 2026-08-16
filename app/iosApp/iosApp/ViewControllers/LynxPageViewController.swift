@@ -6,6 +6,10 @@ class LynxPageViewController: UIViewController {
   private let bundleName: String
   private let route: [String: Any]?
   private let transparent: Bool
+
+  var routeAnimation: NativeRouteAnimation {
+    NativeRouteAnimation(rawValue: route?["animation"] as? String ?? "") ?? .standard
+  }
   private var nativeStatusBarStyle: NativeStatusBarStyle
   private var lynxView: LynxView?
   private var nativeBackController: NativeBackController?

@@ -21,6 +21,7 @@ import {
 import { NativeKVModule } from '../native/NativeKVModule';
 import {
   NativeRoute,
+  nativeRouteTransitionType,
   NativeRouterController,
   NativeRouterModule,
 } from '../native/NativeRouterModule';
@@ -85,6 +86,7 @@ interface NativeRoutePayload {
   presentation: string;
   transparent: boolean;
   statusBarStyle: string;
+  animation: string;
   params: Record<string, Object>;
 }
 
@@ -105,6 +107,7 @@ function nativeEnvironmentData(insets: SafeAreaInsets, route: NativeRoute): Temp
       presentation: route.presentation,
       transparent: route.transparent,
       statusBarStyle: route.statusBarStyle,
+      animation: route.animation,
       params: route.params,
     },
   };
@@ -368,6 +371,8 @@ struct Index {
       .mode((param as NativeRoute).transparent
         ? NavDestinationMode.DIALOG
         : NavDestinationMode.STANDARD)
+      .systemTransition(
+        nativeRouteTransitionType((param as NativeRoute).animation))
       .backgroundColor(Color.Transparent);
     }
   }

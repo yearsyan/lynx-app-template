@@ -10,6 +10,7 @@ import {
   type NativeBackEdge,
   type NativeBackEvent,
   type NativeBackPhase,
+  type NativeRouteAnimation,
   type NativeStatusBarStyle,
   nativeBackStack,
   nativeRouter,
@@ -23,6 +24,8 @@ export const ACTIVITY_BOTTOM_SHEET_TRANSITION_MS = 180;
 export interface OpenActivityBottomSheetOptions {
   bundle: string;
   statusBarStyle?: NativeStatusBarStyle;
+  /** Native transition behind the sheet's own panel animation. */
+  animation?: NativeRouteAnimation;
   params?: Record<string, unknown>;
 }
 
@@ -65,6 +68,7 @@ export function openActivityBottomSheet(
     presentation: 'sheet',
     transparent: true,
     statusBarStyle: options.statusBarStyle ?? 'dark-content',
+    animation: options.animation,
     params: options.params,
   });
 }

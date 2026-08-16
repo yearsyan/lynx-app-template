@@ -27,6 +27,10 @@ open class LynxPageActivity : Activity() {
         get() = intent.getStringExtra(EXTRA_PRESENTATION)
             ?: NativeRouterModule.PRESENTATION_PUSH
 
+    internal val routeAnimation: String
+        get() = intent.getStringExtra(EXTRA_ANIMATION)
+            ?: NativeRouterModule.ANIMATION_DEFAULT
+
     private val bundleName: String
         get() = intent.getStringExtra(EXTRA_BUNDLE) ?: DEFAULT_BUNDLE
 
@@ -97,6 +101,7 @@ open class LynxPageActivity : Activity() {
             "route" to mapOf(
                 "bundle" to bundleName,
                 "presentation" to routePresentation,
+                "animation" to routeAnimation,
                 "transparent" to isTransparent,
                 "statusBarStyle" to statusBarStyle,
                 "params" to params,
@@ -107,6 +112,7 @@ open class LynxPageActivity : Activity() {
     companion object {
         const val EXTRA_BUNDLE = "lynx.route.bundle"
         const val EXTRA_PRESENTATION = "lynx.route.presentation"
+        const val EXTRA_ANIMATION = "lynx.route.animation"
         const val EXTRA_TRANSPARENT = "lynx.route.transparent"
         const val EXTRA_STATUS_BAR_STYLE = "lynx.route.statusBarStyle"
         const val EXTRA_PARAMS_JSON = "lynx.route.params"

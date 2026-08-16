@@ -79,12 +79,18 @@ Lynx NativeModules 在后台线程使用，因此直接或间接访问它们的�
 ```ts
 interface NativeRouteOptions {
   bundle: string;
-  presentation?: 'push' | 'modal' | 'sheet';
+  presentation?: 'push' | 'sheet';
   transparent?: boolean;
   statusBarStyle?: 'dark-content' | 'light-content';
+  animation?: 'default' | 'fade' | 'none';
   params?: Record<string, unknown>;
 }
 ```
+
+`presentation` 只区分普通页面（`push`）和透明弹层（`sheet`，自动带上
+`transparent: true`）。打开与关闭的原生过渡动画由 `animation` 控制：
+`default` 保持各平台标准推入过渡，`fade` 双向淡入淡出，`none`
+打开与关闭都瞬时完成。非法取值会被共享 TypeScript 层和三端原生模块分别拒绝。
 
 `bundle` 必须匹配 `^[a-z0-9][a-z0-9-]*$`，并与 workspace `package.json` 的 `lynxBundle.name` 一致。路由页通过 init data 收到统一结构：
 
@@ -95,6 +101,7 @@ interface NativeRouteOptions {
     "presentation": "sheet",
     "transparent": true,
     "statusBarStyle": "dark-content",
+    "animation": "default",
     "params": {
       "source": "main"
     }
