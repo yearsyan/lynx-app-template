@@ -29,6 +29,7 @@
       "scripts/**/*.mjs",
       "bundle/**",
       "lib/**",
+      "!app",
       "!bundle/**/dist",
       "!bundle/artifacts",
       "!lib/**/dist",

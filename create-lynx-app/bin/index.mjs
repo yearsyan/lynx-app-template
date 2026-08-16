@@ -24,7 +24,8 @@ async function main() {
   console.info(`  cd ${options.name}`);
   console.info('  pnpm install');
   console.info('  pnpm build:lynx       # build bundles and sync embedded assets');
-  console.info('  # then build each selected native host (see README.md)');
+  console.info('  # native hosts: pnpm build:androidDebug | build:iosDebug |');
+  console.info('  #                build:harmonyDebug (see README.md for all variants)');
 }
 
 main().catch((error) => {

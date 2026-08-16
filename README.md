@@ -64,6 +64,12 @@ pnpm build                 # 构建所有 workspace bundle
 pnpm native:apply          # 将 package.json 的应用标识同步到三端
 pnpm native:check          # 检查三端应用标识是否同步
 pnpm build:lynx           # 构建、生成发布清单、同步三端内置资源
+pnpm build:androidDebug   # 构建 Lynx 产物 + Android Debug APK
+pnpm build:androidRelease # 构建 Lynx 产物 + Android Release APK（未签名）
+pnpm build:iosDebug       # 构建 Lynx 产物 + iOS Debug（模拟器）
+pnpm build:iosRelease     # 构建 Lynx 产物 + iOS Release（未签名）
+pnpm build:harmonyDebug   # 构建 Lynx 产物 + HarmonyOS Debug HAP
+pnpm build:harmonyRelease # 构建 Lynx 产物 + HarmonyOS Release HAP（未签名）
 pnpm new:bundle profile    # 新建 bundle/profile
 pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/template/
 ```
@@ -130,21 +136,25 @@ pnpm build:lynx
 默认构建会内联脚本和静态资源，因此每个入口只需发布一个 `.lynx.bundle`。如果启用异步 chunk、external bundle 或关闭资源内联，还需要把额外文件加入 manifest，并扩展三端资源解析逻辑。
 
 这些目录中的 `*.lynx.bundle` 和 `lynx-bundles.json` 都是可重建产物，
-已由根目录 `.gitignore` 排除。新克隆仓库在打包任一原生宿主前必须先运行
-`pnpm build:lynx`。
-
-随后按普通原生项目打包：
+已由根目录 `.gitignore` 排除。原生构建命令会先自动执行 `pnpm build:lynx`，
+因此新克隆仓库无需单独运行。
 
 ```bash
-# Android
-cd app/androidApp && ./gradlew assembleDebug
+# Android（Debug / 未签名 Release APK，产物在 app/androidApp/app/build/outputs/apk/）
+pnpm build:androidDebug
+pnpm build:androidRelease
 
-# iOS
-cd app/iosApp && pod install
-open iosApp.xcworkspace
+# iOS（Debug 面向模拟器；Release 面向真机但 CODE_SIGNING_ALLOWED=NO 不签名，
+#   产物在 app/iosApp/build/Build/Products/，可用 Xcode 重签后安装；
+#   首次构建需从源码编译 Lynx 引擎，可能耗时半小时以上，增量构建很快）
+pnpm build:iosDebug
+pnpm build:iosRelease
 
-# HarmonyOS
-cd app/harmonyApp && ohpm install
-# 再由 DevEco Studio 构建 HAP；也可使用 hvigorw，并选择
-# Debug 的 entry@debug 或 Release 的 entry@release target。
+# HarmonyOS（未签名 HAP，产物在 app/harmonyApp/entry/build/default/outputs/；
+#   默认使用 /Applications/DevEco-Studio.app，可用 DEVECO_HOME 指向其它安装位置）
+pnpm build:harmonyDebug
+pnpm build:harmonyRelease
 ```
+
+交互式开发仍推荐各自的 IDE：Android Studio、Xcode（先 `pod install`）、
+DevEco Studio。
