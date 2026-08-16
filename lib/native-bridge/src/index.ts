@@ -1,4 +1,6 @@
 /** Shared contracts and wrappers for native modules provided by each host. */
+import { useEffect, useInitData, useRef } from '@lynx-js/react';
+
 export * from './nativeEnvironment.js';
 export * from './nativeWebSocket.js';
 
@@ -48,6 +50,17 @@ export interface NativeStatusBarModule {
   ): void;
 }
 
+export interface NativeClipboardModule {
+  setString(text: string, callback: (error: string) => void): void;
+  getString(callback: (text: string | null) => void): void;
+}
+
+export type NativeHapticImpact = 'light' | 'medium' | 'heavy';
+
+export interface NativeHapticsModule {
+  impact(style: NativeHapticImpact, callback: (error: string) => void): void;
+}
+
 export type NativeBackPlatform = 'android' | 'ios' | 'harmony';
 export type NativeBackPhase = 'start' | 'progress' | 'cancel' | 'commit';
 export type NativeBackSource = 'system' | 'gesture' | 'button';
@@ -83,6 +96,8 @@ interface TemplateNativeModules {
   NativeRouterModule?: NativeRouterModule;
   NativeStatusBarModule?: NativeStatusBarModule;
   NativeBackModule?: NativeBackModule;
+  NativeClipboardModule?: NativeClipboardModule;
+  NativeHapticsModule?: NativeHapticsModule;
 }
 
 function nativeModules(): TemplateNativeModules {
@@ -115,6 +130,26 @@ function requireStatusBarModule(): NativeStatusBarModule {
     throw new Error(
       'NativeStatusBarModule is not registered by the native host',
     );
+  }
+  return module;
+}
+
+function requireClipboardModule(): NativeClipboardModule {
+  'background only';
+  const module = nativeModules().NativeClipboardModule;
+  if (module === undefined) {
+    throw new Error(
+      'NativeClipboardModule is not registered by the native host',
+    );
+  }
+  return module;
+}
+
+function requireHapticsModule(): NativeHapticsModule {
+  'background only';
+  const module = nativeModules().NativeHapticsModule;
+  if (module === undefined) {
+    throw new Error('NativeHapticsModule is not registered by the native host');
   }
   return module;
 }
@@ -179,6 +214,14 @@ function validateRouteAnimation(
     throw new Error(`Invalid route animation: ${String(animation)}`);
   }
   return animation;
+}
+
+function validateHapticImpact(style: NativeHapticImpact): NativeHapticImpact {
+  'background only';
+  if (style !== 'light' && style !== 'medium' && style !== 'heavy') {
+    throw new Error(`Invalid haptic impact style: ${String(style)}`);
+  }
+  return style;
 }
 
 function complete(
@@ -288,6 +331,37 @@ export const nativeStatusBar = {
     const normalized = validateStatusBarStyle(style);
     return complete((callback) =>
       requireStatusBarModule().setStyle(normalized, callback),
+    );
+  },
+};
+
+/** System clipboard for plain text; HarmonyOS support is pending. */
+export const nativeClipboard = {
+  setString(text: string): Promise<void> {
+    'background only';
+    return complete((callback) =>
+      requireClipboardModule().setString(text, callback),
+    );
+  },
+
+  getString(): Promise<string | null> {
+    'background only';
+    return new Promise((resolve) => {
+      requireClipboardModule().getString((text) => {
+        'background only';
+        resolve(typeof text === 'string' ? text : null);
+      });
+    });
+  },
+};
+
+/** One-shot haptic feedback; HarmonyOS support is pending. */
+export const nativeHaptics = {
+  impact(style: NativeHapticImpact): Promise<void> {
+    'background only';
+    const normalized = validateHapticImpact(style);
+    return complete((callback) =>
+      requireHapticsModule().impact(normalized, callback),
     );
   },
 };
@@ -426,3 +500,42 @@ export const nativeBackStack = {
     return nativeBackInterceptors.length;
   },
 };
+
+/**
+ * Typed view of the current route's `params` init data. Values keep their
+ * transport types, so validate them before use.
+ */
+export function useRouteParams<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(): Partial<T> {
+  const initData = useInitData();
+  return (initData?.route?.params ?? {}) as Partial<T>;
+}
+
+/**
+ * Registers a native-back interceptor while `enabled` and removes it on
+ * cleanup. Interceptors form a LIFO stack, so the most recently enabled one
+ * sees the gesture first. The latest `onEvent` is always invoked; only
+ * `enabled` re-registers. The top interceptor must handle `commit` (close
+ * its popup or call `nativeRouter.close()`), or the back gesture is
+ * consumed with no visible effect.
+ */
+export function useNativeBackInterceptor(
+  onEvent: NativeBackListener,
+  enabled = true,
+): void {
+  const handlerRef = useRef<NativeBackListener>(onEvent);
+  useEffect(() => {
+    handlerRef.current = onEvent;
+  });
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const registration = nativeBackStack.addInterceptor((event) => {
+      'background only';
+      handlerRef.current(event);
+    });
+    return registration.remove;
+  }, [enabled]);
+}

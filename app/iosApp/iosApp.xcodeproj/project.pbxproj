@@ -19,6 +19,8 @@
 		9B0001020000000000000001 /* NativeBackModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000020000000000000001 /* NativeBackModule.swift */; };
 		9B0001030000000000000001 /* NativeRouterModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000030000000000000001 /* NativeRouterModule.swift */; };
 		9B0001040000000000000001 /* NativeStatusBarModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000040000000000000001 /* NativeStatusBarModule.swift */; };
+		9B0001050000000000000001 /* NativeClipboardModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000050000000000000001 /* NativeClipboardModule.swift */; };
+		9B0001060000000000000001 /* NativeHapticsModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000060000000000000001 /* NativeHapticsModule.swift */; };
 		9C0001010000000000000001 /* LynxPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000010000000000000001 /* LynxPageViewController.swift */; };
 		9C0001020000000000000001 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000020000000000000001 /* ViewController.swift */; };
 		AA1000010000000000000001 /* LynxTemplateHttpService.m in Sources */ = {isa = PBXBuildFile; fileRef = AA1000020000000000000002 /* LynxTemplateHttpService.m */; };
@@ -46,6 +48,8 @@
 		9B0000020000000000000001 /* NativeBackModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBackModule.swift; sourceTree = "<group>"; };
 		9B0000030000000000000001 /* NativeRouterModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRouterModule.swift; sourceTree = "<group>"; };
 		9B0000040000000000000001 /* NativeStatusBarModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeStatusBarModule.swift; sourceTree = "<group>"; };
+		9B0000050000000000000001 /* NativeClipboardModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeClipboardModule.swift; sourceTree = "<group>"; };
+		9B0000060000000000000001 /* NativeHapticsModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeHapticsModule.swift; sourceTree = "<group>"; };
 		9C0000010000000000000001 /* LynxPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynxPageViewController.swift; sourceTree = "<group>"; };
 		9C0000020000000000000001 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		AA1000020000000000000002 /* LynxTemplateHttpService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxTemplateHttpService.m; sourceTree = "<group>"; };
@@ -126,6 +130,8 @@
 				9B0000020000000000000001 /* NativeBackModule.swift */,
 				9B0000030000000000000001 /* NativeRouterModule.swift */,
 				9B0000040000000000000001 /* NativeStatusBarModule.swift */,
+				9B0000050000000000000001 /* NativeClipboardModule.swift */,
+				9B0000060000000000000001 /* NativeHapticsModule.swift */,
 				EE0000020000000000000002 /* NativeWebSocketModule.swift */,
 			);
 			path = NativeModules;
@@ -271,6 +277,8 @@
 				9B0001020000000000000001 /* NativeBackModule.swift in Sources */,
 				9B0001030000000000000001 /* NativeRouterModule.swift in Sources */,
 				9B0001040000000000000001 /* NativeStatusBarModule.swift in Sources */,
+				9B0001050000000000000001 /* NativeClipboardModule.swift in Sources */,
+				9B0001060000000000000001 /* NativeHapticsModule.swift in Sources */,
 				EE0000010000000000000001 /* NativeWebSocketModule.swift in Sources */,
 				AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */,
 				FF0000010000000000000001 /* LiquidGlassElements.swift in Sources */,

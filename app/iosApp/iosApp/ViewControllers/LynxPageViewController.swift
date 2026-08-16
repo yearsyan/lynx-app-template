@@ -49,6 +49,8 @@ class LynxPageViewController: UIViewController {
     let nativeBackController = NativeBackController(host: self)
     let nativeWebSocketController = NativeWebSocketController()
     config.register(NativeKVModule.self)
+    config.register(NativeClipboardModule.self)
+    config.register(NativeHapticsModule.self)
     config.register(NativeRouterModule.self, param: self)
     config.register(NativeStatusBarModule.self, param: self)
     config.register(NativeBackModule.self, param: nativeBackController)

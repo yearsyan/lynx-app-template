@@ -10,6 +10,8 @@ import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxGenericResourceFetcher
 import com.lynxapp.nativemodule.NativeBackController
 import com.lynxapp.nativemodule.NativeBackModule
+import com.lynxapp.nativemodule.NativeClipboardModule
+import com.lynxapp.nativemodule.NativeHapticsModule
 import com.lynxapp.nativemodule.NativeKVModule
 import com.lynxapp.nativemodule.NativeRouterModule
 import com.lynxapp.nativemodule.NativeStatusBarModule
@@ -29,6 +31,8 @@ internal fun Activity.createLynxView(
     builder.setGenericResourceFetcher(LynxGenericResourceFetcher)
     builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
     builder.registerModule(NativeKVModule.NAME, NativeKVModule::class.java)
+    builder.registerModule(NativeClipboardModule.NAME, NativeClipboardModule::class.java)
+    builder.registerModule(NativeHapticsModule.NAME, NativeHapticsModule::class.java)
     builder.registerModule(
         NativeRouterModule.NAME,
         NativeRouterModule::class.java,

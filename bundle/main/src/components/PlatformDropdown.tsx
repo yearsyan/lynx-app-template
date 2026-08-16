@@ -1,7 +1,7 @@
 // organizeImports is disabled for this file in biome.json: the scaffolder
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
-import { nativeBackStack } from '@lynx-template/native-bridge';
+import { useNativeBackInterceptor } from '@lynx-template/native-bridge';
 
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
@@ -71,21 +71,14 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
   });
   const gestureStart = useRef<{ x: number; y: number } | null>(null);
 
-  // Registering puts this menu on top of every popup that was opened before
-  // it. Removing it reveals the previous interceptor without disabling native
-  // back while another popup still needs it.
-  useEffect(() => {
-    if (isIOS || !open) {
-      return;
+  // Enabled only while open, so this menu sits on top of every popup that
+  // was opened before it; disabling reveals the previous interceptor.
+  useNativeBackInterceptor((event) => {
+    'background only';
+    if (event.phase === 'commit') {
+      setOpen(false);
     }
-    const registration = nativeBackStack.addInterceptor((event) => {
-      'background only';
-      if (event.phase === 'commit') {
-        setOpen(false);
-      }
-    });
-    return registration.remove;
-  }, [open]);
+  }, !isIOS && open);
 
   useEffect(() => {
     if (isIOS) {

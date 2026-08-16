@@ -1,9 +1,10 @@
-import { useCallback, useInitData, useState } from '@lynx-js/react';
+import { useCallback, useState } from '@lynx-js/react';
 import {
   ActivityBottomSheet,
   openActivityBottomSheet,
   useActivityBottomSheet,
 } from '@lynx-template/activity-sheet';
+import { useRouteParams } from '@lynx-template/native-bridge';
 
 import './App.css';
 
@@ -16,9 +17,9 @@ function positiveInteger(value: unknown, fallback: number): number {
 }
 
 export function App() {
-  const params = useInitData()?.route?.params;
-  const maxDepth = positiveInteger(params?.maxDepth, DEFAULT_MAX_DEPTH);
-  const level = Math.min(positiveInteger(params?.level, 1), maxDepth);
+  const params = useRouteParams<{ level: number; maxDepth: number }>();
+  const maxDepth = positiveInteger(params.maxDepth, DEFAULT_MAX_DEPTH);
+  const level = Math.min(positiveInteger(params.level, 1), maxDepth);
   const [error, setError] = useState('');
 
   const handleSheetError = useCallback((sheetError: Error) => {

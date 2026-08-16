@@ -273,3 +273,49 @@
   color: #6750a4;
   font-weight: 600;
 }
+
+.PlatformToast {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  z-index: 10;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  max-width: 80%;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background-color: rgba(29, 27, 32, 0.92);
+  box-shadow: 0 6px 20px rgba(29, 27, 32, 0.25);
+  transform: translateX(-50%);
+}
+
+.PlatformToast__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.PlatformToast__glyph--info {
+  background-color: #8e8a96;
+}
+
+.PlatformToast__glyph--success {
+  background-color: #4caf7d;
+}
+
+.PlatformToast__glyph--error {
+  background-color: #e4556d;
+}
+
+.PlatformToast__message {
+  font-size: 13px;
+  color: #ffffff;
+}

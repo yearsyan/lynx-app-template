@@ -1,7 +1,12 @@
 // organizeImports is disabled for this file in biome.json: the scaffolder
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
-import { nativeKV, nativeStatusBar } from '@lynx-template/native-bridge';
+import {
+  nativeClipboard,
+  nativeHaptics,
+  nativeKV,
+  nativeStatusBar,
+} from '@lynx-template/native-bridge';
 import { openActivityBottomSheet } from '@lynx-template/activity-sheet';
 
 import { useCallback, useEffect, useState } from '@lynx-js/react';
@@ -9,6 +14,7 @@ import { useCallback, useEffect, useState } from '@lynx-js/react';
 import './App.css';
 import { PlatformDropdown } from './components/PlatformDropdown.js';
 import { PlatformSwitch } from './components/PlatformSwitch.js';
+import { platformToast, ToastHost } from './components/PlatformToast.js';
 
 const COUNTER_KEY = 'template.counter';
 const FRUITS = ['Apple', 'Banana', 'Cherry', 'Durian', 'Elderberry'];
@@ -18,6 +24,7 @@ const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
 export function App() {
   const [count, setCount] = useState(0);
   const [savedCount, setSavedCount] = useState<string | null>(null);
+  const [clipText, setClipText] = useState<string | null>(null);
   const [status, setStatus] = useState('Ready');
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [fruitIndex, setFruitIndex] = useState(-1);
@@ -35,6 +42,7 @@ export function App() {
   const increment = useCallback(() => {
     'background only';
     setCount((current) => current + 1);
+    nativeHaptics.impact('medium').catch(() => {});
   }, []);
 
   const reset = useCallback(() => {
@@ -50,6 +58,7 @@ export function App() {
       .then((value) => {
         setSavedCount(value);
         setStatus('Saved to MMKV');
+        platformToast.success('Saved to MMKV');
       })
       .catch((error: Error) => setStatus(error.message));
   }, []);
@@ -65,16 +74,44 @@ export function App() {
       .catch((error: Error) => setStatus(error.message));
   }, []);
 
+  const saveToClipboard = useCallback(() => {
+    'background only';
+    const value = `clip-${Date.now()}`;
+    nativeClipboard
+      .setString(value)
+      .then(() => {
+        setClipText(value);
+        setStatus('Saved to clipboard');
+        platformToast.success('Copied to clipboard');
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const readFromClipboard = useCallback(() => {
+    'background only';
+    nativeClipboard
+      .getString()
+      .then((value) => {
+        setClipText(value);
+        setStatus(
+          value === null ? 'Clipboard is empty' : 'Read from clipboard',
+        );
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
   const handleSwitchChange = useCallback((value: boolean) => {
     'background only';
     setNotificationsOn(value);
     setStatus(`Switch ${value ? 'on' : 'off'}`);
+    nativeHaptics.impact('light').catch(() => {});
   }, []);
 
   const handleFruitSelect = useCallback((index: number, value: string) => {
     'background only';
     setFruitIndex(index);
     setStatus(`Picked ${value} (#${index})`);
+    platformToast.info(`Picked ${value}`);
   }, []);
 
   const openPredictiveBackDemo = useCallback(() => {
@@ -186,9 +223,28 @@ export function App() {
             </view>
           </view>
 
+          <view className="Card">
+            <text className="CardTitle">Clipboard</text>
+            <text className="CardBody">
+              {clipText === null ? 'Nothing copied yet' : `Copied: ${clipText}`}
+            </text>
+            <view className="Row">
+              <view
+                className="Button Button--primary"
+                bindtap={saveToClipboard}
+              >
+                <text className="ButtonLabel ButtonLabel--primary">Copy</text>
+              </view>
+              <view className="Button" bindtap={readFromClipboard}>
+                <text className="ButtonLabel">Read</text>
+              </view>
+            </view>
+          </view>
+
           <text className="Status">{status}</text>
         </view>
       </scroll-view>
+      <ToastHost />
     </view>
   );
 }

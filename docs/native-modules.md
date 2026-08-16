@@ -8,6 +8,8 @@
 - `NativeRouterModule`：打开另一个 bundle 对应的原生页面，或关闭当前页面；
 - `NativeStatusBarModule`：按页面切换状态栏图标与文字的深浅样式；
 - `NativeBackModule`：让当前 Lynx 页面同步声明是否接管系统返回，并接收返回生命周期事件；
+- `NativeClipboardModule`：读写系统剪贴板纯文本（HarmonyOS 实现待补）；
+- `NativeHapticsModule`：单击式震动反馈，分 light / medium / heavy 三档（HarmonyOS 实现待补）；
 - `NativeWebSocketModule`：提供不依赖 DevTool 的长连接、文本/二进制收发和生命周期事件；
 - `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
 
@@ -120,6 +122,23 @@ interface NativeRouteOptions {
 
 路由参数决定目标原生页面创建时的初始样式，默认是 `dark-content`；bridge 用于页面加载后动态切换当前页面。三个宿主都保持状态栏背景透明，让 Lynx 页面继续绘制到系统栏下面。路由 init data 中也包含 `route.statusBarStyle`，业务可以读取并保持自己的视觉状态一致。
 
+### 剪贴板与震动反馈
+
+| 方法 | 说明 |
+| --- | --- |
+| `nativeClipboard.setString(text)` | 写入系统剪贴板 |
+| `nativeClipboard.getString()` | 读取剪贴板文本；为空或不可用时返回 `null` |
+| `nativeHaptics.impact(style)` | 单击震动；`style` 为 `'light' \| 'medium' \| 'heavy'`，非法取值被共享层拒绝 |
+
+两个模块的 HarmonyOS 实现尚未补齐，在 HarmonyOS 宿主上调用会因模块未注册而抛出错误。
+
+### 共享 hooks
+
+`@lynx-template/native-bridge` 还提供两个与原生能力配套的 React hooks：
+
+- `useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失的字段为 `undefined`，使用前自行校验）；
+- `useNativeBackInterceptor(onEvent, enabled?)`：声明式注册返回拦截器，`enabled` 变化时自动注册/移除，且始终调用最新的 `onEvent`；拦截器仍遵循后进先出栈语义。
+
 ### 返回拦截与进度
 
 `NativeBackModule` 使用“预先启用 + 事件通知”的模型。共享层的
@@ -191,7 +210,7 @@ Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest
 
 这套行为已经封装在 `@lynx-template/activity-sheet`：`openActivityBottomSheet()` 负责以透明 sheet 路由打开目标 bundle，`useActivityBottomSheet()` 负责返回生命周期和关闭时序，`ActivityBottomSheet` 负责遮罩、全宽面板、grabber、动画与底部安全区。业务 bundle 只需要传入自己的内容；完整示例见 `lib/activity-sheet/README.md`。
 
-每个新路由页都会重新注册五个 NativeModules，并继续注入 `nativeEnvironment.safeAreaInsets`。因此第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层 bundle。
+每个新路由页都会重新注册全部 NativeModules，并继续注入 `nativeEnvironment.safeAreaInsets`。因此第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层 bundle。
 
 ## 业务 WebSocket
 
@@ -255,6 +274,6 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 
 ## 原生实现位置
 
-- Android：`NativeKVModule.kt`、`NativeRouterModule.kt`、`NativeStatusBarModule.kt`、`NativeBackModule.kt`、`NativeWebSocketModule.kt`、`LynxPageActivity.kt`；
+- Android：`NativeKVModule.kt`、`NativeRouterModule.kt`、`NativeStatusBarModule.kt`、`NativeBackModule.kt`、`NativeClipboardModule.kt`、`NativeHapticsModule.kt`、`NativeWebSocketModule.kt`、`LynxPageActivity.kt`；
 - iOS：`NativeModules/` 下的各模块、`LynxPageViewController.swift`；
 - HarmonyOS：`native/` 下的各模块、`pages/Index.ets`。
