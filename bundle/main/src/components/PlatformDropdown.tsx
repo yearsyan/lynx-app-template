@@ -26,6 +26,8 @@ interface AnchorRect {
 }
 
 interface MenuRect {
+  bottom: number;
+  direction: 'down' | 'up';
   left: number;
   top: number;
   width: number;
@@ -57,6 +59,8 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     height: 0,
   });
   const [menuRect, setMenuRect] = useState<MenuRect>({
+    bottom: 0,
+    direction: 'down',
     left: 0,
     top: 0,
     width: 0,
@@ -156,13 +160,16 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
         viewport.left + MENU_EDGE_INSET,
         viewport.right - MENU_EDGE_INSET - anchor.width,
       );
+      const top = Math.min(Math.max(requestedTop, minTop), maxTop);
 
       setMenuRect({
+        bottom: viewport.bottom - top - menuHeight,
+        direction: openBelow ? 'down' : 'up',
         left: Math.min(
           Math.max(anchor.left, viewport.left + MENU_EDGE_INSET),
           maxLeft,
         ),
-        top: Math.min(Math.max(requestedTop, minTop), maxTop),
+        top,
         width: anchor.width,
       });
       setOpen(true);
@@ -220,9 +227,11 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
             style={{
               position: 'absolute',
               left: `${menuRect.left}px`,
-              top: `${menuRect.top}px`,
               width: `${menuRect.width}px`,
               height: expanded ? `${options.length * OPTION_HEIGHT}px` : '0px',
+              ...(menuRect.direction === 'up'
+                ? { bottom: `${menuRect.bottom}px` }
+                : { top: `${menuRect.top}px` }),
             }}
           >
             {options.map((option, index) => (
