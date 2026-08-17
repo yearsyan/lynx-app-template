@@ -61,8 +61,8 @@ export function App() {
           />
         </view>
         <text className="SheetHint">
-          Swipe Back to move this Activity sheet downward. Release to reveal the
-          previous native layer.
+          Drag this sheet downward or swipe Back to move it. Release to reveal
+          the previous native layer.
         </text>
         {error.length > 0 ? <text className="SheetError">{error}</text> : null}
         <view className="SheetActions">
