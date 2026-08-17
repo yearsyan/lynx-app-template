@@ -7,6 +7,7 @@ import {
   readdir,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -99,6 +100,15 @@ async function verifySinglePlatformScaffold(platform) {
       assert.equal(packageJson.scripts[fixture.buildScript], undefined);
       await doesNotExist(join(projectDirectory, fixture.directory));
     }
+
+    // The contracts script imports the `typescript` compiler; link the one
+    // from this repository so the fixture needs no full install.
+    await mkdir(join(projectDirectory, 'node_modules'), { recursive: true });
+    await symlink(
+      join(repositoryDirectory, 'node_modules/typescript'),
+      join(projectDirectory, 'node_modules/typescript'),
+      'dir',
+    );
 
     await execFileAsync(
       process.execPath,

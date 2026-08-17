@@ -46,8 +46,10 @@
     "native:contracts:generate": "node ./scripts/generate-native-contracts.mjs",
     "native:contracts:check": "node ./scripts/generate-native-contracts.mjs --check",
     "new:bundle": "node ./scripts/create-bundle.mjs",
+    "new:native-module": "node ./scripts/create-native-module.mjs",
     "sync:native": "node ./scripts/sync-native.mjs",
     "template:export": "node ./scripts/export-template.mjs",
+    "test": "node --test create-lynx-app/test/*.test.mjs",
     "typecheck": "pnpm -r --if-present run typecheck"
   },
   "devDependencies": {

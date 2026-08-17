@@ -94,6 +94,8 @@ pnpm build:iosRelease     # 构建 Lynx 产物 + iOS Release（未签名）
 pnpm build:harmonyDebug   # 构建 Lynx 产物 + HarmonyOS Debug HAP
 pnpm build:harmonyRelease # 构建 Lynx 产物 + HarmonyOS Release HAP（未签名）
 pnpm new:bundle profile    # 新建 bundle/profile
+pnpm new:native-module payment # 新建 autolink/payment 原生模块（三端 stub + 契约）
+pnpm test                  # 跑 create-lynx-app 的脚手架测试
 pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/template/
 ```
 

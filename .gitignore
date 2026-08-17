@@ -104,6 +104,7 @@ app/iosApp/**/*.dSYM/
 app/iosApp/**/*.dSYM.zip
 
 # HarmonyOS / DevEco Studio
+/.hvigor/
 app/harmonyApp/**/.hvigor/
 app/harmonyApp/**/oh_modules/
 app/harmonyApp/**/build/

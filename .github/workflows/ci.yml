@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check, build all bundles, scaffolder tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # native config parity + contracts (three hosts vs declarations) +
+      # typecheck + lint
+      - name: Run checks
+        run: pnpm check
+
+      # Every workspace package that declares lynxBundle must build, and the
+      # result must sync into the enabled hosts.
+      - name: Build all Lynx bundles
+        run: pnpm build:lynx
+
+      - name: Run scaffolder tests
+        run: pnpm test
+
+  scaffold-android:
+    name: Scaffold via create-lynx-app, build Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The export and scaffolder scripts only use Node builtins, so the
+      # repository itself needs no install here.
+      - name: Export template snapshot
+        run: node scripts/export-template.mjs
+
+      - name: Scaffold project
+        run: |
+          cd "$RUNNER_TEMP"
+          node "$GITHUB_WORKSPACE/create-lynx-app/bin/index.mjs" ci-android \
+            --bundle-id com.lynfe.ciandroid \
+            --display-name "CI Android" \
+            --platforms android \
+            --yes
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install and build debug APK
+        working-directory: ${{ runner.temp }}/ci-android
+        run: |
+          pnpm install
+          pnpm build:androidDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-android-debug-apk
+          path: ${{ runner.temp }}/ci-android/app/androidApp/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+
+  scaffold-ios:
+    name: Scaffold via create-lynx-app, build iOS debug app
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Export template snapshot
+        run: node scripts/export-template.mjs
+
+      - name: Scaffold project
+        run: |
+          cd "$RUNNER_TEMP"
+          node "$GITHUB_WORKSPACE/create-lynx-app/bin/index.mjs" ci-ios \
+            --bundle-id com.lynfe.ciios \
+            --display-name "CI iOS" \
+            --platforms ios \
+            --yes
+
+      - name: CocoaPods cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: cocoapods-${{ runner.os }}-v1
+
+      - name: Install and build debug app
+        working-directory: ${{ runner.temp }}/ci-ios
+        run: |
+          pnpm install
+          pnpm build:iosDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-ios-debug-app
+          path: ${{ runner.temp }}/ci-ios/app/iosApp/build/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: warn
+
+  scaffold-harmony:
+    name: Scaffold via create-lynx-app, build HarmonyOS debug HAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Export template snapshot
+        run: node scripts/export-template.mjs
+
+      - name: Scaffold project
+        run: |
+          cd "$RUNNER_TEMP"
+          node "$GITHUB_WORKSPACE/create-lynx-app/bin/index.mjs" ci-harmony \
+            --bundle-id com.lynfe.ciharmony \
+            --display-name "CI Harmony" \
+            --platforms harmony \
+            --yes
+
+      # libGL is required by the HarmonyOS SDK's texture-compression tools.
+      - name: Install libgl1-mesa-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev
+
+      # The version tracks nativeApp.targetSdkVersion 6.1.1(24); the official
+      # Command Line Tools download requires a Huawei account, so CI uses the
+      # community mirror maintained by the ErBWs/setup-ohos action.
+      - name: Set up HarmonyOS command line tools
+        uses: ErBWs/setup-ohos@v2
+        with:
+          version: 6.1.1.280
+          cache: true
+
+      - name: Install dependencies and build bundles
+        working-directory: ${{ runner.temp }}/ci-harmony
+        run: |
+          pnpm install
+          pnpm build:lynx
+
+      # Same hvigorw invocation as pnpm build:harmonyDebug, adapted to the
+      # command-line-tools layout (hvigorw is on PATH, SDK from HOS_SDK_HOME).
+      - name: Build debug HAP
+        working-directory: ${{ runner.temp }}/ci-harmony/app/harmonyApp
+        run: |
+          printf 'sdk.dir=%s\n' "$HOS_SDK_HOME" > local.properties
+          hvigorw assembleHap --mode module -p product=default -p module=entry@debug -p buildMode=debug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-harmony-debug-hap
+          path: ${{ runner.temp }}/ci-harmony/app/harmonyApp/entry/build/default/outputs/**/*.hap
+          if-no-files-found: warn

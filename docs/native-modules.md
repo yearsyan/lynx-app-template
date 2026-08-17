@@ -55,8 +55,9 @@ bridge 都消费该聚合结果，不再各自声明 `AppModules` 或硬编码�
 `pnpm native:contracts:check` 除了检查生成物，还会核对
 `package.json#nativeApp.platforms` 中启用平台的原生实现：Android 的
 `@LynxMethod`、iOS 的 `methodLookup`、HarmonyOS 的模块方法都必须与声明中的
-名称和参数个数一致。修改已有模块时更新所属包的声明和三端实现；新增模块时再补充
-JSON 映射元数据，最后运行生成命令。该检查已接入 `pnpm check`。
+名称和参数个数一致。修改已有模块时更新所属包的声明和三端实现；新增模块用
+`pnpm new:native-module <name>` 一步生成三端 stub、包骨架、契约元数据和宿主注册
+（生成的 `ping` 示例方法可直接通过检查），再替换为真实实现。该检查已接入 `pnpm check`。
 
 ### 命名迁移
 
