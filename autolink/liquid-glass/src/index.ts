@@ -38,9 +38,8 @@ export interface GlassDropdownProps extends StandardProps {
   bindselect?: (event: GlassDropdownEvent) => void;
 }
 
-declare module '@lynx-js/types' {
-  interface IntrinsicElements {
-    'glass-switch': GlassSwitchProps;
-    'glass-dropdown': GlassDropdownProps;
-  }
-}
+// No IntrinsicElements augmentation here on purpose: module augmentations
+// merge into the @lynx-js/types copy resolved from this file, and this
+// package's peer range can resolve to a different copy than the consuming
+// bundle's catalog-pinned one. Consumers augment '@lynx-js/types' themselves
+// (see bundle/main/src/components/native-elements.ts).
