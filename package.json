@@ -31,6 +31,7 @@
     "build:harmonyRelease": "pnpm run build:lynx && cd app/harmonyApp && NODE_HOME=${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/tools/node DEVECO_SDK_HOME=${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/sdk ${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/tools/hvigor/bin/hvigorw assembleHap --mode module -p product=default -p module=entry@release -p buildMode=release --no-daemon",
     "check": "pnpm run native:check && pnpm run typecheck && pnpm run lint",
     "dev:main": "pnpm --filter @lynx-template/main dev",
+    "dev:android": "node ./scripts/dev-android.mjs",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome check .",

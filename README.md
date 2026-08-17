@@ -60,6 +60,7 @@ Rspeedy 默认监听 `0.0.0.0`，终端会给出 bundle URL 和二维码。修�
 
 ```bash
 pnpm check                 # TypeScript + Biome
+pnpm dev:android -s <serial> # 构建 Android Debug 包并安装、启动到指定 adb 设备
 pnpm build                 # 构建所有 workspace bundle
 pnpm native:apply          # 将 package.json 的应用标识同步到三端
 pnpm native:check          # 检查三端应用标识是否同步
