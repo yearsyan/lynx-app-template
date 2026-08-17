@@ -1,5 +1,5 @@
 {
-  "name": "@lynx-template/native-bridge",
+  "name": "@lynx-app/native-bridge",
   "description": "Shared native host contracts and APIs exposed to Lynx bundles",
   "version": "1.0.0",
   "type": "module",

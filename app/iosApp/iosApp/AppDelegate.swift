@@ -5,7 +5,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
 
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    // MMKV bootstrap lives in the autolinked NativeKVModule library.
+    // MMKV bootstrap lives in the autolinked KV library.
+    // The autolinked Router module delegates in-app bundle navigation to
+    // this stateless host handler; it must be installed before the first
+    // Lynx view is created.
+    RouterModule.setRouteHandler(AppRouteHandler())
     LiquidGlassElements.register()
     // LynxEnv init drives the LynxService lazy-load scan; it must run before
     // any LynxServices.getInstanceWith lookup or the registry is still empty.

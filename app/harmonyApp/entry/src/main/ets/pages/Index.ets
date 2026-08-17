@@ -15,25 +15,55 @@ import { BundleConfig } from '../config/BundleConfig';
 import { DevelopmentSettings } from '../config/DevelopmentSettings';
 import {
   NativeBackController,
-  NativeBackModule,
+  BackModule,
   NativeBackRegistration,
-} from '../native/NativeBackModule';
-import { NativeKVModule } from '../native/NativeKVModule';
+} from '../native/BackModule';
+import { BiometricModule } from '../native/BiometricModule';
+import {
+  AlbumUtilsModule,
+  AlbumUtilsRegistration,
+} from '../native/AlbumUtilsModule';
+import {
+  ClipboardModule,
+  NativeClipboardRegistration,
+} from '../native/ClipboardModule';
+import { DeviceInfoModule } from '../native/DeviceInfoModule';
+import {
+  DisplayModule,
+  DisplayRegistration,
+  LynxViewSizeTracker,
+} from '../native/DisplayModule';
+import {
+  FileSystemModule,
+  FileSystemRegistration,
+} from '../native/FileSystemModule';
+import { HapticsModule } from '../native/HapticsModule';
+import { KVModule } from '../native/KVModule';
 import {
   NativeRoute,
   nativeRouteTransitionType,
   NativeRouterController,
-  NativeRouterModule,
-} from '../native/NativeRouterModule';
+  RouterModule,
+} from '../native/RouterModule';
 import {
   NativeStatusBarController,
-  NativeStatusBarModule,
+  StatusBarModule,
   NativeStatusBarRegistration,
-} from '../native/NativeStatusBarModule';
+} from '../native/StatusBarModule';
+import {
+  NativeScreenshotRegistration,
+  ScreenshotModule,
+  screenshotViewContainerId,
+  SCREENSHOT_PAGE_ROOT_ID,
+} from '../native/ScreenshotModule';
+import {
+  NativeToastRegistration,
+  ToastModule,
+} from '../native/ToastModule';
 import {
   NativeWebSocketController,
-  NativeWebSocketModule,
-} from '../native/NativeWebSocketModule';
+  WebSocketModule,
+} from '../native/WebSocketModule';
 import { LaunchpadGenericResourceFetcher } from '../provider/LaunchpadGenericResourceFetcher';
 import { LaunchpadTemplateResourceFetcher } from '../provider/LaunchpadTemplateResourceFetcher';
 import { LynxBundleRepository } from '../provider/LynxBundleRepository';
@@ -135,6 +165,8 @@ struct LynxBundlePage {
   private genericResourceFetcher: LynxGenericResourceFetcher = new LaunchpadGenericResourceFetcher();
   private bundleRepository: LynxBundleRepository = new LynxBundleRepository();
   private safeAreaInsets: SafeAreaInsets = new SafeAreaInsets();
+  private lynxViewSizeTracker: LynxViewSizeTracker = new LynxViewSizeTracker();
+  private screenshotTargetId: string = '';
   private metaData: MetaData = new MetaData(nativeEnvironmentData(this.safeAreaInsets, NativeRoute.main()));
   private modules: Map<string, ModuleClassWrapper> = new Map();
   private mainWindow: window.Window | undefined = undefined;
@@ -152,22 +184,23 @@ struct LynxBundlePage {
     // ArkUI applies the object passed to a child component after field initializers
     // run. Build route-scoped objects here so they capture the injected route and
     // the Navigation host's shared controller instead of their default values.
+    this.screenshotTargetId = screenshotViewContainerId(this.route.nativeBackID);
     this.nativeBackController.activate(this.route.nativeBackID);
     this.nativeStatusBarController.activate(
       this.route.nativeBackID,
       this.route.statusBarStyle,
     );
     DevelopmentSettings.recordLoadedBundle(this.route.bundle);
-    this.modules = this.createModules();
-    this.metaData.templateData = nativeEnvironmentData(this.safeAreaInsets, this.route);
-    this.url = this.initialURL();
-
     const hostContext = this.getUIContext().getHostContext();
     if (hostContext === undefined) {
       console.error('Failed to obtain UIAbilityContext');
       return;
     }
     const context: common.UIAbilityContext = hostContext as common.UIAbilityContext;
+    this.routerController.attachAbility(context);
+    this.modules = this.createModules(context);
+    this.metaData.templateData = nativeEnvironmentData(this.safeAreaInsets, this.route);
+    this.url = this.initialURL();
     this.subscribeToSafeArea(context);
     if (this.route.bundle !== BundleConfig.BUNDLE_NAME ||
       this.bundleRepository.developmentURL(this.route.bundle).length > 0) {
@@ -205,27 +238,56 @@ struct LynxBundlePage {
     return this.route.bundleURL();
   }
 
-  private createModules(): Map<string, ModuleClassWrapper> {
+  private createModules(context: common.UIAbilityContext): Map<string, ModuleClassWrapper> {
     const modules = new Map<string, ModuleClassWrapper>();
     modules.set(
-      NativeKVModule.NAME,
-      new NativeModuleRegistration(NativeKVModule),
-    );
-    modules.set(
-      NativeRouterModule.NAME,
-      new NativeModuleRegistration(NativeRouterModule, this.routerController),
-    );
-    modules.set(
-      NativeBackModule.NAME,
+      ClipboardModule.NAME,
       new NativeModuleRegistration(
-        NativeBackModule,
+        ClipboardModule,
+        new NativeClipboardRegistration(context),
+      ),
+    );
+    modules.set(
+      HapticsModule.NAME,
+      new NativeModuleRegistration(HapticsModule),
+    );
+    modules.set(
+      BiometricModule.NAME,
+      new NativeModuleRegistration(BiometricModule),
+    );
+    modules.set(
+      AlbumUtilsModule.NAME,
+      new NativeModuleRegistration(
+        AlbumUtilsModule,
+        new AlbumUtilsRegistration(context),
+      ),
+    );
+    modules.set(
+      FileSystemModule.NAME,
+      new NativeModuleRegistration(
+        FileSystemModule,
+        new FileSystemRegistration(context),
+      ),
+    );
+    modules.set(
+      KVModule.NAME,
+      new NativeModuleRegistration(KVModule),
+    );
+    modules.set(
+      RouterModule.NAME,
+      new NativeModuleRegistration(RouterModule, this.routerController),
+    );
+    modules.set(
+      BackModule.NAME,
+      new NativeModuleRegistration(
+        BackModule,
         new NativeBackRegistration(this.nativeBackController, this.route.nativeBackID),
       ),
     );
     modules.set(
-      NativeStatusBarModule.NAME,
+      StatusBarModule.NAME,
       new NativeModuleRegistration(
-        NativeStatusBarModule,
+        StatusBarModule,
         new NativeStatusBarRegistration(
           this.nativeStatusBarController,
           this.route.nativeBackID,
@@ -233,10 +295,40 @@ struct LynxBundlePage {
       ),
     );
     modules.set(
-      NativeWebSocketModule.NAME,
+      DeviceInfoModule.NAME,
+      new NativeModuleRegistration(DeviceInfoModule),
+    );
+    modules.set(
+      DisplayModule.NAME,
       new NativeModuleRegistration(
-        NativeWebSocketModule,
+        DisplayModule,
+        new DisplayRegistration(context, this.lynxViewSizeTracker),
+      ),
+    );
+    modules.set(
+      ToastModule.NAME,
+      new NativeModuleRegistration(
+        ToastModule,
+        new NativeToastRegistration(this.getUIContext()),
+      ),
+    );
+    modules.set(
+      WebSocketModule.NAME,
+      new NativeModuleRegistration(
+        WebSocketModule,
         this.nativeWebSocketController,
+      ),
+    );
+    modules.set(
+      ScreenshotModule.NAME,
+      new NativeModuleRegistration(
+        ScreenshotModule,
+        new NativeScreenshotRegistration(
+          this.getUIContext(),
+          context,
+          this.screenshotTargetId,
+          SCREENSHOT_PAGE_ROOT_ID,
+        ),
       ),
     );
     return modules;
@@ -333,8 +425,14 @@ struct LynxBundlePage {
         url: this.url,
       })
         .width('100%')
-        .height('100%');
+        .height('100%')
+        .onAreaChange((_oldArea: Area, area: Area) => {
+          this.lynxViewSizeTracker.widthVp = Number(area.width);
+        });
     }
+    // Target of the Screenshot module: capturing this container captures the
+    // LynxView area of the page.
+    .id(this.screenshotTargetId)
     .backgroundColor(Color.Transparent)
     .size({ width: '100%', height: '100%' });
   }
@@ -415,6 +513,9 @@ struct Index {
         });
       }
     }
+    // Target of the Screenshot module's page capture: this Stack composes the
+    // navigation content plus overlays, i.e. everything the page shows.
+    .id(SCREENSHOT_PAGE_ROOT_ID)
     .backgroundColor(Color.Transparent)
     .size({ width: '100%', height: '100%' });
   }

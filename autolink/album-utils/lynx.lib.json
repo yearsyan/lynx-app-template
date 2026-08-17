@@ -1,0 +1,12 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.albumutils",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-album-utils.podspec"
+    }
+  }
+}

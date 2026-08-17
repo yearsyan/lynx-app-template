@@ -1,0 +1,17 @@
+{
+  "name": "@lynx-template/autolink-album-utils",
+  "description": "Autolinked album image picker and saver module for Lynx hosts (Android & iOS)",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "src",
+    "lynx.lib.json",
+    "README.md"
+  ]
+}

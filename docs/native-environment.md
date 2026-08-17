@@ -25,10 +25,10 @@
 
 ## Bundle 使用方式
 
-`lib/native-bridge` 中的公共实现扩展了 ReactLynx 的 `InitData` 类型，并对缺失、负数和无效值回退为 `0`。所有 bundle 都从 `@lynx-template/native-bridge` 读取同一份宿主数据契约。页面保持最外层背景全屏，只在内容容器的 padding 上叠加安全区：
+`lib/native-bridge` 中的公共实现扩展了 ReactLynx 的 `InitData` 类型，并对缺失、负数和无效值回退为 `0`。所有 bundle 都从 `@lynx-app/native-bridge` 读取同一份宿主数据契约。页面保持最外层背景全屏，只在内容容器的 padding 上叠加安全区：
 
 ```ts
-import { readSafeAreaInsets } from '@lynx-template/native-bridge';
+import { readSafeAreaInsets } from '@lynx-app/native-bridge';
 
 const initData = useInitData();
 const insets = readSafeAreaInsets(initData);
@@ -41,7 +41,7 @@ const style = {
 };
 ```
 
-新增 bundle 只需依赖 `@lynx-template/native-bridge`，即可复用同一类型与安全区读取函数；字段名称和含义应保持向后兼容。
+新增 bundle 只需依赖 `@lynx-app/native-bridge`，即可复用同一类型与安全区读取函数；字段名称和含义应保持向后兼容。
 
 ## 三端数据源
 

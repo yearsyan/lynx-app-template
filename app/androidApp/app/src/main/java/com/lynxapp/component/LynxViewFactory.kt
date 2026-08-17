@@ -10,10 +10,8 @@ import com.lynxapp.LynxAutolinkRegistry
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxGenericResourceFetcher
 import com.lynxapp.nativemodule.NativeBackController
-import com.lynxapp.nativemodule.NativeBackModule
-import com.lynxapp.nativemodule.NativeHapticsModule
-import com.lynxapp.nativemodule.NativeRouterModule
-import com.lynxapp.nativemodule.NativeStatusBarModule
+import com.lynxapp.nativemodule.BackModule
+import com.lynxapp.nativemodule.StatusBarModule
 
 /** Creates every app-owned LynxView with the same native module contract. */
 internal fun Activity.createLynxView(
@@ -26,23 +24,18 @@ internal fun Activity.createLynxView(
         .setTemplateProvider(bundleRepository)
     builder.setGenericResourceFetcher(LynxGenericResourceFetcher)
     builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
-    // WebSocket, MMKV storage and clipboard come from the autolink/*
-    // workspace libraries; HarmonyOS hosts register their own instead.
+    // Router, WebSocket, MMKV storage, clipboard and haptics come from the
+    // autolink/* workspace libraries; HarmonyOS hosts register their own
+    // instead. The Router's host navigation installs once in the Application.
     LynxAutolinkRegistry.setup(builder)
-    builder.registerModule(NativeHapticsModule.NAME, NativeHapticsModule::class.java)
     builder.registerModule(
-        NativeRouterModule.NAME,
-        NativeRouterModule::class.java,
+        StatusBarModule.NAME,
+        StatusBarModule::class.java,
         this,
     )
     builder.registerModule(
-        NativeStatusBarModule.NAME,
-        NativeStatusBarModule::class.java,
-        this,
-    )
-    builder.registerModule(
-        NativeBackModule.NAME,
-        NativeBackModule::class.java,
+        BackModule.NAME,
+        BackModule::class.java,
         nativeBackController,
     )
     return builder.build(this)

@@ -31,11 +31,29 @@ PODS:
     - libwebp/sharpyuv
   - Lynx (4.0.0):
     - Lynx/Framework (= 4.0.0)
+  - lynx-app-album-utils (1.0.0):
+    - Lynx
+  - lynx-app-biometric (1.0.0):
+    - Lynx
   - lynx-app-clipboard (1.0.0):
+    - Lynx
+  - lynx-app-device-info (1.0.0):
+    - Lynx
+  - lynx-app-display (1.0.0):
+    - Lynx
+  - lynx-app-file-system (1.0.0):
+    - Lynx
+  - lynx-app-haptics (1.0.0):
     - Lynx
   - lynx-app-mmkv (1.0.0):
     - Lynx
     - MMKV (= 2.4.1)
+  - lynx-app-router (1.0.0):
+    - Lynx
+  - lynx-app-screenshot (1.0.0):
+    - Lynx
+  - lynx-app-toast (1.0.0):
+    - Lynx
   - lynx-app-websocket (1.0.0):
     - Lynx
   - Lynx/Framework (4.0.0):
@@ -189,8 +207,17 @@ DEPENDENCIES:
   - BaseDevtool (= 4.0.0)
   - DebugRouter (= 5.0.15)
   - DebugRouter/MessageTransceiverEnable (= 5.0.15)
+  - lynx-app-album-utils (from `/Users/u/workspace/lynx-template/autolink/album-utils/ios`)
+  - lynx-app-biometric (from `/Users/u/workspace/lynx-template/autolink/biometric/ios`)
   - lynx-app-clipboard (from `/Users/u/workspace/lynx-template/autolink/clipboard/ios`)
+  - lynx-app-device-info (from `/Users/u/workspace/lynx-template/autolink/device-info/ios`)
+  - lynx-app-display (from `/Users/u/workspace/lynx-template/autolink/display/ios`)
+  - lynx-app-file-system (from `/Users/u/workspace/lynx-template/autolink/file-system/ios`)
+  - lynx-app-haptics (from `/Users/u/workspace/lynx-template/autolink/haptics/ios`)
   - lynx-app-mmkv (from `/Users/u/workspace/lynx-template/autolink/mmkv/ios`)
+  - lynx-app-router (from `/Users/u/workspace/lynx-template/autolink/router/ios`)
+  - lynx-app-screenshot (from `/Users/u/workspace/lynx-template/autolink/screenshot/ios`)
+  - lynx-app-toast (from `/Users/u/workspace/lynx-template/autolink/toast/ios`)
   - lynx-app-websocket (from `/Users/u/workspace/lynx-template/autolink/websocket/ios`)
   - Lynx/Framework (= 4.0.0)
   - LynxDevtool (= 4.0.0)
@@ -227,10 +254,28 @@ SPEC REPOS:
     - XElement
 
 EXTERNAL SOURCES:
+  lynx-app-album-utils:
+    :path: "/Users/u/workspace/lynx-template/autolink/album-utils/ios"
+  lynx-app-biometric:
+    :path: "/Users/u/workspace/lynx-template/autolink/biometric/ios"
   lynx-app-clipboard:
     :path: "/Users/u/workspace/lynx-template/autolink/clipboard/ios"
+  lynx-app-device-info:
+    :path: "/Users/u/workspace/lynx-template/autolink/device-info/ios"
+  lynx-app-display:
+    :path: "/Users/u/workspace/lynx-template/autolink/display/ios"
+  lynx-app-file-system:
+    :path: "/Users/u/workspace/lynx-template/autolink/file-system/ios"
+  lynx-app-haptics:
+    :path: "/Users/u/workspace/lynx-template/autolink/haptics/ios"
   lynx-app-mmkv:
     :path: "/Users/u/workspace/lynx-template/autolink/mmkv/ios"
+  lynx-app-router:
+    :path: "/Users/u/workspace/lynx-template/autolink/router/ios"
+  lynx-app-screenshot:
+    :path: "/Users/u/workspace/lynx-template/autolink/screenshot/ios"
+  lynx-app-toast:
+    :path: "/Users/u/workspace/lynx-template/autolink/toast/ios"
   lynx-app-websocket:
     :path: "/Users/u/workspace/lynx-template/autolink/websocket/ios"
   LynxLibraryRegistry:
@@ -241,8 +286,17 @@ SPEC CHECKSUMS:
   DebugRouter: f0323a03519feabd12f553f0da7ac7931873a0ea
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   Lynx: 34c94a5ca239b8c282519ccbb598da390c3d7741
+  lynx-app-album-utils: 945e846361c8b9a3f51f2afed5a2363f3c3efcde
+  lynx-app-biometric: 2422797a73addbe29137aed33c284d36c387a553
   lynx-app-clipboard: 4fa5b6d19bbf978336d5c8b09e303bee5ae35821
+  lynx-app-device-info: 877a9ba5ffc6dfcf9c86fd31766a1a391eaed6ea
+  lynx-app-display: 864bc84cf1b0b293dc65d1b38be54c8a999b8c0a
+  lynx-app-file-system: 6d54f5949461556a89bae0b94e3c5addb147173d
+  lynx-app-haptics: 837ff778e906de9ac37005abd56e16f6c4defd8d
   lynx-app-mmkv: 7860d1659d1f824fdfa88825b8bcf21e42b4f96d
+  lynx-app-router: c0be761ca8cac8e62ce35f85a66996bdd755c831
+  lynx-app-screenshot: 08441a9cbc39beb4aa76b2dc31346f04f920dcf2
+  lynx-app-toast: 30b0418ffb0ef98f845fe56ea40395ffc2b83d19
   lynx-app-websocket: d660c782afd55c0a41f02e0edd295c68f7a2a6f5
   LynxBase: 0d3bd0b34481421ab2650c5ce2ede9bd8a9d4d0d
   LynxDevtool: 5ebbad403003238da502c4cd3e2c3593a8fd2535

@@ -46,12 +46,11 @@ class LynxPageViewController: UIViewController {
 
     let config = LynxConfig(provider: bundleRepository)
     let nativeBackController = NativeBackController(host: self)
-    config.register(NativeHapticsModule.self)
-    config.register(NativeRouterModule.self, param: self)
-    config.register(NativeStatusBarModule.self, param: self)
-    config.register(NativeBackModule.self, param: nativeBackController)
-    // WebSocket, MMKV storage and clipboard come from the autolink/*
-    // workspace libraries; HarmonyOS hosts register their own instead.
+    config.register(StatusBarModule.self, param: self)
+    config.register(BackModule.self, param: nativeBackController)
+    // Router, WebSocket, MMKV storage, clipboard and haptics come from the
+    // autolink/* workspace libraries; HarmonyOS hosts register their own
+    // instead. The Router's host navigation installs once in AppDelegate.
     LynxGeneratedLibraryRegistry().setup(config)
     let lynxView = LynxView { builder in
       builder.config = config

@@ -9,11 +9,18 @@ import com.lynx.service.image.LynxImageService
 import com.lynx.service.log.LynxLogService
 import com.lynx.tasm.LynxEnv
 import com.lynx.tasm.service.LynxServiceCenter
+import com.lynxapp.autolink.router.RouterModule
+import com.lynxapp.nativemodule.AppRouteHandler
 
 class LynxTemplateApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        // MMKV bootstrap lives in the autolinked NativeKVModule library.
+        AppInstrumentation.init(this)
+        // MMKV bootstrap lives in the autolinked KV library.
+        // The autolinked Router module delegates in-app bundle navigation
+        // to this stateless host handler; it must be installed before the
+        // first Lynx view is created.
+        RouterModule.setRouteHandler(AppRouteHandler())
         initLynxService()
         initLynxEnv()
         DevToolInitializer.onEnvironmentInitialized(this)

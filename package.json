@@ -45,8 +45,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
+    "@lynx-template/autolink-album-utils": "workspace:*",
+    "@lynx-template/autolink-biometric": "workspace:*",
     "@lynx-template/autolink-clipboard": "workspace:*",
+    "@lynx-template/autolink-device-info": "workspace:*",
+    "@lynx-template/autolink-display": "workspace:*",
+    "@lynx-template/autolink-file-system": "workspace:*",
+    "@lynx-template/autolink-haptics": "workspace:*",
     "@lynx-template/autolink-mmkv": "workspace:*",
+    "@lynx-template/autolink-router": "workspace:*",
+    "@lynx-template/autolink-screenshot": "workspace:*",
+    "@lynx-template/autolink-toast": "workspace:*",
     "@lynx-template/autolink-websocket": "workspace:*",
     "typescript": "catalog:",
     "ws": "catalog:"

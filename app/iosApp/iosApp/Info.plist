@@ -4,10 +4,31 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>iosApp</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lynxapp.lynxapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Demo deep link so router.openURL('lynxapp://main') can open
+				     this app's own registered page. -->
+				<string>lynxapp</string>
+			</array>
+		</dict>
+	</array>
 	<key>LynxUpdateManifestURL</key>
 	<string></string>
+	<!-- Required whenever the Biometric module uses Face ID; Touch ID needs
+	     no key. The system shows this string before the first Face ID scan. -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Confirm your identity with Face ID in Lynx pages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to the local Rspeedy server while developing Lynx bundles.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save images you choose to keep into the photo album.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Select photos you choose to use in Lynx pages on iOS 13.</string>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDarkContent</string>
 	<key>UIApplicationSceneManifest</key>

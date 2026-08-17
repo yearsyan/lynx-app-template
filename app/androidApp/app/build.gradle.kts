@@ -92,6 +92,9 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // LynxPageActivity extends FragmentActivity so the autolinked Biometric
+    // library can host BiometricPrompt on the current Lynx page.
+    implementation("androidx.fragment:fragment:1.8.9")
     // Lynx 4.0 still requests AppCompat 1.0.0, whose VectorDrawable AARs
     // shared one namespace. Pin the binary-compatible artifacts that use
     // unique namespaces as required by AGP 9.
@@ -127,6 +130,10 @@ dependencies {
 
     debugImplementation("org.lynxsdk.lynx:lynx-devtool:4.0.0")
     debugImplementation("org.lynxsdk.lynx:lynx-service-devtool:4.0.0")
+
+    // Stetho: chrome://inspect debugging (network, database, dumpapp). Debug only.
+    debugImplementation("com.facebook.stetho:stetho:1.6.0")
+    debugImplementation("com.facebook.stetho:stetho-okhttp3:1.6.0")
 
     // integrating XElement
     implementation("org.lynxsdk.lynx:xelement:4.0.0")

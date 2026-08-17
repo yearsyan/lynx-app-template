@@ -1,10 +1,10 @@
+import { useRouteParams } from '@lynx-app/native-bridge';
 import { useCallback, useState } from '@lynx-js/react';
 import {
   ActivityBottomSheet,
   openActivityBottomSheet,
   useActivityBottomSheet,
 } from '@lynx-template/activity-sheet';
-import { useRouteParams } from '@lynx-template/native-bridge';
 
 import './App.css';
 

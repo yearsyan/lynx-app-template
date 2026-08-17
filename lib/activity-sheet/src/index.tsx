@@ -1,4 +1,14 @@
 import {
+  type BackEdge,
+  type BackEvent,
+  type BackPhase,
+  backStack,
+  type RouteAnimation,
+  readSafeAreaInsets,
+  router,
+  type StatusBarStyle,
+} from '@lynx-app/native-bridge';
+import {
   type ReactNode,
   runOnBackground,
   useCallback,
@@ -13,16 +23,6 @@ import type {
   MainThread,
   Target,
 } from '@lynx-js/types';
-import {
-  type NativeBackEdge,
-  type NativeBackEvent,
-  type NativeBackPhase,
-  type NativeRouteAnimation,
-  type NativeStatusBarStyle,
-  nativeBackStack,
-  nativeRouter,
-  readSafeAreaInsets,
-} from '@lynx-template/native-bridge';
 
 import './style.css';
 
@@ -49,23 +49,23 @@ interface PanelDragState {
 
 export interface OpenActivityBottomSheetOptions {
   bundle: string;
-  statusBarStyle?: NativeStatusBarStyle;
+  statusBarStyle?: StatusBarStyle;
   /** Native transition behind the sheet's own panel animation. */
-  animation?: NativeRouteAnimation;
+  animation?: RouteAnimation;
   params?: Record<string, unknown>;
 }
 
 export interface UseActivityBottomSheetOptions {
   /** Override only when the sheet is hosted outside a native routed page. */
   closeRoute?: () => Promise<void>;
-  onBackEvent?: (event: NativeBackEvent) => void;
+  onBackEvent?: (event: BackEvent) => void;
   onError?: (error: Error) => void;
 }
 
 export interface ActivityBottomSheetController {
-  readonly edge: NativeBackEdge;
+  readonly edge: BackEdge;
   readonly percentage: number;
-  readonly phase: NativeBackPhase | 'ready' | 'error';
+  readonly phase: BackPhase | 'ready' | 'error';
   readonly presented: boolean;
   readonly progress: number;
   readonly tracking: boolean;
@@ -105,7 +105,7 @@ export function openActivityBottomSheet(
   options: OpenActivityBottomSheetOptions,
 ): Promise<void> {
   'background only';
-  return nativeRouter.open({
+  return router.open({
     bundle: options.bundle,
     presentation: 'sheet',
     transparent: true,
@@ -118,13 +118,11 @@ export function openActivityBottomSheet(
 export function useActivityBottomSheet(
   options: UseActivityBottomSheetOptions = {},
 ): ActivityBottomSheetController {
-  const closeRoute = options.closeRoute ?? nativeRouter.close;
+  const closeRoute = options.closeRoute ?? router.close;
   const [presented, setPresented] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<NativeBackPhase | 'ready' | 'error'>(
-    'ready',
-  );
-  const [edge, setEdge] = useState<NativeBackEdge>('none');
+  const [phase, setPhase] = useState<BackPhase | 'ready' | 'error'>('ready');
+  const [edge, setEdge] = useState<BackEdge>('none');
   const [tracking, setTracking] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -172,7 +170,7 @@ export function useActivityBottomSheet(
 
   useEffect(() => {
     'background only';
-    const registration = nativeBackStack.addInterceptor((event) => {
+    const registration = backStack.addInterceptor((event) => {
       'background only';
       setPhase(event.phase);
       setEdge(event.edge);

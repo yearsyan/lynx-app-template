@@ -19,8 +19,17 @@ import com.lynx.tasm.library.LynxLibraryRegistry;
 @Keep
 public final class LynxAutolinkRegistry {
     private static final String[] PROVIDERS = new String[] {
+            "com.lynxapp.autolink.albumutils.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.biometric.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.clipboard.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.deviceinfo.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.display.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.filesystem.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.haptics.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.mmkv.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.router.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.screenshot.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.toast.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.websocket.LynxLibraryProviderImpl",
     };
 

@@ -1,10 +1,18 @@
 /** Shared contracts and wrappers for native modules provided by each host. */
 import { useEffect, useInitData, useRef } from '@lynx-js/react';
+import type { PickerModule, PickerOptions } from './fileSystem.js';
+import { completePicker, normalizePickerOptions } from './fileSystem.js';
 
+export * from './biometric.js';
+export * from './deviceInfo.js';
+export * from './display.js';
+export * from './fileSystem.js';
 export * from './nativeEnvironment.js';
-export * from './nativeWebSocket.js';
+export * from './screenshot.js';
+export * from './toast.js';
+export * from './webSocket.js';
 
-export interface NativeKVModule {
+export interface KVModule {
   setString(
     key: string,
     value: string,
@@ -20,155 +28,169 @@ export interface NativeKVModule {
   contains(key: string, callback: (contains: boolean) => void): void;
 }
 
-export type NativeRoutePresentation = 'push' | 'sheet';
-export type NativeRouteAnimation = 'default' | 'fade' | 'none';
-export type NativeStatusBarStyle = 'dark-content' | 'light-content';
+export type RoutePresentation = 'push' | 'sheet';
+export type RouteAnimation = 'default' | 'fade' | 'none';
+export type StatusBarStyle = 'dark-content' | 'light-content';
 
-export interface NativeRouteOptions {
+export interface RouteOptions {
   bundle: string;
-  presentation?: NativeRoutePresentation;
+  presentation?: RoutePresentation;
   transparent?: boolean;
   /** Foreground style for status-bar icons and text on the destination page. */
-  statusBarStyle?: NativeStatusBarStyle;
+  statusBarStyle?: StatusBarStyle;
   /**
    * Native open/close transition. 'default' keeps each platform's standard
    * push transition, 'fade' cross-fades, and 'none' opens/closes instantly.
    */
-  animation?: NativeRouteAnimation;
+  animation?: RouteAnimation;
   params?: Record<string, unknown>;
 }
 
-export interface NativeRouterModule {
-  open(options: NativeRouteOptions, callback: (error: string) => void): void;
+export interface RouterModule {
+  open(options: RouteOptions, callback: (error: string) => void): void;
   close(callback: (error: string) => void): void;
+  /**
+   * Resolves the URL through the system, launching the app that registered
+   * the scheme — including this app's own pages.
+   */
+  openURL(url: string, callback: (error: string) => void): void;
 }
 
-export interface NativeStatusBarModule {
-  setStyle(
-    style: NativeStatusBarStyle,
-    callback: (error: string) => void,
-  ): void;
+export interface StatusBarModule {
+  setStyle(style: StatusBarStyle, callback: (error: string) => void): void;
 }
 
-export interface NativeClipboardModule {
+export interface ClipboardModule {
   setString(text: string, callback: (error: string) => void): void;
   getString(callback: (text: string | null) => void): void;
 }
 
-export type NativeHapticImpact = 'light' | 'medium' | 'heavy';
+export type HapticImpact = 'light' | 'medium' | 'heavy';
 
-export interface NativeHapticsModule {
-  impact(style: NativeHapticImpact, callback: (error: string) => void): void;
+export interface HapticsModule {
+  impact(style: HapticImpact, callback: (error: string) => void): void;
 }
 
-export type NativeBackPlatform = 'android' | 'ios' | 'harmony';
-export type NativeBackPhase = 'start' | 'progress' | 'cancel' | 'commit';
-export type NativeBackSource = 'system' | 'gesture' | 'button';
-export type NativeBackEdge = 'left' | 'right' | 'none';
+/** Album utilities: picking images and saving images into the system album. */
+export interface AlbumUtilsModule {
+  pick(maxSelection: number, callback: (resultJSON: string) => void): void;
+  saveToAlbum(uri: string, callback: (error: string) => void): void;
+}
 
-export interface NativeBackEvent {
-  platform: NativeBackPlatform;
-  phase: NativeBackPhase;
+export type BackPlatform = 'android' | 'ios' | 'harmony';
+export type BackPhase = 'start' | 'progress' | 'cancel' | 'commit';
+export type BackSource = 'system' | 'gesture' | 'button';
+export type BackEdge = 'left' | 'right' | 'none';
+
+export interface BackEvent {
+  platform: BackPlatform;
+  phase: BackPhase;
   progress: number;
-  source: NativeBackSource;
-  edge: NativeBackEdge;
+  source: BackSource;
+  edge: BackEdge;
   touchX: number;
   touchY: number;
 }
 
-export interface NativeBackModule {
+export interface BackModule {
   setEnabled(enabled: boolean, callback: (error: string) => void): void;
 }
 
-export type NativeBackListener = (event: NativeBackEvent) => void;
+export type BackListener = (event: BackEvent) => void;
 
-export interface NativeBackInterceptorRegistration {
+export interface BackInterceptorRegistration {
   /** Resolves after the native host has enabled back interception. */
   readonly ready: Promise<void>;
   /** Removes this interceptor. Calling remove more than once is safe. */
   remove(): void;
 }
 
-export const NATIVE_BACK_EVENT = 'nativeBack';
+export const BACK_EVENT = 'back';
 
-interface TemplateNativeModules {
-  NativeKVModule?: NativeKVModule;
-  NativeRouterModule?: NativeRouterModule;
-  NativeStatusBarModule?: NativeStatusBarModule;
-  NativeBackModule?: NativeBackModule;
-  NativeClipboardModule?: NativeClipboardModule;
-  NativeHapticsModule?: NativeHapticsModule;
+interface AppModules {
+  KV?: KVModule;
+  Router?: RouterModule;
+  StatusBar?: StatusBarModule;
+  Back?: BackModule;
+  Clipboard?: ClipboardModule;
+  Haptics?: HapticsModule;
+  AlbumUtils?: AlbumUtilsModule;
 }
 
-function nativeModules(): TemplateNativeModules {
+function modules(): AppModules {
   'background only';
-  return NativeModules as TemplateNativeModules;
+  return NativeModules as AppModules;
 }
 
-function requireKVModule(): NativeKVModule {
+function requireKVModule(): KVModule {
   'background only';
-  const module = nativeModules().NativeKVModule;
+  const module = modules().KV;
   if (module === undefined) {
-    throw new Error('NativeKVModule is not registered by the native host');
+    throw new Error('KV is not registered by the host');
   }
   return module;
 }
 
-function requireRouterModule(): NativeRouterModule {
+function requireRouterModule(): RouterModule {
   'background only';
-  const module = nativeModules().NativeRouterModule;
+  const module = modules().Router;
   if (module === undefined) {
-    throw new Error('NativeRouterModule is not registered by the native host');
+    throw new Error('Router is not registered by the host');
   }
   return module;
 }
 
-function requireStatusBarModule(): NativeStatusBarModule {
+function requireStatusBarModule(): StatusBarModule {
   'background only';
-  const module = nativeModules().NativeStatusBarModule;
+  const module = modules().StatusBar;
   if (module === undefined) {
-    throw new Error(
-      'NativeStatusBarModule is not registered by the native host',
-    );
+    throw new Error('StatusBar is not registered by the host');
   }
   return module;
 }
 
-function requireClipboardModule(): NativeClipboardModule {
+function requireClipboardModule(): ClipboardModule {
   'background only';
-  const module = nativeModules().NativeClipboardModule;
+  const module = modules().Clipboard;
   if (module === undefined) {
-    throw new Error(
-      'NativeClipboardModule is not registered by the native host',
-    );
+    throw new Error('Clipboard is not registered by the host');
   }
   return module;
 }
 
-function requireHapticsModule(): NativeHapticsModule {
+function requireHapticsModule(): HapticsModule {
   'background only';
-  const module = nativeModules().NativeHapticsModule;
+  const module = modules().Haptics;
   if (module === undefined) {
-    throw new Error('NativeHapticsModule is not registered by the native host');
+    throw new Error('Haptics is not registered by the host');
   }
   return module;
 }
 
-function requireBackModule(): NativeBackModule {
+function requireAlbumUtilsModule(): AlbumUtilsModule {
   'background only';
-  const module = nativeModules().NativeBackModule;
+  const module = modules().AlbumUtils;
   if (module === undefined) {
-    throw new Error('NativeBackModule is not registered by the native host');
+    throw new Error('AlbumUtils is not registered by the host');
   }
   return module;
 }
 
-function isNativeBackEvent(value: unknown): value is NativeBackEvent {
+function requireBackModule(): BackModule {
+  'background only';
+  const module = modules().Back;
+  if (module === undefined) {
+    throw new Error('Back is not registered by the host');
+  }
+  return module;
+}
+
+function isBackEvent(value: unknown): value is BackEvent {
   'background only';
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const event = value as Partial<NativeBackEvent>;
+  const event = value as Partial<BackEvent>;
   return (
     (event.platform === 'android' ||
       event.platform === 'ios' ||
@@ -196,9 +218,7 @@ function validateKey(key: string): void {
   }
 }
 
-function validateStatusBarStyle(
-  style: NativeStatusBarStyle,
-): NativeStatusBarStyle {
+function validateStatusBarStyle(style: StatusBarStyle): StatusBarStyle {
   'background only';
   if (style !== 'dark-content' && style !== 'light-content') {
     throw new Error(`Invalid status bar style: ${String(style)}`);
@@ -206,9 +226,7 @@ function validateStatusBarStyle(
   return style;
 }
 
-function validateRouteAnimation(
-  animation: NativeRouteAnimation,
-): NativeRouteAnimation {
+function validateRouteAnimation(animation: RouteAnimation): RouteAnimation {
   'background only';
   if (animation !== 'default' && animation !== 'fade' && animation !== 'none') {
     throw new Error(`Invalid route animation: ${String(animation)}`);
@@ -216,7 +234,7 @@ function validateRouteAnimation(
   return animation;
 }
 
-function validateHapticImpact(style: NativeHapticImpact): NativeHapticImpact {
+function validateHapticImpact(style: HapticImpact): HapticImpact {
   'background only';
   if (style !== 'light' && style !== 'medium' && style !== 'heavy') {
     throw new Error(`Invalid haptic impact style: ${String(style)}`);
@@ -239,7 +257,7 @@ function complete(
   });
 }
 
-export const nativeKV = {
+export const kv = {
   setString(key: string, value: string): Promise<void> {
     'background only';
     validateKey(key);
@@ -297,13 +315,10 @@ export const nativeKV = {
   },
 };
 
-export const nativeRouter = {
-  open(options: NativeRouteOptions): Promise<void> {
+export const router = {
+  open(options: RouteOptions): Promise<void> {
     'background only';
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(options.bundle)) {
-      throw new Error(`Invalid Lynx bundle name: ${options.bundle}`);
-    }
-    const normalized: NativeRouteOptions = {
+    const normalized: RouteOptions = {
       bundle: options.bundle,
       presentation: options.presentation ?? 'push',
       transparent: options.transparent ?? options.presentation === 'sheet',
@@ -322,11 +337,21 @@ export const nativeRouter = {
     'background only';
     return complete((callback) => requireRouterModule().close(callback));
   },
+
+  /**
+   * Opens a URL through the system router. Any app that registered the
+   * scheme can handle it, including this app's own scheme pages —
+   * `lynxapp://main`, `weixin://`, `imeituan://`, `https://…` and so on.
+   */
+  openURL(url: string): Promise<void> {
+    'background only';
+    return complete((callback) => requireRouterModule().openURL(url, callback));
+  },
 };
 
 /** Controls the foreground color of the current native status bar. */
-export const nativeStatusBar = {
-  setStyle(style: NativeStatusBarStyle): Promise<void> {
+export const statusBar = {
+  setStyle(style: StatusBarStyle): Promise<void> {
     'background only';
     const normalized = validateStatusBarStyle(style);
     return complete((callback) =>
@@ -335,8 +360,8 @@ export const nativeStatusBar = {
   },
 };
 
-/** System clipboard for plain text; HarmonyOS support is pending. */
-export const nativeClipboard = {
+/** System clipboard for plain text. */
+export const clipboard = {
   setString(text: string): Promise<void> {
     'background only';
     return complete((callback) =>
@@ -355,9 +380,9 @@ export const nativeClipboard = {
   },
 };
 
-/** One-shot haptic feedback; HarmonyOS support is pending. */
-export const nativeHaptics = {
-  impact(style: NativeHapticImpact): Promise<void> {
+/** One-shot haptic feedback. */
+export const haptics = {
+  impact(style: HapticImpact): Promise<void> {
     'background only';
     const normalized = validateHapticImpact(style);
     return complete((callback) =>
@@ -366,7 +391,35 @@ export const nativeHaptics = {
   },
 };
 
-export const nativeBack = {
+/** Picks images from the system album and saves image URIs back into it. */
+export const albumUtils = {
+  /** Selects images through the platform's user-visible album picker. */
+  pick(options: PickerOptions = {}): Promise<string[]> {
+    'background only';
+    const maxSelection = normalizePickerOptions(options);
+    return completePicker(
+      requireAlbumUtilsModule() as PickerModule,
+      maxSelection,
+    );
+  },
+
+  /**
+   * Writes an image URI (a picker or cache URI readable by `fileSystem`)
+   * into the system album. The platform may ask the user for confirmation.
+   */
+  saveToAlbum(uri: string): Promise<void> {
+    'background only';
+    const normalized = uri.trim();
+    if (normalized.length === 0) {
+      throw new Error('Image URI must not be empty');
+    }
+    return complete((callback) =>
+      requireAlbumUtilsModule().saveToAlbum(normalized, callback),
+    );
+  },
+};
+
+export const back = {
   setEnabled(enabled: boolean): Promise<void> {
     'background only';
     return complete((callback) =>
@@ -374,47 +427,47 @@ export const nativeBack = {
     );
   },
 
-  addListener(listener: NativeBackListener): () => void {
+  addListener(listener: BackListener): () => void {
     'background only';
     const emitter = lynx.getJSModule('GlobalEventEmitter');
     const adapter = (payload: unknown) => {
       'background only';
-      if (isNativeBackEvent(payload)) {
+      if (isBackEvent(payload)) {
         listener(payload);
       }
     };
-    emitter.addListener(NATIVE_BACK_EVENT, adapter);
+    emitter.addListener(BACK_EVENT, adapter);
     return () => {
       'background only';
-      emitter.removeListener(NATIVE_BACK_EVENT, adapter);
+      emitter.removeListener(BACK_EVENT, adapter);
     };
   },
 };
 
-interface NativeBackInterceptorEntry {
-  listener: NativeBackListener;
+interface BackInterceptorEntry {
+  listener: BackListener;
   removed: boolean;
 }
 
-const nativeBackInterceptors: NativeBackInterceptorEntry[] = [];
-let activeNativeBackInterceptor: NativeBackInterceptorEntry | null = null;
-let removeNativeBackStackListener: (() => void) | null = null;
-let nativeBackStackEnabled = false;
-let nativeBackStackDesiredEnabled = false;
-let nativeBackStackSync: Promise<void> = Promise.resolve();
+const backInterceptors: BackInterceptorEntry[] = [];
+let activeBackInterceptor: BackInterceptorEntry | null = null;
+let removeBackStackListener: (() => void) | null = null;
+let backStackEnabled = false;
+let backStackDesiredEnabled = false;
+let backStackSync: Promise<void> = Promise.resolve();
 
-function topNativeBackInterceptor(): NativeBackInterceptorEntry | null {
+function topBackInterceptor(): BackInterceptorEntry | null {
   'background only';
-  return nativeBackInterceptors[nativeBackInterceptors.length - 1] ?? null;
+  return backInterceptors[backInterceptors.length - 1] ?? null;
 }
 
-function dispatchNativeBackStackEvent(event: NativeBackEvent): void {
+function dispatchBackStackEvent(event: BackEvent): void {
   'background only';
-  if (event.phase === 'start' || activeNativeBackInterceptor === null) {
-    activeNativeBackInterceptor = topNativeBackInterceptor();
+  if (event.phase === 'start' || activeBackInterceptor === null) {
+    activeBackInterceptor = topBackInterceptor();
   }
 
-  const target = activeNativeBackInterceptor;
+  const target = activeBackInterceptor;
   const isTerminal = event.phase === 'cancel' || event.phase === 'commit';
   try {
     // Keep a gesture pinned to the interceptor that received `start`. If that
@@ -425,41 +478,39 @@ function dispatchNativeBackStackEvent(event: NativeBackEvent): void {
     }
   } finally {
     if (isTerminal) {
-      activeNativeBackInterceptor = null;
+      activeBackInterceptor = null;
     }
   }
 }
 
-function ensureNativeBackStackListener(): void {
+function ensureBackStackListener(): void {
   'background only';
-  if (removeNativeBackStackListener !== null) {
+  if (removeBackStackListener !== null) {
     return;
   }
-  removeNativeBackStackListener = nativeBack.addListener(
-    dispatchNativeBackStackEvent,
-  );
+  removeBackStackListener = back.addListener(dispatchBackStackEvent);
 }
 
-function reportNativeBackStackError(error: unknown): void {
+function reportBackStackError(error: unknown): void {
   'background only';
   const message = error instanceof Error ? error.message : String(error);
   console.error(`Unable to synchronize native back stack: ${message}`);
 }
 
-function reconcileNativeBackStack(): Promise<void> {
+function reconcileBackStack(): Promise<void> {
   'background only';
-  nativeBackStackDesiredEnabled = nativeBackInterceptors.length > 0;
-  nativeBackStackSync = nativeBackStackSync
+  backStackDesiredEnabled = backInterceptors.length > 0;
+  backStackSync = backStackSync
     .catch(() => {})
     .then(async () => {
       'background only';
-      while (nativeBackStackEnabled !== nativeBackStackDesiredEnabled) {
-        const nextEnabled = nativeBackStackDesiredEnabled;
-        await nativeBack.setEnabled(nextEnabled);
-        nativeBackStackEnabled = nextEnabled;
+      while (backStackEnabled !== backStackDesiredEnabled) {
+        const nextEnabled = backStackDesiredEnabled;
+        await back.setEnabled(nextEnabled);
+        backStackEnabled = nextEnabled;
       }
     });
-  return nativeBackStackSync;
+  return backStackSync;
 }
 
 /**
@@ -467,16 +518,14 @@ function reconcileNativeBackStack(): Promise<void> {
  * sheets. Only the most recently added interceptor receives a gesture. Native
  * interception stays enabled until the final entry is removed.
  */
-export const nativeBackStack = {
-  addInterceptor(
-    listener: NativeBackListener,
-  ): NativeBackInterceptorRegistration {
+export const backStack = {
+  addInterceptor(listener: BackListener): BackInterceptorRegistration {
     'background only';
-    ensureNativeBackStackListener();
-    const entry: NativeBackInterceptorEntry = { listener, removed: false };
-    nativeBackInterceptors.push(entry);
-    const ready = reconcileNativeBackStack();
-    ready.catch(reportNativeBackStackError);
+    ensureBackStackListener();
+    const entry: BackInterceptorEntry = { listener, removed: false };
+    backInterceptors.push(entry);
+    const ready = reconcileBackStack();
+    ready.catch(reportBackStackError);
 
     return {
       ready,
@@ -486,18 +535,18 @@ export const nativeBackStack = {
           return;
         }
         entry.removed = true;
-        const index = nativeBackInterceptors.lastIndexOf(entry);
+        const index = backInterceptors.lastIndexOf(entry);
         if (index >= 0) {
-          nativeBackInterceptors.splice(index, 1);
+          backInterceptors.splice(index, 1);
         }
-        reconcileNativeBackStack().catch(reportNativeBackStackError);
+        reconcileBackStack().catch(reportBackStackError);
       },
     };
   },
 
   get size(): number {
     'background only';
-    return nativeBackInterceptors.length;
+    return backInterceptors.length;
   },
 };
 
@@ -517,14 +566,14 @@ export function useRouteParams<
  * cleanup. Interceptors form a LIFO stack, so the most recently enabled one
  * sees the gesture first. The latest `onEvent` is always invoked; only
  * `enabled` re-registers. The top interceptor must handle `commit` (close
- * its popup or call `nativeRouter.close()`), or the back gesture is
+ * its popup or call `router.close()`), or the back gesture is
  * consumed with no visible effect.
  */
-export function useNativeBackInterceptor(
-  onEvent: NativeBackListener,
+export function useBackInterceptor(
+  onEvent: BackListener,
   enabled = true,
 ): void {
-  const handlerRef = useRef<NativeBackListener>(onEvent);
+  const handlerRef = useRef<BackListener>(onEvent);
   useEffect(() => {
     handlerRef.current = onEvent;
   });
@@ -532,7 +581,7 @@ export function useNativeBackInterceptor(
     if (!enabled) {
       return;
     }
-    const registration = nativeBackStack.addInterceptor((event) => {
+    const registration = backStack.addInterceptor((event) => {
       'background only';
       handlerRef.current(event);
     });

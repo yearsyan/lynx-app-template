@@ -1,0 +1,12 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.toast",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-toast.podspec"
+    }
+  }
+}

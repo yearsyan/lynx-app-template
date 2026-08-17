@@ -17,9 +17,16 @@
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
 ├── autolink          # Lynx Autolink 原生库，Android/iOS 自动注册同名 NativeModule
-│   ├── clipboard     # NativeClipboardModule
-│   ├── mmkv          # NativeKVModule（MMKV 字符串存储）
-│   └── websocket     # NativeWebSocketModule
+│   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
+│   ├── clipboard     # Clipboard
+│   ├── device-info   # DeviceInfo
+│   ├── display       # Display
+│   ├── file-system   # FileSystem（系统文件选择器 + URI 文件操作）
+│   ├── haptics       # Haptics
+│   ├── album-utils   # AlbumUtils（相册选图 + 存图）
+│   ├── mmkv          # KV（MMKV 字符串存储）
+│   ├── screenshot    # Screenshot（视图 / 页面截图存入缓存）
+│   └── websocket     # WebSocket
 ├── bundle           # 可独立构建和发布的 Lynx bundles
 │   └── main         # 默认 Lynx bundle
 ├── lib              # bundles 共享的基础库 workspace packages
@@ -43,7 +50,7 @@
 
 缓存损坏、版本不匹配或网络失败不会覆盖内置兜底资源。详细设计见 [Debug 开发配置](docs/development-settings.md)、[Native Environment 数据契约](docs/native-environment.md)、[NativeModules、原生路由与返回](docs/native-modules.md)、[Lynx 网络请求](docs/networking.md) 和 [热更新协议](docs/hot-update.md)。
 
-WebSocket、MMKV 存储与剪贴板三个原生模块由 `autolink/` 目录中的 Lynx 原生库提供，
+WebSocket、MMKV 存储、剪贴板、触感反馈、生物识别（系统指纹 / 面容弹窗，可选锁屏凭证降级）、相册工具（选图 + 存图）、文件系统（系统文件选择器 + URI 文件操作）、设备信息、显示宽度、截图（视图 / 页面 PNG、JPEG 存入缓存）与路由（应用内导航 + 系统 scheme）十一个原生模块由 `autolink/` 目录中的 Lynx 原生库提供，
 Android 与 iOS 宿主通过 Lynx Autolink 自动接入；HarmonyOS 不支持 Autolink，仍由宿主手动注册
 同名模块。集成细节见 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
 

@@ -16,7 +16,7 @@
   "dependencies": {
     "@lynx-js/react": "catalog:",
     "@lynx-template/activity-sheet": "workspace:*",
-    "@lynx-template/native-bridge": "workspace:*"
+    "@lynx-app/native-bridge": "workspace:*"
   },
   "devDependencies": {
     "@lynx-js/preact-devtools": "catalog:",

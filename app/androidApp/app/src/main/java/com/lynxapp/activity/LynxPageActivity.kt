@@ -1,9 +1,9 @@
 package com.lynxapp.activity
 
-import android.app.Activity
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import androidx.fragment.app.FragmentActivity
 import com.google.gson.Gson
 import com.lynx.tasm.LynxView
 import com.lynxapp.LynxBundleRepository
@@ -11,11 +11,16 @@ import com.lynxapp.component.NativeEnvironmentBridge
 import com.lynxapp.component.STATUS_BAR_STYLE_DARK_CONTENT
 import com.lynxapp.component.createLynxView
 import com.lynxapp.component.enableLynxEdgeToEdge
+import com.lynxapp.autolink.router.RouterModule
 import com.lynxapp.nativemodule.NativeBackController
-import com.lynxapp.nativemodule.NativeRouterModule
 
-/** Hosts a secondary embedded Lynx bundle as an opaque page or transparent overlay. */
-open class LynxPageActivity : Activity() {
+/**
+ * Hosts a secondary embedded Lynx bundle as an opaque page or transparent overlay.
+ *
+ * Extends FragmentActivity (not plain Activity) so the autolinked Biometric
+ * module can host its BiometricPrompt on the activity that owns the LynxView.
+ */
+open class LynxPageActivity : FragmentActivity() {
     private lateinit var lynxView: LynxView
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
     private lateinit var bundleRepository: LynxBundleRepository
@@ -23,11 +28,11 @@ open class LynxPageActivity : Activity() {
 
     internal val routePresentation: String
         get() = intent.getStringExtra(EXTRA_PRESENTATION)
-            ?: NativeRouterModule.PRESENTATION_PUSH
+            ?: RouterModule.PRESENTATION_PUSH
 
     internal val routeAnimation: String
         get() = intent.getStringExtra(EXTRA_ANIMATION)
-            ?: NativeRouterModule.ANIMATION_DEFAULT
+            ?: RouterModule.ANIMATION_DEFAULT
 
     private val bundleName: String
         get() = intent.getStringExtra(EXTRA_BUNDLE) ?: DEFAULT_BUNDLE

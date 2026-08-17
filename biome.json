@@ -9,10 +9,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "bundle/main/src/App.tsx",
-        "bundle/main/src/components/PlatformDropdown.tsx"
-      ],
+      "includes": ["bundle/main/src/App.tsx"],
       "assist": {
         "actions": {
           "source": {

@@ -1,7 +1,7 @@
 # Lynx 网络请求
 
 这个模板提供两类互补的业务网络能力：标准 `fetch`/流式响应用于请求-响应与 SSE，
-App 自有的 `NativeWebSocketModule` 用于全双工长连接。WebSocket 模块不会复用或
+App 自有的 `WebSocket` 用于全双工长连接。WebSocket 模块不会复用或
 依赖 Lynx DevTool 的调试连接，接口与示例见
 [NativeModules、原生路由、返回与 WebSocket](native-modules.md#业务-websocket)。
 

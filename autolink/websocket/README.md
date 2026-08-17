@@ -1,10 +1,8 @@
 # @lynx-template/autolink-websocket
 
-Autolinked Lynx native library that registers `NativeWebSocketModule` on
+Autolinked Lynx native library that registers `WebSocket` on
 Android and iOS hosts. Bundles keep consuming the JS API through
-`@lynx-template/native-bridge`; the module name and event contract
-(`nativeWebSocket` global events) are unchanged from the previous
-host-owned implementation.
+`@lynx-app/native-bridge`; events use the `webSocket` global channel.
 
 - **Android** (`android/`) — OkHttp-based transport compiled as a Gradle
   library project and registered by `org.lynxsdk.lynx.library-build`.
@@ -12,5 +10,5 @@ host-owned implementation.
   `lynx-app-websocket` pod and registered by `cocoapods-lynx-library`.
 
 HarmonyOS hosts are **not** covered by Lynx Autolink and continue to
-register their own `NativeWebSocketModule` in
+register their own `WebSocket` in
 `app/harmonyApp/entry/src/main/ets/native/`.

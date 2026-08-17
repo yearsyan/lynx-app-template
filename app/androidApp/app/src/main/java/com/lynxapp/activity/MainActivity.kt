@@ -1,8 +1,8 @@
 package com.lynxapp.activity
 
-import android.app.Activity
 import android.os.Bundle
 import android.widget.FrameLayout
+import androidx.fragment.app.FragmentActivity
 import com.lynx.tasm.LynxView
 import com.lynxapp.DebugSettingsEntry
 import com.lynxapp.LynxBundleRepository
@@ -11,7 +11,9 @@ import com.lynxapp.component.createLynxView
 import com.lynxapp.component.enableLynxEdgeToEdge
 import com.lynxapp.nativemodule.NativeBackController
 
-class MainActivity : Activity() {
+// Extends FragmentActivity (like LynxPageActivity) so the autolinked
+// Biometric module can host its BiometricPrompt on the main Lynx page too.
+class MainActivity : FragmentActivity() {
     private lateinit var lynxView: LynxView
     private lateinit var bundleRepository: LynxBundleRepository
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge

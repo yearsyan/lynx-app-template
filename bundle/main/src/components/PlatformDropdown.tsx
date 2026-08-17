@@ -1,7 +1,4 @@
-// organizeImports is disabled for this file in biome.json: the scaffolder
-// rewrites the workspace scope below (@lynx-template -> @<user scope>), which
-// changes the sort order relative to the @lynx-js/* imports.
-import { useNativeBackInterceptor } from '@lynx-template/native-bridge';
+import { useBackInterceptor } from '@lynx-app/native-bridge';
 
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
@@ -52,7 +49,7 @@ const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
  * Lynx-built dropdown whose menu floats above the page via `position: fixed`
  * (recommended over <overlay> for fully Lynx-rendered pages) and closes on
  * backdrop tap, a scroll drag behind it, or the system back button
- * (nativeBack interception).
+ * (back interception).
  */
 export function PlatformDropdown(props: PlatformDropdownProps) {
   const { title, options, selected, disabled = false, onSelect } = props;
@@ -73,7 +70,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
 
   // Enabled only while open, so this menu sits on top of every popup that
   // was opened before it; disabling reveals the previous interceptor.
-  useNativeBackInterceptor((event) => {
+  useBackInterceptor((event) => {
     'background only';
     if (event.phase === 'commit') {
       setOpen(false);
