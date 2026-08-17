@@ -157,6 +157,14 @@ jobs:
             --platforms harmony \
             --yes
 
+      # Bundles first, under the runner's Node 22 — the HarmonyOS CLI tools
+      # below prepend their own Node 18 to PATH, which is too old for rspeedy.
+      - name: Install dependencies and build bundles
+        working-directory: ${{ runner.temp }}/ci-harmony
+        run: |
+          pnpm install
+          pnpm build:lynx
+
       # libGL is required by the HarmonyOS SDK's texture-compression tools.
       - name: Install libgl1-mesa-dev
         run: |
@@ -171,12 +179,6 @@ jobs:
         with:
           version: 6.1.1.280
           cache: true
-
-      - name: Install dependencies and build bundles
-        working-directory: ${{ runner.temp }}/ci-harmony
-        run: |
-          pnpm install
-          pnpm build:lynx
 
       # Same hvigorw invocation as pnpm build:harmonyDebug, adapted to the
       # command-line-tools layout (hvigorw is on PATH, SDK from HOS_SDK_HOME).
