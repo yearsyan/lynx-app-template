@@ -8,14 +8,18 @@
 .
 ├── .agent/skills       # 项目级 Agent skills 的统一入口
 ├── package.json        # 仓库级 pnpm 命令与工具依赖
-├── pnpm-workspace.yaml # bundle/*、lib/* 工作区与统一依赖 catalog
+├── pnpm-workspace.yaml # autolink/*、bundle/*、lib/* 工作区与统一依赖 catalog
 ├── biome.json          # 统一 lint、formatter 和 import 整理
 ├── tsconfig.base.json  # 严格 TypeScript 基线
 ├── tsconfig.lynx.json  # Lynx JSX 与 Bundler 模块解析
 ├── app
 │   ├── androidApp   # Kotlin / Gradle 原生工程
-│   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程
+│   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
+├── autolink          # Lynx Autolink 原生库，Android/iOS 自动注册同名 NativeModule
+│   ├── clipboard     # NativeClipboardModule
+│   ├── mmkv          # NativeKVModule（MMKV 字符串存储）
+│   └── websocket     # NativeWebSocketModule
 ├── bundle           # 可独立构建和发布的 Lynx bundles
 │   └── main         # 默认 Lynx bundle
 ├── lib              # bundles 共享的基础库 workspace packages
@@ -39,12 +43,16 @@
 
 缓存损坏、版本不匹配或网络失败不会覆盖内置兜底资源。详细设计见 [Debug 开发配置](docs/development-settings.md)、[Native Environment 数据契约](docs/native-environment.md)、[NativeModules、原生路由与返回](docs/native-modules.md)、[Lynx 网络请求](docs/networking.md) 和 [热更新协议](docs/hot-update.md)。
 
+WebSocket、MMKV 存储与剪贴板三个原生模块由 `autolink/` 目录中的 Lynx 原生库提供，
+Android 与 iOS 宿主通过 Lynx Autolink 自动接入；HarmonyOS 不支持 Autolink，仍由宿主手动注册
+同名模块。集成细节见 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
+
 ## 环境要求
 
 - Node.js `20.19+` 或 `22.12+`
 - pnpm `10.28+`
 - Android Studio / JDK 17+ / Android SDK 36 / Android SDK Build Tools 36.0.0
-- Xcode / CocoaPods 1.11.3+
+- Xcode / CocoaPods 1.11.3+ / Ruby Bundler（iOS 依赖含 `cocoapods-lynx-library` gem，构建脚本统一走 `bundle exec pod install`）
 - DevEco Studio 6.1.1 与 HarmonyOS SDK 24
 
 ## Bundle 开发
@@ -157,5 +165,5 @@ pnpm build:harmonyDebug
 pnpm build:harmonyRelease
 ```
 
-交互式开发仍推荐各自的 IDE：Android Studio、Xcode（先 `pod install`）、
+交互式开发仍推荐各自的 IDE：Android Studio、Xcode（先 `bundle exec pod install`）、
 DevEco Studio。

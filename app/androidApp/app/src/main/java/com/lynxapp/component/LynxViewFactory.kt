@@ -6,23 +6,19 @@ import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.xelement.XElementBehaviors
 import com.lynx.xelement.webview.BehaviorGenerator as WebViewBehaviorGenerator
+import com.lynxapp.LynxAutolinkRegistry
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxGenericResourceFetcher
 import com.lynxapp.nativemodule.NativeBackController
 import com.lynxapp.nativemodule.NativeBackModule
-import com.lynxapp.nativemodule.NativeClipboardModule
 import com.lynxapp.nativemodule.NativeHapticsModule
-import com.lynxapp.nativemodule.NativeKVModule
 import com.lynxapp.nativemodule.NativeRouterModule
 import com.lynxapp.nativemodule.NativeStatusBarModule
-import com.lynxapp.nativemodule.NativeWebSocketController
-import com.lynxapp.nativemodule.NativeWebSocketModule
 
 /** Creates every app-owned LynxView with the same native module contract. */
 internal fun Activity.createLynxView(
     bundleRepository: LynxBundleRepository,
     nativeBackController: NativeBackController,
-    nativeWebSocketController: NativeWebSocketController,
 ): LynxView {
     val builder = LynxViewBuilder()
         .addBehaviors(XElementBehaviors().create())
@@ -30,8 +26,9 @@ internal fun Activity.createLynxView(
         .setTemplateProvider(bundleRepository)
     builder.setGenericResourceFetcher(LynxGenericResourceFetcher)
     builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
-    builder.registerModule(NativeKVModule.NAME, NativeKVModule::class.java)
-    builder.registerModule(NativeClipboardModule.NAME, NativeClipboardModule::class.java)
+    // WebSocket, MMKV storage and clipboard come from the autolink/*
+    // workspace libraries; HarmonyOS hosts register their own instead.
+    LynxAutolinkRegistry.setup(builder)
     builder.registerModule(NativeHapticsModule.NAME, NativeHapticsModule::class.java)
     builder.registerModule(
         NativeRouterModule.NAME,
@@ -47,11 +44,6 @@ internal fun Activity.createLynxView(
         NativeBackModule.NAME,
         NativeBackModule::class.java,
         nativeBackController,
-    )
-    builder.registerModule(
-        NativeWebSocketModule.NAME,
-        NativeWebSocketModule::class.java,
-        nativeWebSocketController,
     )
     return builder.build(this)
 }

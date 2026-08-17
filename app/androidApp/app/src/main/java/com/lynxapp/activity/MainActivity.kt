@@ -10,28 +10,23 @@ import com.lynxapp.component.NativeEnvironmentBridge
 import com.lynxapp.component.createLynxView
 import com.lynxapp.component.enableLynxEdgeToEdge
 import com.lynxapp.nativemodule.NativeBackController
-import com.lynxapp.nativemodule.NativeWebSocketController
 
 class MainActivity : Activity() {
     private lateinit var lynxView: LynxView
     private lateinit var bundleRepository: LynxBundleRepository
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
     private lateinit var nativeBackController: NativeBackController
-    private lateinit var nativeWebSocketController: NativeWebSocketController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableLynxEdgeToEdge()
         bundleRepository = LynxBundleRepository(this)
         nativeBackController = NativeBackController(this)
-        nativeWebSocketController = NativeWebSocketController(this)
         lynxView = createLynxView(
             bundleRepository,
             nativeBackController,
-            nativeWebSocketController,
         )
         nativeBackController.attach(lynxView)
-        nativeWebSocketController.attach(lynxView)
         val root = FrameLayout(this).apply {
             addView(
                 lynxView,
@@ -49,7 +44,6 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         nativeBackController.destroy()
-        nativeWebSocketController.destroy()
         nativeEnvironmentBridge.detach()
         lynxView.destroy()
         super.onDestroy()

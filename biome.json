@@ -27,6 +27,8 @@
       "package.json",
       "tsconfig.*.json",
       "scripts/**/*.mjs",
+      "autolink/**",
+      "!autolink/*/android/build",
       "bundle/**",
       "lib/**",
       "!app",

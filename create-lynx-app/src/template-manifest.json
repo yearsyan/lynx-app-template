@@ -35,6 +35,7 @@
     "xcuserdata",
     "build",
     "dist",
+    "generated",
     "artifacts",
     "captures",
     ".test",

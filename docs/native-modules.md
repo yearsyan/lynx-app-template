@@ -13,6 +13,10 @@
 - `NativeWebSocketModule`：提供不依赖 DevTool 的长连接、文本/二进制收发和生命周期事件；
 - `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
 
+其中 `NativeWebSocketModule`、`NativeKVModule` 与 `NativeClipboardModule` 在 Android 和 iOS 上由
+`autolink/` workspace 目录中的 Lynx 原生库提供并自动注册（见下文「Lynx Autolink 集成」）；
+HarmonyOS 不支持 Autolink，仍由宿主手动注册同名模块。其余模块三端均保持宿主手动注册。
+
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
 
 ## JavaScript API
@@ -268,8 +272,47 @@ LynxContext 被长连接持有。
 reason 限制。模块不内置自动重连、心跳或离线队列，因为这些策略依赖具体业务；上层
 可以监听 `close` 后按网络状态和退避策略创建新连接。
 
+## Lynx Autolink 集成
+
+`autolink/` 是 monorepo 的一个 workspace 目录列表（`pnpm-workspace.yaml` 中的 `autolink/*`），
+其中每个子目录都是一个独立的 Lynx 原生库 npm 包，通过 `lynx.lib.json` 清单描述平台源码：
+
+```text
+autolink/
+├── websocket/   # NativeWebSocketModule（Android OkHttp / iOS NSURLSession）
+├── mmkv/        # NativeKVModule（MMKV 字符串存储）
+└── clipboard/   # NativeClipboardModule（系统剪贴板纯文本）
+```
+
+三个库注册的模块名与 `lib/native-bridge` 的契约完全一致，因此 JS 侧零改动；库自身只承载
+原生实现，JS 常量（如模块名）从各库的 `src/index.ts` 导出。
+
+**Android**：`settings.gradle.kts` 应用 `org.lynxsdk.lynx.library-settings` 插件（Maven Central），
+它会向上扫描 `node_modules`，把每个库的 `android/` 目录 include 成 Gradle 子项目；app 模块按
+`lynx_library__*` 项目名前缀动态依赖这些子项目。官方的 `library-build` 插件目前仍使用 AGP 9
+已移除的旧 Variant API，无法在本模板的 AGP 9.3.1 上应用，因此 app 侧注册胶水由手写的
+`LynxAutolinkRegistry.java` 承担：它把各库由 `lynx-processor` 注解处理器生成的
+`LynxLibraryProviderImpl` 交给 `com.lynx.tasm.library.LynxLibraryRegistry.setup(builder)`。
+Lynx 发布兼容 AGP 9 的插件后，可删除该类并换回官方生成物。
+
+**iOS**：`Podfile` 顶部声明 `plugin 'cocoapods-lynx-library'`（由 `Gemfile` + Bundler 管理，
+先 `bundle install`），target 内调用 `use_lynx_library!`。插件扫描 `node_modules` 中的
+`lynx.lib.json`，把各库以 `:path` pod 接入，并生成 `LynxLibraryRegistry` pod；宿主在构建
+`LynxConfig` 时调用 `LynxGeneratedLibraryRegistry().setup(config)` 完成注册（见
+`LynxPageViewController.swift` 与桥接头文件）。生成目录 `app/iosApp/generated/` 已加入
+`.gitignore`。
+
+**HarmonyOS**：Lynx Autolink 尚未覆盖 HarmonyOS，宿主继续在
+`app/harmonyApp/entry/src/main/ets/native/` 手动注册同名模块，JS 契约不变。
+
+**新增一个 autolink 库**：在 `autolink/` 下新建目录（`package.json` + `lynx.lib.json` +
+`android/` + `ios/`），加入根 `package.json` 的 devDependencies（`workspace:*`），执行
+`pnpm install`；Android 侧在 `LynxAutolinkRegistry.PROVIDERS` 中加一条 provider 类名，
+iOS 侧重新 `bundle exec pod install` 即可。
+
 ## 原生实现位置
 
-- Android：`NativeKVModule.kt`、`NativeRouterModule.kt`、`NativeStatusBarModule.kt`、`NativeBackModule.kt`、`NativeClipboardModule.kt`、`NativeHapticsModule.kt`、`NativeWebSocketModule.kt`、`LynxPageActivity.kt`；
-- iOS：`NativeModules/` 下的各模块、`LynxPageViewController.swift`；
-- HarmonyOS：`native/` 下的各模块、`pages/Index.ets`。
+- Autolink 库（Android + iOS）：`autolink/websocket`、`autolink/mmkv`、`autolink/clipboard`；
+- Android 宿主：`nativemodule/` 下的 `NativeRouterModule.kt`、`NativeStatusBarModule.kt`、`NativeBackModule.kt`、`NativeHapticsModule.kt`，以及 `LynxPageActivity.kt`、`LynxAutolinkRegistry.java`；
+- iOS 宿主：`NativeModules/` 下的对应模块、`LynxPageViewController.swift`；
+- HarmonyOS 宿主：`native/` 下的各模块、`pages/Index.ets`。

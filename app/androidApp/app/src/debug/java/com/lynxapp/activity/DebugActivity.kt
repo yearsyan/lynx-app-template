@@ -8,25 +8,20 @@ import com.lynxapp.LynxBundleRepository
 import com.lynxapp.component.createLynxView
 import com.lynxapp.component.enableLynxEdgeToEdge
 import com.lynxapp.nativemodule.NativeBackController
-import com.lynxapp.nativemodule.NativeWebSocketController
 
 class DebugActivity : Activity() {
     private lateinit var lynxView: LynxView
     private lateinit var nativeBackController: NativeBackController
-    private lateinit var nativeWebSocketController: NativeWebSocketController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableLynxEdgeToEdge()
         nativeBackController = NativeBackController(this)
-        nativeWebSocketController = NativeWebSocketController(this)
         lynxView = createLynxView(
             LynxBundleRepository(this),
             nativeBackController,
-            nativeWebSocketController,
         )
         nativeBackController.attach(lynxView)
-        nativeWebSocketController.attach(lynxView)
         setContentView(lynxView)
         intent.getStringExtra("url")?.let { url ->
             lynxView.renderTemplateUrl(url, TemplateData.empty())
@@ -35,7 +30,6 @@ class DebugActivity : Activity() {
 
     override fun onDestroy() {
         nativeBackController.destroy()
-        nativeWebSocketController.destroy()
         lynxView.destroy()
         super.onDestroy()
     }

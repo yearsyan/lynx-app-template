@@ -1,0 +1,7 @@
+source 'https://rubygems.org'
+
+# CocoaPods plus the Lynx Autolink plugin that wires the autolink/*
+# workspace libraries into the iOS app. Run `bundle install` once, then
+# `bundle exec pod install`.
+gem 'cocoapods', '~> 1.15'
+gem 'cocoapods-lynx-library', '~> 4.0'

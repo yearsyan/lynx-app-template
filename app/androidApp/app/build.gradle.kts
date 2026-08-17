@@ -78,6 +78,18 @@ android {
 
 dependencies {
 
+    // Autolinked Lynx native libraries from autolink/* in the repository
+    // root. The projects themselves are included by the
+    // org.lynxsdk.lynx.library-settings plugin, whose generated
+    // lynx_library__* names derive from the npm package names, so resolve
+    // them dynamically instead of hardcoding the workspace scope. The
+    // app-side registry glue normally added by the library-build plugin is
+    // hand-written in LynxAutolinkRegistry because that plugin still targets
+    // pre-AGP 9.
+    rootProject.subprojects
+        .filter { it.name.startsWith("lynx_library__") }
+        .forEach { implementation(it) }
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     // Lynx 4.0 still requests AppCompat 1.0.0, whose VectorDrawable AARs
@@ -112,9 +124,6 @@ dependencies {
     // LynxEnv uses Gson for its optional environment/FSP JSON helpers. DevTool
     // used to provide this transitively, so declare the runtime requirement.
     implementation("com.google.code.gson:gson:2.8.5")
-
-    // One process-wide MMKV instance backs the cross-platform NativeKVModule.
-    implementation("com.tencent:mmkv:2.4.1")
 
     debugImplementation("org.lynxsdk.lynx:lynx-devtool:4.0.0")
     debugImplementation("org.lynxsdk.lynx:lynx-service-devtool:4.0.0")

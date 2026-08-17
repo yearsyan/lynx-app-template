@@ -1,9 +1,14 @@
 source 'https://cdn.cocoapods.org/'
 
+# Scans node_modules for Lynx native libraries (autolink/* in the repository
+# root), adds their pods, and generates the LynxLibraryRegistry pod that
+# registers their native modules. Install the gems with `bundle install`.
+plugin 'cocoapods-lynx-library'
+
 platform :ios, '13.0'
 
 target 'iosApp' do
-  pod 'MMKV', '2.4.1'
+  use_lynx_library!
 
   pod 'Lynx', '4.0.0', :subspecs => [
     'Framework',

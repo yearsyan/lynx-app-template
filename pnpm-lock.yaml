@@ -47,12 +47,27 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.3
+      '@lynx-template/autolink-clipboard':
+        specifier: workspace:*
+        version: link:autolink/clipboard
+      '@lynx-template/autolink-mmkv':
+        specifier: workspace:*
+        version: link:autolink/mmkv
+      '@lynx-template/autolink-websocket':
+        specifier: workspace:*
+        version: link:autolink/websocket
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
       ws:
         specifier: 'catalog:'
         version: 8.21.3
+
+  autolink/clipboard: {}
+
+  autolink/mmkv: {}
+
+  autolink/websocket: {}
 
   bundle/main:
     dependencies:

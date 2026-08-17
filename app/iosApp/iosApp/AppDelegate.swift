@@ -5,7 +5,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
 
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    MMKV.initialize(rootDir: nil)
+    // MMKV bootstrap lives in the autolinked NativeKVModule library.
     LiquidGlassElements.register()
     // LynxEnv init drives the LynxService lazy-load scan; it must run before
     // any LynxServices.getInstanceWith lookup or the registry is still empty.

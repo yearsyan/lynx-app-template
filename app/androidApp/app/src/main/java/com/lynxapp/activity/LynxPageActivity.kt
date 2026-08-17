@@ -13,7 +13,6 @@ import com.lynxapp.component.createLynxView
 import com.lynxapp.component.enableLynxEdgeToEdge
 import com.lynxapp.nativemodule.NativeBackController
 import com.lynxapp.nativemodule.NativeRouterModule
-import com.lynxapp.nativemodule.NativeWebSocketController
 
 /** Hosts a secondary embedded Lynx bundle as an opaque page or transparent overlay. */
 open class LynxPageActivity : Activity() {
@@ -21,7 +20,6 @@ open class LynxPageActivity : Activity() {
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
     private lateinit var bundleRepository: LynxBundleRepository
     private lateinit var nativeBackController: NativeBackController
-    private lateinit var nativeWebSocketController: NativeWebSocketController
 
     internal val routePresentation: String
         get() = intent.getStringExtra(EXTRA_PRESENTATION)
@@ -50,16 +48,13 @@ open class LynxPageActivity : Activity() {
         enableLynxEdgeToEdge(statusBarStyle)
         bundleRepository = LynxBundleRepository(this)
         nativeBackController = NativeBackController(this)
-        nativeWebSocketController = NativeWebSocketController(this)
         lynxView = createLynxView(
             bundleRepository,
             nativeBackController,
-            nativeWebSocketController,
         ).apply {
             setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
         }
         nativeBackController.attach(lynxView)
-        nativeWebSocketController.attach(lynxView)
         setContentView(lynxView)
         nativeEnvironmentBridge = NativeEnvironmentBridge(
             lynxView = lynxView,
@@ -70,7 +65,6 @@ open class LynxPageActivity : Activity() {
 
     override fun onDestroy() {
         nativeBackController.destroy()
-        nativeWebSocketController.destroy()
         nativeEnvironmentBridge.detach()
         lynxView.destroy()
         super.onDestroy()

@@ -13,7 +13,6 @@ class LynxPageViewController: UIViewController {
   private var nativeStatusBarStyle: NativeStatusBarStyle
   private var lynxView: LynxView?
   private var nativeBackController: NativeBackController?
-  private var nativeWebSocketController: NativeWebSocketController?
   private var hasLoadedInitialBundle = false
   private var canUpdateTemplate = false
   private var lastSafeAreaInsets: UIEdgeInsets?
@@ -47,17 +46,13 @@ class LynxPageViewController: UIViewController {
 
     let config = LynxConfig(provider: bundleRepository)
     let nativeBackController = NativeBackController(host: self)
-    let nativeWebSocketController = NativeWebSocketController()
-    config.register(NativeKVModule.self)
-    config.register(NativeClipboardModule.self)
     config.register(NativeHapticsModule.self)
     config.register(NativeRouterModule.self, param: self)
     config.register(NativeStatusBarModule.self, param: self)
     config.register(NativeBackModule.self, param: nativeBackController)
-    config.register(
-      NativeWebSocketModule.self,
-      param: nativeWebSocketController
-    )
+    // WebSocket, MMKV storage and clipboard come from the autolink/*
+    // workspace libraries; HarmonyOS hosts register their own instead.
+    LynxGeneratedLibraryRegistry().setup(config)
     let lynxView = LynxView { builder in
       builder.config = config
       builder.genericResourceFetcher = AppGenericResourceFetcher()
@@ -77,9 +72,7 @@ class LynxPageViewController: UIViewController {
     view.addSubview(lynxView)
     self.lynxView = lynxView
     self.nativeBackController = nativeBackController
-    self.nativeWebSocketController = nativeWebSocketController
     nativeBackController.attach(lynxView: lynxView)
-    nativeWebSocketController.attach(lynxView: lynxView)
 
     #if DEBUG
     if route == nil {
@@ -125,7 +118,6 @@ class LynxPageViewController: UIViewController {
 
   deinit {
     nativeBackController?.destroy()
-    nativeWebSocketController?.destroy()
   }
 
   private func loadInitialBundleIfReady() {
