@@ -25,6 +25,10 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
+          # v5 enables package-manager caching by default and requires the
+          # pnpm executable (from package.json#packageManager) on PATH; this
+          # workflow only runs plain node scripts and npm publish.
+          package-manager-cache: false
 
       - name: Verify tag points to main
         run: |
