@@ -181,11 +181,15 @@ jobs:
           cache: true
 
       # Same hvigorw invocation as pnpm build:harmonyDebug, adapted to the
-      # command-line-tools layout (hvigorw is on PATH, SDK from HOS_SDK_HOME).
+      # command-line-tools layout (hvigorw/ohpm on PATH, SDK from
+      # HOS_SDK_HOME). ohpm install is implicit in DevEco Studio but
+      # mandatory on the command line, otherwise every @lynx/* module
+      # fails to resolve.
       - name: Build debug HAP
         working-directory: ${{ runner.temp }}/ci-harmony/app/harmonyApp
         run: |
           printf 'sdk.dir=%s\n' "$HOS_SDK_HOME" > local.properties
+          ohpm install
           hvigorw assembleHap --mode module -p product=default -p module=entry@debug -p buildMode=debug --no-daemon
 
       - uses: actions/upload-artifact@v4
