@@ -30,6 +30,9 @@
     @"screenWidth" : NSStringFromSelector(@selector(screenWidth:)),
     @"windowWidth" : NSStringFromSelector(@selector(windowWidth:)),
     @"lynxViewWidth" : NSStringFromSelector(@selector(lynxViewWidth:)),
+    @"getBrightness" : NSStringFromSelector(@selector(getBrightness:)),
+    @"setBrightness" : NSStringFromSelector(@selector(setBrightness:callback:)),
+    @"setKeepScreenOn" : NSStringFromSelector(@selector(setKeepScreenOn:callback:)),
   };
 }
 
@@ -61,6 +64,32 @@
     // Zero means the view has not been laid out yet; it is reported as-is
     // so callers can distinguish it from an unavailable view.
     callback([self valueString:view.bounds.size.width]);
+  });
+}
+
+// UIScreen.brightness is the system brightness as seen by this app; setting
+// it needs no permission and is restored when the app leaves the foreground.
+- (void)getBrightness:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    callback([self valueString:UIScreen.mainScreen.brightness]);
+  });
+}
+
+- (void)setBrightness:(double)value callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (!isfinite(value) || value < 0 || value > 1) {
+      callback(@"Brightness must be between 0 and 1");
+      return;
+    }
+    UIScreen.mainScreen.brightness = (CGFloat)value;
+    callback(@"");
+  });
+}
+
+- (void)setKeepScreenOn:(BOOL)enabled callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    UIApplication.sharedApplication.idleTimerDisabled = !enabled;
+    callback(@"");
   });
 }
 

@@ -16,21 +16,26 @@
 │   ├── androidApp   # Kotlin / Gradle 原生工程
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
-├── autolink          # Lynx Autolink 原生库，Android/iOS 自动注册同名 NativeModule
+├── autolink          # Lynx Autolink 原生库，Android/iOS 自动注册 NativeModule / Element
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
+│   ├── battery       # Battery（电量 + 充电状态）
 │   ├── clipboard     # Clipboard
 │   ├── device-info   # DeviceInfo
-│   ├── display       # Display
+│   ├── display       # Display（宽度 + 亮度 + 常亮）
 │   ├── file-system   # FileSystem（系统文件选择器 + URI 文件操作）
 │   ├── haptics       # Haptics
+│   ├── liquid-glass  # iOS Liquid Glass Element（switch + dropdown）
 │   ├── album-utils   # AlbumUtils（相册选图 + 存图）
 │   ├── mmkv          # KV（MMKV 字符串存储）
 │   ├── screenshot    # Screenshot（视图 / 页面截图存入缓存）
+│   ├── sensors       # Sensors（加速度计 + 罗盘流式读数）
 │   └── websocket     # WebSocket
 ├── bundle           # 可独立构建和发布的 Lynx bundles
 │   └── main         # 默认 Lynx bundle
+├── contracts        # NativeModule 名称、声明文件与三端实现的映射元数据
 ├── lib              # bundles 共享的基础库 workspace packages
-│   └── native-bridge # 共享宿主环境、NativeModules 类型与调用封装
+│   ├── native-contracts # 聚合各 Autolink 包原始类型的生成注册表
+│   └── native-bridge # Promise、校验、解码、事件与 React hooks 高层 API
 └── scripts          # 原生配置、bundle 创建与发布同步脚本
 ```
 
@@ -50,9 +55,11 @@
 
 缓存损坏、版本不匹配或网络失败不会覆盖内置兜底资源。详细设计见 [Debug 开发配置](docs/development-settings.md)、[Native Environment 数据契约](docs/native-environment.md)、[NativeModules、原生路由与返回](docs/native-modules.md)、[Lynx 网络请求](docs/networking.md) 和 [热更新协议](docs/hot-update.md)。
 
-WebSocket、MMKV 存储、剪贴板、触感反馈、生物识别（系统指纹 / 面容弹窗，可选锁屏凭证降级）、相册工具（选图 + 存图）、文件系统（系统文件选择器 + URI 文件操作）、设备信息、显示宽度、截图（视图 / 页面 PNG、JPEG 存入缓存）与路由（应用内导航 + 系统 scheme）十一个原生模块由 `autolink/` 目录中的 Lynx 原生库提供，
+WebSocket、MMKV 存储、剪贴板、触感反馈、生物识别（系统指纹 / 面容弹窗，可选锁屏凭证降级）、相册工具（选图 + 存图）、文件系统（系统文件选择器 + URI 文件操作）、设备信息、电量、显示宽度与亮度/常亮、传感器（加速度计 + 罗盘）、截图（视图 / 页面 PNG、JPEG 存入缓存）与路由（应用内导航 + 系统 scheme）十三个原生模块由 `autolink/` 目录中的 Lynx 原生库提供，
 Android 与 iOS 宿主通过 Lynx Autolink 自动接入；HarmonyOS 不支持 Autolink，仍由宿主手动注册
-同名模块。集成细节见 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
+同名模块。iOS 的 `glass-switch` 与 `glass-dropdown` 也已作为
+`autolink/liquid-glass` 中的 Element 自动接入。集成细节见
+[NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
 
 ## 环境要求
 
@@ -101,6 +108,7 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 ```json
 {
   "nativeApp": {
+    "platforms": ["android", "ios", "harmony"],
     "bundleId": "com.lynxapp",
     "android": {
       "debugApplicationIdSuffix": ".debug"
@@ -112,7 +120,9 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 }
 ```
 
-修改后运行 `pnpm native:apply`，脚本会同步以下原生配置：
+`platforms` 是当前项目实际保留的宿主，也是所有原生脚本的共同输入。脚手架的
+`--platforms` 会写入该字段、删除未选宿主目录与对应构建命令；配置检查、契约检查和
+资源同步只访问启用的平台。修改标识后运行 `pnpm native:apply`，脚本会同步以下原生配置：
 
 - Android `applicationId`，Debug 额外应用 `debugApplicationIdSuffix`；
 - iOS Debug/Release 的 `PRODUCT_BUNDLE_IDENTIFIER`；
@@ -143,7 +153,7 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 pnpm build:lynx
 ```
 
-命令会把所有声明了 `lynxBundle` 的 workspace 包构建为自包含 bundle，生成 `bundle/artifacts/latest/manifest.json`，并同步到：
+命令会把所有声明了 `lynxBundle` 的 workspace 包构建为自包含 bundle，生成 `bundle/artifacts/latest/manifest.json`，并同步到 `nativeApp.platforms` 启用的目录：
 
 - Android：`app/androidApp/app/src/main/assets/lynxbundle/`
 - iOS：`app/iosApp/lynxbundle/`

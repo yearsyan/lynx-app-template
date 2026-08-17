@@ -1,3 +1,10 @@
+import {
+  type AlbumUtilsModule,
+  type FileSystemModule,
+  NATIVE_MODULE_NAMES,
+} from '@lynx-app/native-contracts';
+import { requireNativeModule } from './moduleRegistry.js';
+
 /** Metadata resolved from a picker URI by the platform file system. */
 export interface FileInfo {
   uri: string;
@@ -17,29 +24,7 @@ export interface PickerOptions {
 }
 
 /** Native picker surface shared by `FileSystem.pick` and `AlbumUtils.pick`. */
-export interface PickerModule {
-  pick(maxSelection: number, callback: (resultJSON: string) => void): void;
-}
-
-interface FileSystemModule {
-  pick(maxSelection: number, callback: (resultJSON: string) => void): void;
-  stat(uri: string, callback: (resultJSON: string) => void): void;
-  copyToCache(uri: string, callback: (resultJSON: string) => void): void;
-  readText(
-    uri: string,
-    maxBytes: number,
-    callback: (resultJSON: string) => void,
-  ): void;
-  readBase64(
-    uri: string,
-    maxBytes: number,
-    callback: (resultJSON: string) => void,
-  ): void;
-}
-
-interface AppModules {
-  FileSystem?: FileSystemModule;
-}
+export type PickerModule = Pick<AlbumUtilsModule, 'pick'>;
 
 interface FileSystemResult {
   error?: unknown;
@@ -58,11 +43,7 @@ const MAX_PICKER_SELECTION = 50;
 
 function requireFileSystem(): FileSystemModule {
   'background only';
-  const module = (NativeModules as AppModules).FileSystem;
-  if (module === undefined) {
-    throw new Error('FileSystem is not registered by the host');
-  }
-  return module;
+  return requireNativeModule(NATIVE_MODULE_NAMES.FileSystem);
 }
 
 function normalizeURI(uri: string): string {

@@ -5,7 +5,6 @@ import com.lynx.tasm.LynxBooleanOption
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.xelement.XElementBehaviors
-import com.lynx.xelement.webview.BehaviorGenerator as WebViewBehaviorGenerator
 import com.lynxapp.LynxAutolinkRegistry
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxGenericResourceFetcher
@@ -18,10 +17,10 @@ internal fun Activity.createLynxView(
     bundleRepository: LynxBundleRepository,
     nativeBackController: NativeBackController,
 ): LynxView {
-    val builder = LynxViewBuilder()
-        .addBehaviors(XElementBehaviors().create())
-        .addBehaviors(WebViewBehaviorGenerator.getBehaviors())
-        .setTemplateProvider(bundleRepository)
+    val webviewBridgeAdapter = WebviewModuleBridgeHostAdapter()
+    val builder = webviewBridgeAdapter.builder
+    builder.addBehaviors(XElementBehaviors().create())
+    builder.setTemplateProvider(bundleRepository)
     builder.setGenericResourceFetcher(LynxGenericResourceFetcher)
     builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
     // Router, WebSocket, MMKV storage, clipboard and haptics come from the
@@ -38,5 +37,5 @@ internal fun Activity.createLynxView(
         BackModule::class.java,
         nativeBackController,
     )
-    return builder.build(this)
+    return builder.build(this).also(webviewBridgeAdapter::attach)
 }

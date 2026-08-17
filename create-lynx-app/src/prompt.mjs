@@ -1,11 +1,11 @@
-import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import readline from 'node:readline/promises';
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
 // Android applicationId rules are the strictest of the three hosts: every
 // dot-separated segment starts with a letter and contains only letters,
 // digits, and underscores. The same value also feeds iOS and HarmonyOS.
-const BUNDLE_ID = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/;
+const BUNDLE_ID = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/;
 const SCOPE = /^[a-z0-9][a-z0-9-]*$/;
 const PLATFORMS = new Set(['android', 'ios', 'harmony']);
 
@@ -41,6 +41,10 @@ function flagValue(argv, name) {
   return value && !value.startsWith('--') ? value : undefined;
 }
 
+function hasFlag(argv, name) {
+  return argv.includes(`--${name}`);
+}
+
 function commaList(argv, name) {
   const raw = flagValue(argv, name);
   if (!raw) return undefined;
@@ -73,10 +77,12 @@ export async function resolveOptions(argv) {
   const name = positional[0];
 
   if (!name || !KEBAB.test(name)) {
-    fail('project name must be kebab-case, e.g. `pnpm dlx @lynfe/lynx-app my-app`');
+    fail(
+      'project name must be kebab-case, e.g. `pnpm dlx @lynfe/lynx-app my-app`',
+    );
   }
 
-  const interactive = flagValue(argv, 'yes') === undefined && process.stdin.isTTY;
+  const interactive = !hasFlag(argv, 'yes') && process.stdin.isTTY;
 
   let scope = flagValue(argv, 'scope') ?? 'lynfe';
   let bundleId = flagValue(argv, 'bundle-id');
@@ -100,9 +106,13 @@ export async function resolveOptions(argv) {
         { fallback: displayName ?? kebabToTitleCase(name) },
       );
       const platformDefault = 'android,ios,harmony';
-      platforms = await prompt(rl, `platforms (comma-separated) [${platformDefault}]: `, {
-        fallback: platformDefault,
-      }).then((value) =>
+      platforms = await prompt(
+        rl,
+        `platforms (comma-separated) [${platformDefault}]: `,
+        {
+          fallback: platformDefault,
+        },
+      ).then((value) =>
         value
           .split(',')
           .map((item) => item.trim().toLowerCase())
@@ -127,6 +137,9 @@ export async function resolveOptions(argv) {
   for (const platform of platforms) {
     if (!PLATFORMS.has(platform)) fail(`unknown platform: ${platform}`);
   }
+  if (platforms.length === 0) {
+    fail('at least one platform must be selected');
+  }
 
   return {
     name,
@@ -140,4 +153,4 @@ export async function resolveOptions(argv) {
   };
 }
 
-export { kebabToPascalCase, kebabToTitleCase, lastSegment, defaultBundleId };
+export { defaultBundleId, kebabToPascalCase, kebabToTitleCase, lastSegment };

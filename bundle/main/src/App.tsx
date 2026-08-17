@@ -2,6 +2,8 @@
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
 import {
+  albumUtils,
+  battery,
   biometric,
   clipboard,
   deviceInfo,
@@ -9,13 +11,16 @@ import {
   haptics,
   kv,
   router,
+  scanner,
   screenshot,
+  sensors,
   statusBar,
   toast,
 } from '@lynx-app/native-bridge';
 import { openActivityBottomSheet } from '@lynx-template/activity-sheet';
+import '@lynx-template/autolink-webview-bridge';
 
-import { useCallback, useEffect, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 
 import './App.css';
 import { PlatformDropdown } from './components/PlatformDropdown.js';
@@ -25,6 +30,92 @@ const COUNTER_KEY = 'template.counter';
 const FRUITS = ['Apple', 'Banana', 'Cherry', 'Durian', 'Elderberry'];
 const MAX_DEMO_LAYERS = 3;
 const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
+
+// Self-contained demo page for the autolinked <module-webview>: it talks to the
+// same native modules the template uses (KV / Clipboard / Haptics) through
+// window.__lynxNativeBridge, the raw protocol behind
+// @lynx-app/webview-bridge. String concatenation instead of template
+// literals keeps this embeddable in the TSX template literal below.
+const WEBVIEW_BRIDGE_DEMO_HTML = [
+  '<!DOCTYPE html><html><head><meta charset="utf-8">',
+  '<meta name="viewport" content="width=device-width, initial-scale=1">',
+  '<style>',
+  'body { font-family: -apple-system, sans-serif; margin: 10px; color: #1d1b20; }',
+  '.row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }',
+  'button { padding: 8px 12px; border: 1px solid #cac4d0; border-radius: 8px;',
+  '  background: #f3edf7; font-size: 13px; }',
+  'button.primary { background: #6750a4; border-color: #6750a4; color: #fff; }',
+  '#out { font-size: 12px; color: #49454f; word-break: break-all; min-height: 16px; }',
+  '</style></head><body>',
+  '<div class="row">',
+  '<button class="primary" onclick="saveKv()">KV save</button>',
+  '<button onclick="readKv()">KV read</button>',
+  '<button onclick="copyClip()">Clipboard</button>',
+  '<button onclick="buzz()">Haptic</button>',
+  '<button onclick="readDevice()">Device</button>',
+  '</div><div id="out">waiting for the bridge…</div>',
+  '<script>',
+  'var out = document.getElementById("out");',
+  'var selfTestStarted = false;',
+  'function say(text) { out.textContent = text; }',
+  'function call(module, method, args) {',
+  '  if (!window.__lynxNativeBridge) { say("bridge unavailable");',
+  '    return Promise.reject(new Error("bridge unavailable")); }',
+  '  return window.__lynxNativeBridge.invoke(module, method, args);',
+  '}',
+  'function saveKv() {',
+  '  call("KV", "setString", ["webview.counter", String(Date.now())])',
+  '    .then(function () { say("KV saved"); },',
+  '      function (e) { say("KV save failed: " + e.message); });',
+  '}',
+  'function readKv() {',
+  '  call("KV", "getString", ["webview.counter", null])',
+  '    .then(function (r) { say("KV value: " + r[0]); },',
+  '      function (e) { say("KV read failed: " + e.message); });',
+  '}',
+  'function copyClip() {',
+  '  call("Clipboard", "setString", ["from webview " + Date.now()])',
+  '    .then(function () { return call("Clipboard", "getString", []); })',
+  '    .then(function (r) { say("Clipboard: " + r[0]); },',
+  '      function (e) { say("Clipboard failed: " + e.message); });',
+  '}',
+  'function buzz() {',
+  '  call("Haptics", "impact", ["light"])',
+  '    .then(function () { say("haptic done"); },',
+  '      function (e) { say("haptic failed: " + e.message); });',
+  '}',
+  'function readDevice() {',
+  '  call("DeviceInfo", "getInfo", [])',
+  '    .then(function (r) {',
+  '      var result = JSON.parse(r[0]);',
+  '      if (result.error) { throw new Error(result.error); }',
+  '      say("Device: " + result.value.manufacturer + " " + result.value.model);',
+  '    }, function (e) { say("Device failed: " + e.message); });',
+  '}',
+  'function runSelfTest() {',
+  '  if (selfTestStarted || !window.__lynxNativeBridge) { return; }',
+  '  selfTestStarted = true;',
+  '  var key = "webview.selftest";',
+  '  var expected = "ok-" + Date.now();',
+  '  call("KV", "setString", [key, expected])',
+  '    .then(function () { return call("KV", "getString", [key, null]); })',
+  '    .then(function (r) {',
+  '      if (r[0] !== expected) { throw new Error("KV round-trip mismatch"); }',
+  '      return call("DeviceInfo", "getInfo", []);',
+  '    })',
+  '    .then(function (r) {',
+  '      var result = JSON.parse(r[0]);',
+  '      if (result.error || !result.value || !result.value.model) {',
+  '        throw new Error(result.error || "invalid DeviceInfo");',
+  '      }',
+  '      say("WEBVIEW_BRIDGE_OK · " + result.value.manufacturer + " " + result.value.model);',
+  '    })',
+  '    .catch(function (e) { say("WEBVIEW_BRIDGE_FAIL · " + e.message); });',
+  '}',
+  'window.addEventListener("lynx-native-bridge-ready", runSelfTest);',
+  'if (window.__lynxNativeBridge) { setTimeout(runSelfTest, 0); }',
+  '</script></body></html>',
+].join('');
 
 // `idSelector` is a standard Lynx element attribute that the native
 // screenshot lookups (LynxView.findViewByIdSelector / viewWithIdSelector:)
@@ -70,10 +161,22 @@ export function App() {
   const [clipText, setClipText] = useState<string | null>(null);
   const [shotSummary, setShotSummary] = useState<string | null>(null);
   const [biometricSummary, setBiometricSummary] = useState<string | null>(null);
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
   const [deviceSummary, setDeviceSummary] = useState<string | null>(null);
+  const [batterySummary, setBatterySummary] = useState<string | null>(null);
+  const [brightnessText, setBrightnessText] = useState<string | null>(null);
+  const [keepScreenOn, setKeepScreenOn] = useState(false);
+  const [accelerometerText, setAccelerometerText] = useState<string | null>(
+    null,
+  );
+  const [compassText, setCompassText] = useState<string | null>(null);
+  const [accelerometerOn, setAccelerometerOn] = useState(false);
+  const [compassOn, setCompassOn] = useState(false);
   const [status, setStatus] = useState('Ready');
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [fruitIndex, setFruitIndex] = useState(-1);
+  const accelerometerUnsubscribe = useRef<(() => void) | null>(null);
+  const compassUnsubscribe = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     'background only';
@@ -83,6 +186,16 @@ export function App() {
     statusBar
       .setStyle('dark-content')
       .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  // Release both sensor streams when the page goes away.
+  useEffect(() => {
+    'background only';
+    return () => {
+      'background only';
+      accelerometerUnsubscribe.current?.();
+      compassUnsubscribe.current?.();
+    };
   }, []);
 
   const increment = useCallback(() => {
@@ -224,6 +337,41 @@ export function App() {
       .catch((error: Error) => setStatus(error.message));
   }, []);
 
+  // Cancel, permission denial and "no code in this image" resolve as outcome
+  // codes; only invalid calls reject.
+  const runScanner = useCallback(() => {
+    'background only';
+    setStatus('Waiting for the scanner…');
+    scanner
+      .scan()
+      .then((outcome) => {
+        const label = summarizeScan(outcome);
+        setScanSummary(label);
+        setStatus(`Scanner: ${label}`);
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const runAlbumScan = useCallback(() => {
+    'background only';
+    setStatus('Pick an image to decode…');
+    albumUtils
+      .pick()
+      .then((uris) => {
+        const uri = uris[0];
+        if (uri === undefined) {
+          setStatus('Album scan cancelled');
+          return;
+        }
+        return scanner.scanFromImage(uri).then((outcome) => {
+          const label = summarizeScan(outcome);
+          setScanSummary(label);
+          setStatus(`Album scan: ${label}`);
+        });
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
   // The system resolves the scheme: `lynxapp://main` is registered by this
   // app itself, while any installed app can own the scheme instead
   // (`weixin://`, `imeituan://`, `alipay://…`, `https://…`).
@@ -269,6 +417,144 @@ export function App() {
     `${label}: ${Math.round(result.width)}x${Math.round(result.height)} · ${
       result.uri.split('/').pop() ?? result.uri
     }`;
+
+  const readBattery = useCallback(() => {
+    'background only';
+    battery
+      .getInfo()
+      .then((info) => {
+        setBatterySummary(
+          info.level === null
+            ? 'Level unavailable on this device'
+            : `${Math.round(info.level * 100)}% · ${info.charging ? 'charging' : 'on battery'}`,
+        );
+        setStatus(
+          info.level === null
+            ? 'Battery level unavailable'
+            : `Battery ${Math.round(info.level * 100)}%`,
+        );
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const readBrightness = useCallback(() => {
+    'background only';
+    display
+      .getBrightness()
+      .then((value) => {
+        setBrightnessText(`${Math.round(value * 100)}%`);
+        setStatus(`Brightness ${Math.round(value * 100)}%`);
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const changeBrightness = useCallback((delta: number) => {
+    'background only';
+    display
+      .getBrightness()
+      .then((current) => {
+        const next = Math.min(1, Math.max(0, current + delta));
+        return display.setBrightness(next).then(() => {
+          setBrightnessText(`${Math.round(next * 100)}%`);
+          setStatus(`Brightness set to ${Math.round(next * 100)}%`);
+        });
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const toggleKeepScreenOn = useCallback(() => {
+    'background only';
+    const next = !keepScreenOn;
+    display
+      .setKeepScreenOn(next)
+      .then(() => {
+        setKeepScreenOn(next);
+        setStatus(`Keep screen on ${next ? 'enabled' : 'disabled'}`);
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, [keepScreenOn]);
+
+  const toggleAccelerometer = useCallback(() => {
+    'background only';
+    const stop = accelerometerUnsubscribe.current;
+    if (stop !== null) {
+      stop();
+      accelerometerUnsubscribe.current = null;
+      setAccelerometerOn(false);
+      setAccelerometerText(null);
+      setStatus('Accelerometer stopped');
+      return;
+    }
+    sensors
+      .available('accelerometer')
+      .then((usable) => {
+        if (!usable) {
+          setStatus('Accelerometer unavailable on this device');
+          return;
+        }
+        accelerometerUnsubscribe.current = sensors.observe(
+          'accelerometer',
+          (reading) => {
+            'background only';
+            if (reading.type !== 'accelerometer') return;
+            setAccelerometerText(
+              `x ${reading.x.toFixed(1)} · y ${reading.y.toFixed(1)} · z ${reading.z.toFixed(1)} m/s²`,
+            );
+          },
+          (message) => setStatus(`Accelerometer: ${message}`),
+        );
+        setAccelerometerOn(true);
+        setStatus('Accelerometer streaming');
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const toggleCompass = useCallback(() => {
+    'background only';
+    const stop = compassUnsubscribe.current;
+    if (stop !== null) {
+      stop();
+      compassUnsubscribe.current = null;
+      setCompassOn(false);
+      setCompassText(null);
+      setStatus('Compass stopped');
+      return;
+    }
+    sensors
+      .available('compass')
+      .then((usable) => {
+        if (!usable) {
+          setStatus('Compass unavailable on this device');
+          return;
+        }
+        compassUnsubscribe.current = sensors.observe(
+          'compass',
+          (reading) => {
+            'background only';
+            if (reading.type !== 'compass') return;
+            const accuracy =
+              reading.accuracy < 0 ? '?' : `${Math.round(reading.accuracy)}°`;
+            setCompassText(
+              `${Math.round(reading.heading)}° · accuracy ±${accuracy}`,
+            );
+          },
+          // iOS reports a permission denial (the compass needs location
+          // authorization) through this callback instead of a reading.
+          (message) => setStatus(`Compass: ${message}`),
+        );
+        setCompassOn(true);
+        setStatus('Compass streaming');
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const summarizeScan = (outcome: {
+    success: boolean;
+    code: string;
+    content: string | null;
+    format: string | null;
+  }): string =>
+    outcome.success ? `${outcome.format}: ${outcome.content}` : outcome.code;
 
   const captureCard = useCallback(() => {
     'background only';
@@ -513,6 +799,23 @@ export function App() {
           </view>
 
           <view className="Card">
+            <text className="CardTitle">Scanner</text>
+            <text className="CardBody">
+              {scanSummary === null
+                ? 'Full-screen camera scan page plus album-image decoding; cancel and permission branches resolve as outcome codes.'
+                : scanSummary}
+            </text>
+            <view className="Row">
+              <view className="Button Button--primary" bindtap={runScanner}>
+                <text className="ButtonLabel ButtonLabel--primary">Scan</text>
+              </view>
+              <view className="Button" bindtap={runAlbumScan}>
+                <text className="ButtonLabel">From album</text>
+              </view>
+            </view>
+          </view>
+
+          <view className="Card">
             <text className="CardTitle">Biometric</text>
             <text className="CardBody">
               {biometricSummary === null
@@ -564,6 +867,115 @@ export function App() {
                 <text className="ButtonLabel ButtonLabel--primary">Read</text>
               </view>
             </view>
+          </view>
+
+          <view className="Card">
+            <text className="CardTitle">Battery</text>
+            <text className="CardBody">
+              {batterySummary === null
+                ? 'Charge level (0-100%) and charging state; null level on the iOS simulator.'
+                : batterySummary}
+            </text>
+            <view className="Row">
+              <view className="Button Button--primary" bindtap={readBattery}>
+                <text className="ButtonLabel ButtonLabel--primary">Read</text>
+              </view>
+            </view>
+          </view>
+
+          <view className="Card">
+            <text className="CardTitle">Brightness</text>
+            <text className="CardBody">
+              {brightnessText === null
+                ? 'Window brightness 0-100%: read, adjust by 10%, and keep the screen on while the app is visible.'
+                : `Brightness ${brightnessText}`}
+            </text>
+            <view className="Row">
+              <view className="Button" bindtap={readBrightness}>
+                <text className="ButtonLabel">Read</text>
+              </view>
+              <view className="Button" bindtap={() => changeBrightness(-0.1)}>
+                <text className="ButtonLabel">−10%</text>
+              </view>
+              <view
+                className="Button Button--primary"
+                bindtap={() => changeBrightness(0.1)}
+              >
+                <text className="ButtonLabel ButtonLabel--primary">+10%</text>
+              </view>
+              <view className="Button" bindtap={toggleKeepScreenOn}>
+                <text className="ButtonLabel">
+                  {keepScreenOn ? 'Release screen' : 'Keep on'}
+                </text>
+              </view>
+            </view>
+          </view>
+
+          <view className="Card">
+            <text className="CardTitle">Sensors</text>
+            <view className="FieldRow">
+              <text className="FieldLabel">Accelerometer</text>
+              <view
+                className={
+                  accelerometerOn ? 'Button' : 'Button Button--primary'
+                }
+                bindtap={toggleAccelerometer}
+              >
+                <text
+                  className={
+                    accelerometerOn
+                      ? 'ButtonLabel'
+                      : 'ButtonLabel ButtonLabel--primary'
+                  }
+                >
+                  {accelerometerOn ? 'Stop' : 'Start'}
+                </text>
+              </view>
+            </view>
+            <text className="CardBody">
+              {accelerometerText ??
+                'Streaming x/y/z in m/s² including gravity.'}
+            </text>
+            <view className="FieldRow">
+              <text className="FieldLabel">Compass</text>
+              <view
+                className={compassOn ? 'Button' : 'Button Button--primary'}
+                bindtap={toggleCompass}
+              >
+                <text
+                  className={
+                    compassOn
+                      ? 'ButtonLabel'
+                      : 'ButtonLabel ButtonLabel--primary'
+                  }
+                >
+                  {compassOn ? 'Stop' : 'Start'}
+                </text>
+              </view>
+            </view>
+            <text className="CardBody">
+              {compassText ??
+                'Magnetic heading 0-360°; iOS asks for location permission on first use.'}
+            </text>
+          </view>
+
+          <view className="Card">
+            <text className="CardTitle">Webview module bridge</text>
+            <text className="CardBody">
+              The embedded page calls native modules (KV, Clipboard, Haptics)
+              through window.__lynxNativeBridge — the same modules this template
+              reaches via NativeModules, on every host platform.
+            </text>
+            <module-webview
+              className="WebviewBridgeDemo"
+              html={WEBVIEW_BRIDGE_DEMO_HTML}
+              webview-type="module-bridge"
+              params={{
+                'module-bridge': {
+                  modules: ['KV', 'Clipboard', 'Haptics', 'DeviceInfo'],
+                },
+              }}
+            />
           </view>
 
           <text className="Status">{status}</text>

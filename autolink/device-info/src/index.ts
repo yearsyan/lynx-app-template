@@ -1,11 +1,5 @@
-/**
- * Autolinked device information for Lynx hosts on Android and iOS.
- *
- * The native module registers itself as `DeviceInfo`, so bundles
- * keep consuming it through `@lynx-app/native-bridge`. HarmonyOS hosts
- * register their host-owned implementation manually because Lynx Autolink
- * does not cover HarmonyOS.
- */
+// Generated from contracts/native-modules.json. Do not edit.
+export type { DeviceInfo as DeviceInfoModule } from '../types/platform-native-module.js';
 
 /** Name the native hosts register this module under. */
-export const DEVICE_INFO_MODULE_NAME = 'DeviceInfo';
+export const DEVICE_INFO_MODULE_NAME = 'DeviceInfo' as const;

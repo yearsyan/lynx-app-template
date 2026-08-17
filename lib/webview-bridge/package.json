@@ -1,0 +1,21 @@
+{
+  "name": "@lynx-app/webview-bridge",
+  "description": "Browser-side client for native modules exposed by the autolinked <module-webview> element",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@lynx-app/native-contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@lynx-app/native-bridge": "workspace:*",
+    "@lynx-js/types": "catalog:",
+    "typescript": "catalog:"
+  },
+  "private": true
+}

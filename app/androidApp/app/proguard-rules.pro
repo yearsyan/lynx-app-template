@@ -44,3 +44,12 @@
     private static void log(int, java.lang.String, java.lang.String, int, long, int, int);
     private static void logByte(int, java.lang.String, byte[], int, long, int, int);
 }
+
+# The webview module bridge gateway is reached from page JS through
+# addJavascriptInterface, i.e. only by member name. Module classes themselves
+# are already kept wholesale by the Lynx SDK's consumer rules
+# (-keep class * extends com.lynx.jsbridge.LynxModule { *; }), so reflective
+# module lookup and @LynxMethod dispatch survive minification unchanged.
+-keepclassmembers class com.lynxapp.autolink.webviewbridge.** {
+    @android.webkit.JavascriptInterface <methods>;
+}

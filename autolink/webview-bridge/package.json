@@ -1,0 +1,20 @@
+{
+  "name": "@lynx-template/autolink-webview-bridge",
+  "description": "Autolinked native module-webview element with explicit host module-registry adapters",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "src",
+    "lynx.lib.json",
+    "README.md"
+  ],
+  "devDependencies": {
+    "@lynx-js/types": "catalog:"
+  }
+}

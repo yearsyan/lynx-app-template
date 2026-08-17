@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 2,
+  "modules": [
+    {
+      "name": "AlbumUtils",
+      "interfaceName": "AlbumUtilsModule",
+      "declaration": "autolink/album-utils/types/platform-native-module.d.ts",
+      "declarationName": "AlbumUtils",
+      "autolink": {
+        "directory": "album-utils",
+        "exportName": "ALBUM_UTILS_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/album-utils/android/src/main/java",
+          "fileName": "AlbumUtilsModule.java"
+        },
+        "ios": "autolink/album-utils/ios/src/AlbumUtilsModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/AlbumUtilsModule.ets"
+      }
+    },
+    {
+      "name": "Back",
+      "interfaceName": "BackModule",
+      "declaration": "lib/native-contracts/src/host.ts",
+      "declarationName": "BackModule",
+      "implementations": {
+        "android": {
+          "searchRoot": "app/androidApp/app/src/main/java",
+          "fileName": "BackModule.kt"
+        },
+        "ios": "app/iosApp/iosApp/NativeModules/BackModule.swift",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/BackModule.ets"
+      }
+    },
+    {
+      "name": "Battery",
+      "interfaceName": "BatteryModule",
+      "declaration": "autolink/battery/types/platform-native-module.d.ts",
+      "declarationName": "Battery",
+      "autolink": {
+        "directory": "battery",
+        "exportName": "BATTERY_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/battery/android/src/main/java",
+          "fileName": "BatteryModule.java"
+        },
+        "ios": "autolink/battery/ios/src/BatteryModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/BatteryModule.ets"
+      }
+    },
+    {
+      "name": "Biometric",
+      "interfaceName": "BiometricModule",
+      "declaration": "autolink/biometric/types/platform-native-module.d.ts",
+      "declarationName": "Biometric",
+      "autolink": {
+        "directory": "biometric",
+        "exportName": "BIOMETRIC_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/biometric/android/src/main/java",
+          "fileName": "BiometricModule.java"
+        },
+        "ios": "autolink/biometric/ios/src/BiometricModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/BiometricModule.ets"
+      }
+    },
+    {
+      "name": "Clipboard",
+      "interfaceName": "ClipboardModule",
+      "declaration": "autolink/clipboard/types/platform-native-module.d.ts",
+      "declarationName": "Clipboard",
+      "autolink": {
+        "directory": "clipboard",
+        "exportName": "CLIPBOARD_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/clipboard/android/src/main/java",
+          "fileName": "ClipboardModule.java"
+        },
+        "ios": "autolink/clipboard/ios/src/ClipboardModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/ClipboardModule.ets"
+      }
+    },
+    {
+      "name": "DeviceInfo",
+      "interfaceName": "DeviceInfoModule",
+      "declaration": "autolink/device-info/types/platform-native-module.d.ts",
+      "declarationName": "DeviceInfo",
+      "autolink": {
+        "directory": "device-info",
+        "exportName": "DEVICE_INFO_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/device-info/android/src/main/java",
+          "fileName": "DeviceInfoModule.java"
+        },
+        "ios": "autolink/device-info/ios/src/DeviceInfoModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/DeviceInfoModule.ets"
+      }
+    },
+    {
+      "name": "Display",
+      "interfaceName": "DisplayModule",
+      "declaration": "autolink/display/types/platform-native-module.d.ts",
+      "declarationName": "Display",
+      "autolink": {
+        "directory": "display",
+        "exportName": "DISPLAY_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/display/android/src/main/java",
+          "fileName": "DisplayModule.java"
+        },
+        "ios": "autolink/display/ios/src/DisplayModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/DisplayModule.ets"
+      }
+    },
+    {
+      "name": "FileSystem",
+      "interfaceName": "FileSystemModule",
+      "declaration": "autolink/file-system/types/platform-native-module.d.ts",
+      "declarationName": "FileSystem",
+      "autolink": {
+        "directory": "file-system",
+        "exportName": "FILE_SYSTEM_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/file-system/android/src/main/java",
+          "fileName": "FileSystemModule.java"
+        },
+        "ios": "autolink/file-system/ios/src/FileSystemModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/FileSystemModule.ets"
+      }
+    },
+    {
+      "name": "Haptics",
+      "interfaceName": "HapticsModule",
+      "declaration": "autolink/haptics/types/platform-native-module.d.ts",
+      "declarationName": "Haptics",
+      "autolink": {
+        "directory": "haptics",
+        "exportName": "HAPTICS_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/haptics/android/src/main/java",
+          "fileName": "HapticsModule.java"
+        },
+        "ios": "autolink/haptics/ios/src/HapticsModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/HapticsModule.ets"
+      }
+    },
+    {
+      "name": "KV",
+      "interfaceName": "KVModule",
+      "declaration": "autolink/mmkv/types/platform-native-module.d.ts",
+      "declarationName": "KV",
+      "autolink": {
+        "directory": "mmkv",
+        "exportName": "KV_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/mmkv/android/src/main/java",
+          "fileName": "KVModule.java"
+        },
+        "ios": "autolink/mmkv/ios/src/KVModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/KVModule.ets"
+      }
+    },
+    {
+      "name": "Router",
+      "interfaceName": "RouterModule",
+      "declaration": "autolink/router/types/platform-native-module.d.ts",
+      "declarationName": "Router",
+      "autolink": {
+        "directory": "router",
+        "exportName": "ROUTER_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/router/android/src/main/java",
+          "fileName": "RouterModule.java"
+        },
+        "ios": "autolink/router/ios/src/RouterModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/RouterModule.ets"
+      }
+    },
+    {
+      "name": "Scanner",
+      "interfaceName": "ScannerModule",
+      "declaration": "autolink/scanner/types/platform-native-module.d.ts",
+      "declarationName": "Scanner",
+      "autolink": {
+        "directory": "scanner",
+        "exportName": "SCANNER_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/scanner/android/src/main/java",
+          "fileName": "ScannerModule.java"
+        },
+        "ios": "autolink/scanner/ios/src/ScannerModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/ScannerModule.ets"
+      }
+    },
+    {
+      "name": "Screenshot",
+      "interfaceName": "ScreenshotModule",
+      "declaration": "autolink/screenshot/types/platform-native-module.d.ts",
+      "declarationName": "Screenshot",
+      "autolink": {
+        "directory": "screenshot",
+        "exportName": "SCREENSHOT_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/screenshot/android/src/main/java",
+          "fileName": "ScreenshotModule.java"
+        },
+        "ios": "autolink/screenshot/ios/src/ScreenshotModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/ScreenshotModule.ets"
+      }
+    },
+    {
+      "name": "Sensors",
+      "interfaceName": "SensorsModule",
+      "declaration": "autolink/sensors/types/platform-native-module.d.ts",
+      "declarationName": "Sensors",
+      "autolink": {
+        "directory": "sensors",
+        "exportName": "SENSORS_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/sensors/android/src/main/java",
+          "fileName": "SensorsModule.java"
+        },
+        "ios": "autolink/sensors/ios/src/SensorsModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/SensorsModule.ets"
+      }
+    },
+    {
+      "name": "SecureStorage",
+      "interfaceName": "SecureStorageModule",
+      "declaration": "autolink/secure-storage/types/platform-native-module.d.ts",
+      "declarationName": "SecureStorage",
+      "autolink": {
+        "directory": "secure-storage",
+        "exportName": "SECURE_STORAGE_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/secure-storage/android/src/main/java",
+          "fileName": "SecureStorageModule.java"
+        },
+        "ios": "autolink/secure-storage/ios/src/SecureStorageModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/SecureStorageModule.ets"
+      }
+    },
+    {
+      "name": "StatusBar",
+      "interfaceName": "StatusBarModule",
+      "declaration": "lib/native-contracts/src/host.ts",
+      "declarationName": "StatusBarModule",
+      "implementations": {
+        "android": {
+          "searchRoot": "app/androidApp/app/src/main/java",
+          "fileName": "StatusBarModule.kt"
+        },
+        "ios": "app/iosApp/iosApp/NativeModules/StatusBarModule.swift",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/StatusBarModule.ets"
+      }
+    },
+    {
+      "name": "Toast",
+      "interfaceName": "ToastModule",
+      "declaration": "autolink/toast/types/platform-native-module.d.ts",
+      "declarationName": "Toast",
+      "autolink": {
+        "directory": "toast",
+        "exportName": "TOAST_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/toast/android/src/main/java",
+          "fileName": "ToastModule.java"
+        },
+        "ios": "autolink/toast/ios/src/ToastModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/ToastModule.ets"
+      }
+    },
+    {
+      "name": "WebSocket",
+      "interfaceName": "WebSocketModule",
+      "declaration": "autolink/websocket/types/platform-native-module.d.ts",
+      "declarationName": "WebSocket",
+      "autolink": {
+        "directory": "websocket",
+        "exportName": "WEBSOCKET_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/websocket/android/src/main/java",
+          "fileName": "WebSocketModule.java"
+        },
+        "ios": "autolink/websocket/ios/src/WebSocketModule.m",
+        "harmony": "app/harmonyApp/entry/src/main/ets/native/WebSocketModule.ets"
+      }
+    }
+  ]
+}

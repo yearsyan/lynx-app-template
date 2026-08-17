@@ -1,0 +1,34 @@
+{
+  "name": "@lynx-app/native-contracts",
+  "description": "Generated cross-platform Lynx Native Module contracts",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@lynx-template/autolink-album-utils": "workspace:*",
+    "@lynx-template/autolink-battery": "workspace:*",
+    "@lynx-template/autolink-biometric": "workspace:*",
+    "@lynx-template/autolink-clipboard": "workspace:*",
+    "@lynx-template/autolink-device-info": "workspace:*",
+    "@lynx-template/autolink-display": "workspace:*",
+    "@lynx-template/autolink-file-system": "workspace:*",
+    "@lynx-template/autolink-haptics": "workspace:*",
+    "@lynx-template/autolink-mmkv": "workspace:*",
+    "@lynx-template/autolink-router": "workspace:*",
+    "@lynx-template/autolink-scanner": "workspace:*",
+    "@lynx-template/autolink-screenshot": "workspace:*",
+    "@lynx-template/autolink-secure-storage": "workspace:*",
+    "@lynx-template/autolink-sensors": "workspace:*",
+    "@lynx-template/autolink-toast": "workspace:*",
+    "@lynx-template/autolink-websocket": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  },
+  "private": true
+}

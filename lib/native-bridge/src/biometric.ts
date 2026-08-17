@@ -2,6 +2,8 @@
  * Biometric (face / fingerprint) and device-credential authentication
  * provided by the native Biometric module.
  */
+import { NATIVE_MODULE_NAMES } from '@lynx-app/native-contracts';
+import { requireNativeModule } from './moduleRegistry.js';
 
 /** Hardware biometry kind. Android cannot report it, so it says 'unknown'. */
 export type BiometryType = 'face' | 'fingerprint' | 'unknown';
@@ -125,35 +127,14 @@ export interface SignChallengeOptions {
   cancelButtonText?: string;
 }
 
-interface BiometricModule {
-  checkSupport(callback: (resultJSON: string) => void): void;
-  authenticate(
-    optionsJSON: string,
-    callback: (resultJSON: string) => void,
-  ): void;
-  createSigningKey(callback: (resultJSON: string) => void): void;
-  signChallenge(
-    optionsJSON: string,
-    callback: (resultJSON: string) => void,
-  ): void;
-}
-
-interface AppModules {
-  Biometric?: BiometricModule;
-}
-
 interface BiometricEnvelope {
   error?: unknown;
   value?: unknown;
 }
 
-function requireBiometricModule(): BiometricModule {
+function requireBiometricModule() {
   'background only';
-  const module = (NativeModules as AppModules).Biometric;
-  if (module === undefined) {
-    throw new Error('Biometric is not registered by the host');
-  }
-  return module;
+  return requireNativeModule(NATIVE_MODULE_NAMES.Biometric);
 }
 
 function decodeEnvelope(resultJSON: string): BiometricEnvelope {

@@ -1,11 +1,5 @@
-/**
- * Autolinked album image picking and saving for Lynx hosts on Android and iOS.
- *
- * The native module registers itself as `AlbumUtils`, so bundles
- * keep consuming it through `@lynx-app/native-bridge`. HarmonyOS hosts
- * register their host-owned implementation manually because Lynx Autolink
- * does not cover HarmonyOS.
- */
+// Generated from contracts/native-modules.json. Do not edit.
+export type { AlbumUtils as AlbumUtilsModule } from '../types/platform-native-module.js';
 
 /** Name the native hosts register this module under. */
-export const ALBUM_UTILS_MODULE_NAME = 'AlbumUtils';
+export const ALBUM_UTILS_MODULE_NAME = 'AlbumUtils' as const;

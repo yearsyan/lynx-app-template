@@ -1,6 +1,6 @@
 {
   "name": "@lynx-app/native-bridge",
-  "description": "Shared native host contracts and APIs exposed to Lynx bundles",
+  "description": "High-level Promise APIs over Lynx NativeModule contracts",
   "version": "1.0.0",
   "type": "module",
   "exports": {
@@ -8,6 +8,9 @@
   },
   "scripts": {
     "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@lynx-app/native-contracts": "workspace:*"
   },
   "devDependencies": {
     "@lynx-js/react": "catalog:",

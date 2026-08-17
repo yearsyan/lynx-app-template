@@ -4,6 +4,8 @@
  * keep the app's custom styling in any system theme and do not require
  * notification permission.
  */
+import { NATIVE_MODULE_NAMES } from '@lynx-app/native-contracts';
+import { requireNativeModule } from './moduleRegistry.js';
 
 export type ToastType = 'info' | 'success' | 'error';
 
@@ -31,31 +33,15 @@ interface NormalizedToastOptions {
   durationMs: number;
 }
 
-interface ToastModule {
-  show(
-    message: string,
-    options: NormalizedToastOptions,
-    callback: (error: string) => void,
-  ): void;
-}
-
-interface AppModules {
-  Toast?: ToastModule;
-}
-
 const DEFAULT_DURATION_MS = 2000;
 const MIN_DURATION_MS = 500;
 const MAX_DURATION_MS = 10000;
 const MAX_MESSAGE_LENGTH = 200;
 const COLOR_PATTERN = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
-function requireToastModule(): ToastModule {
+function requireToastModule() {
   'background only';
-  const module = (NativeModules as AppModules).Toast;
-  if (module === undefined) {
-    throw new Error('Toast is not registered by the host');
-  }
-  return module;
+  return requireNativeModule(NATIVE_MODULE_NAMES.Toast);
 }
 
 function validateColor(

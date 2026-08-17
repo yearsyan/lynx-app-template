@@ -1,11 +1,5 @@
-/**
- * Autolinked system biometric prompt for Lynx hosts on Android and iOS.
- *
- * The native module registers itself as `Biometric`, so bundles
- * keep consuming it through `@lynx-app/native-bridge`. HarmonyOS hosts
- * register their host-owned implementation manually because Lynx Autolink
- * does not cover HarmonyOS.
- */
+// Generated from contracts/native-modules.json. Do not edit.
+export type { Biometric as BiometricModule } from '../types/platform-native-module.js';
 
 /** Name the native hosts register this module under. */
-export const BIOMETRIC_MODULE_NAME = 'Biometric';
+export const BIOMETRIC_MODULE_NAME = 'Biometric' as const;

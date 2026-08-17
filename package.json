@@ -8,6 +8,11 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "nativeApp": {
+    "platforms": [
+      "android",
+      "ios",
+      "harmony"
+    ],
     "bundleId": "com.lynxapp",
     "android": {
       "debugApplicationIdSuffix": ".debug"
@@ -29,7 +34,7 @@
     "build:iosRelease": "pnpm run build:lynx && cd app/iosApp && bundle install && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install && xcodebuild -workspace iosApp.xcworkspace -scheme iosApp -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO",
     "build:harmonyDebug": "pnpm run build:lynx && cd app/harmonyApp && NODE_HOME=${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/tools/node DEVECO_SDK_HOME=${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/sdk ${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/tools/hvigor/bin/hvigorw assembleHap --mode module -p product=default -p module=entry@debug -p buildMode=debug --no-daemon",
     "build:harmonyRelease": "pnpm run build:lynx && cd app/harmonyApp && NODE_HOME=${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/tools/node DEVECO_SDK_HOME=${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/sdk ${DEVECO_HOME:-/Applications/DevEco-Studio.app}/Contents/tools/hvigor/bin/hvigorw assembleHap --mode module -p product=default -p module=entry@release -p buildMode=release --no-daemon",
-    "check": "pnpm run native:check && pnpm run typecheck && pnpm run lint",
+    "check": "pnpm run native:check && pnpm run native:contracts:check && pnpm run typecheck && pnpm run lint",
     "dev:main": "pnpm --filter @lynx-template/main dev",
     "dev:android": "node ./scripts/dev-android.mjs",
     "format": "biome format --write .",
@@ -38,6 +43,8 @@
     "lint:fix": "biome check --write .",
     "native:apply": "node ./scripts/apply_native_config.mjs",
     "native:check": "node ./scripts/apply_native_config.mjs --check",
+    "native:contracts:generate": "node ./scripts/generate-native-contracts.mjs",
+    "native:contracts:check": "node ./scripts/generate-native-contracts.mjs --check",
     "new:bundle": "node ./scripts/create-bundle.mjs",
     "sync:native": "node ./scripts/sync-native.mjs",
     "template:export": "node ./scripts/export-template.mjs",
@@ -46,16 +53,22 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@lynx-template/autolink-album-utils": "workspace:*",
+    "@lynx-template/autolink-battery": "workspace:*",
     "@lynx-template/autolink-biometric": "workspace:*",
     "@lynx-template/autolink-clipboard": "workspace:*",
     "@lynx-template/autolink-device-info": "workspace:*",
     "@lynx-template/autolink-display": "workspace:*",
     "@lynx-template/autolink-file-system": "workspace:*",
     "@lynx-template/autolink-haptics": "workspace:*",
+    "@lynx-template/autolink-liquid-glass": "workspace:*",
     "@lynx-template/autolink-mmkv": "workspace:*",
     "@lynx-template/autolink-router": "workspace:*",
+    "@lynx-template/autolink-scanner": "workspace:*",
     "@lynx-template/autolink-screenshot": "workspace:*",
+    "@lynx-template/autolink-secure-storage": "workspace:*",
+    "@lynx-template/autolink-sensors": "workspace:*",
     "@lynx-template/autolink-toast": "workspace:*",
+    "@lynx-template/autolink-webview-bridge": "workspace:*",
     "@lynx-template/autolink-websocket": "workspace:*",
     "typescript": "catalog:",
     "ws": "catalog:"

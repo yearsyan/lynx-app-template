@@ -1,0 +1,12 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.battery",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-battery.podspec"
+    }
+  }
+}

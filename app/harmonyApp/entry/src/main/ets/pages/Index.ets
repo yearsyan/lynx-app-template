@@ -1,4 +1,5 @@
 import {
+  Behavior,
   LynxContext,
   LynxGenericResourceFetcher,
   LynxTemplateResourceFetcher,
@@ -13,6 +14,12 @@ import { window } from '@kit.ArkUI';
 
 import { BundleConfig } from '../config/BundleConfig';
 import { DevelopmentSettings } from '../config/DevelopmentSettings';
+import { BatteryModule } from '../native/BatteryModule';
+import { NativeSensorsController, SensorsModule } from '../native/SensorsModule';
+import {
+  WebviewModuleBridgeHostAdapter,
+  createModuleWebviewBehavior,
+} from '../webview/WebviewModuleBridge';
 import {
   NativeBackController,
   BackModule,
@@ -23,10 +30,7 @@ import {
   AlbumUtilsModule,
   AlbumUtilsRegistration,
 } from '../native/AlbumUtilsModule';
-import {
-  ClipboardModule,
-  NativeClipboardRegistration,
-} from '../native/ClipboardModule';
+import { ClipboardModule } from '../native/ClipboardModule';
 import { DeviceInfoModule } from '../native/DeviceInfoModule';
 import {
   DisplayModule,
@@ -46,6 +50,10 @@ import {
   RouterModule,
 } from '../native/RouterModule';
 import {
+  ScannerModule,
+  ScannerRegistration,
+} from '../native/ScannerModule';
+import {
   NativeStatusBarController,
   StatusBarModule,
   NativeStatusBarRegistration,
@@ -56,6 +64,7 @@ import {
   screenshotViewContainerId,
   SCREENSHOT_PAGE_ROOT_ID,
 } from '../native/ScreenshotModule';
+import { SecureStorageModule } from '../native/SecureStorageModule';
 import {
   NativeToastRegistration,
   ToastModule,
@@ -161,6 +170,7 @@ struct LynxBundlePage {
   nativeBackController: NativeBackController = new NativeBackController();
   nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
   private nativeWebSocketController: NativeWebSocketController = new NativeWebSocketController();
+  private nativeSensorsController: NativeSensorsController = new NativeSensorsController();
   private templateResourceFetcher: LynxTemplateResourceFetcher = new LaunchpadTemplateResourceFetcher();
   private genericResourceFetcher: LynxGenericResourceFetcher = new LaunchpadGenericResourceFetcher();
   private bundleRepository: LynxBundleRepository = new LynxBundleRepository();
@@ -169,6 +179,8 @@ struct LynxBundlePage {
   private screenshotTargetId: string = '';
   private metaData: MetaData = new MetaData(nativeEnvironmentData(this.safeAreaInsets, NativeRoute.main()));
   private modules: Map<string, ModuleClassWrapper> = new Map();
+  // Explicit Harmony adapter reuses this page's exact module registry.
+  private webviewBehaviors: Map<string, Behavior> = new Map();
   private mainWindow: window.Window | undefined = undefined;
   private lynxContext: LynxContext | undefined = undefined;
   private avoidAreaChangeCallback = (_options: window.AvoidAreaOptions): void => {
@@ -199,6 +211,14 @@ struct LynxBundlePage {
     const context: common.UIAbilityContext = hostContext as common.UIAbilityContext;
     this.routerController.attachAbility(context);
     this.modules = this.createModules(context);
+    this.webviewBehaviors = new Map<string, Behavior>([
+      [
+        'module-webview',
+        createModuleWebviewBehavior(
+          new WebviewModuleBridgeHostAdapter(this.modules),
+        ),
+      ],
+    ]);
     this.metaData.templateData = nativeEnvironmentData(this.safeAreaInsets, this.route);
     this.url = this.initialURL();
     this.subscribeToSafeArea(context);
@@ -224,6 +244,7 @@ struct LynxBundlePage {
     this.nativeBackController.deactivate(this.route.nativeBackID);
     this.nativeStatusBarController.deactivate(this.route.nativeBackID);
     this.nativeWebSocketController.destroy();
+    this.nativeSensorsController.destroy();
     this.unsubscribeFromSafeArea();
   }
 
@@ -242,10 +263,7 @@ struct LynxBundlePage {
     const modules = new Map<string, ModuleClassWrapper>();
     modules.set(
       ClipboardModule.NAME,
-      new NativeModuleRegistration(
-        ClipboardModule,
-        new NativeClipboardRegistration(context),
-      ),
+      new NativeModuleRegistration(ClipboardModule),
     );
     modules.set(
       HapticsModule.NAME,
@@ -270,8 +288,19 @@ struct LynxBundlePage {
       ),
     );
     modules.set(
+      ScannerModule.NAME,
+      new NativeModuleRegistration(
+        ScannerModule,
+        new ScannerRegistration(context),
+      ),
+    );
+    modules.set(
       KVModule.NAME,
       new NativeModuleRegistration(KVModule),
+    );
+    modules.set(
+      SecureStorageModule.NAME,
+      new NativeModuleRegistration(SecureStorageModule),
     );
     modules.set(
       RouterModule.NAME,
@@ -297,6 +326,17 @@ struct LynxBundlePage {
     modules.set(
       DeviceInfoModule.NAME,
       new NativeModuleRegistration(DeviceInfoModule),
+    );
+    modules.set(
+      BatteryModule.NAME,
+      new NativeModuleRegistration(BatteryModule),
+    );
+    modules.set(
+      SensorsModule.NAME,
+      new NativeModuleRegistration(
+        SensorsModule,
+        this.nativeSensorsController,
+      ),
     );
     modules.set(
       DisplayModule.NAME,
@@ -420,6 +460,7 @@ struct LynxBundlePage {
         templateResourceFetcher: this.templateResourceFetcher,
         genericResourceFetcher: this.genericResourceFetcher,
         modules: this.modules,
+        behaviors: this.webviewBehaviors,
         metaData: this.metaData,
         onCreate: this.lynxCreateCallback,
         url: this.url,

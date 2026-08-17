@@ -24,7 +24,6 @@
 		CC0000010000000000000001 /* DevelopmentSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000020000000000000002 /* DevelopmentSettings.swift */; };
 		CC0000030000000000000003 /* DebugSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000040000000000000004 /* DebugSettingsViewController.swift */; };
 		AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */ = {isa = PBXBuildFile; fileRef = AB0000020000000000000002 /* LynxGenericResourceFetcher.m */; };
-		FF0000010000000000000001 /* LiquidGlassElements.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000020000000000000002 /* LiquidGlassElements.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,7 +49,6 @@
 		CC0000040000000000000004 /* DebugSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSettingsViewController.swift; sourceTree = "<group>"; };
 		AB0000020000000000000002 /* LynxGenericResourceFetcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxGenericResourceFetcher.m; sourceTree = "<group>"; };
 		AB0000030000000000000003 /* LynxGenericResourceFetcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LynxGenericResourceFetcher.h; sourceTree = "<group>"; };
-		FF0000020000000000000002 /* LiquidGlassElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassElements.swift; sourceTree = "<group>"; };
 		C4B67B2104D0445A811952B8 /* libPods-iosApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iosApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -98,7 +96,6 @@
 				AB0000020000000000000002 /* LynxGenericResourceFetcher.m */,
 				AB0000030000000000000003 /* LynxGenericResourceFetcher.h */,
 				AA1000020000000000000002 /* LynxTemplateHttpService.m */,
-				FF0000020000000000000002 /* LiquidGlassElements.swift */,
 				CC0000020000000000000002 /* DevelopmentSettings.swift */,
 				2B94A3DE2D6614DC0060892C /* iosApp-Bridging-Header.h */,
 				9A0000010000000000000001 /* NativeModules */,
@@ -265,7 +262,6 @@
 				9B0001030000000000000001 /* AppRouteHandler.swift in Sources */,
 				9B0001040000000000000001 /* StatusBarModule.swift in Sources */,
 				AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */,
-				FF0000010000000000000001 /* LiquidGlassElements.swift in Sources */,
 				AA1000010000000000000001 /* LynxTemplateHttpService.m in Sources */,
 				9C0001010000000000000001 /* LynxPageViewController.swift in Sources */,
 				9C0001020000000000000001 /* ViewController.swift in Sources */,

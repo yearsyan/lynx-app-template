@@ -22,7 +22,10 @@ Flags:
 ```
 
 The generated project keeps the same layout as this template: `bundle/*` and
-`lib/*` are pnpm workspaces, and the three native hosts live under `app/`.
+`lib/*` are pnpm workspaces, and the selected native hosts live under `app/`.
+The selection is recorded in `package.json#nativeApp.platforms`; scripts such
+as `native:check`, `native:contracts:check`, and `sync:native` only touch those
+hosts, and build commands for omitted platforms are removed.
 
 ## npm create
 

@@ -15,10 +15,6 @@
     {
       "name": "network",
       "value": "Request network"
-    },
-    {
-      "name": "read_pasteboard",
-      "value": "Read text from the clipboard when you request a paste"
     }
   ]
 }

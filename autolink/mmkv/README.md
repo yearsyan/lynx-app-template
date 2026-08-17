@@ -7,8 +7,9 @@ string storage) on Android and iOS hosts. Bundles consume the JS API through
 - **Android** (`android/`) — depends on `com.tencent:mmkv` and initializes it
   on first module construction, so hosts no longer call
   `MMKV.initialize()` themselves.
-- **iOS** (`ios/`) — packaged as the `lynx-app-mmkv` pod and depends on the
-  `MMKV` pod.
+- **iOS** (`ios/`) — packaged as the `lynx-app-mmkv` pod, depends on the
+  `MMKV` pod, and performs MMKV's required main-thread bootstrap on first
+  module construction.
 
 HarmonyOS hosts are **not** covered by Lynx Autolink and continue to
 register their own `KV` in

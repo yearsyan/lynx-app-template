@@ -4,6 +4,8 @@
  * The transport is implemented by each native host and intentionally does not
  * depend on Lynx DevTool's private WebSocket module.
  */
+import { NATIVE_MODULE_NAMES } from '@lynx-app/native-contracts';
+import { requireNativeModule } from './moduleRegistry.js';
 
 export type WebSocketDataType = 'text' | 'base64';
 export type WebSocketEventType = 'open' | 'message' | 'error' | 'close';
@@ -56,30 +58,6 @@ interface WebSocketEventPayload {
   wasClean?: unknown;
 }
 
-interface WebSocketModule {
-  connect(
-    options: {
-      id: string;
-      url: string;
-      protocols: string[];
-      headers: Record<string, string>;
-    },
-    callback: (error: string) => void,
-  ): void;
-  sendText(id: string, data: string, callback: (error: string) => void): void;
-  sendBase64(id: string, data: string, callback: (error: string) => void): void;
-  close(
-    id: string,
-    code: number,
-    reason: string,
-    callback: (error: string) => void,
-  ): void;
-}
-
-interface AppModules {
-  WebSocket?: WebSocketModule;
-}
-
 type WebSocketListener<T extends WebSocketEventType> = (
   event: WebSocketEventMap[T],
 ) => void;
@@ -94,13 +72,9 @@ const connections = new Map<string, WebSocketConnection>();
 let nextConnectionID = 0;
 let listeningForEvents = false;
 
-function requireWebSocketModule(): WebSocketModule {
+function requireWebSocketModule() {
   'background only';
-  const module = (NativeModules as AppModules).WebSocket;
-  if (module === undefined) {
-    throw new Error('WebSocket is not registered by the host');
-  }
-  return module;
+  return requireNativeModule(NATIVE_MODULE_NAMES.WebSocket);
 }
 
 function invoke(

@@ -4,6 +4,23 @@
 
 static NSString *const kStorageID = @"lynx.native.kv";
 
+static void EnsureMMKVInitialized(void) {
+  static dispatch_once_t onceToken;
+  void (^initialize)(void) = ^{
+    dispatch_once(&onceToken, ^{
+      [MMKV initializeMMKV:nil];
+    });
+  };
+  if ([NSThread isMainThread]) {
+    initialize();
+  } else {
+    // MMKV requires process bootstrap on the main thread. Lynx modules can be
+    // constructed on the TASM thread, so keep this detail inside the
+    // autolinked library instead of making every host repeat it.
+    dispatch_sync(dispatch_get_main_queue(), initialize);
+  }
+}
+
 // The @LynxNativeModule annotation is what cocoapods-lynx-library scans for;
 // it expands to a harmless ObjC forward declaration when compiled.
 // Exported to Lynx as `KV`.
@@ -29,6 +46,7 @@ static NSString *const kStorageID = @"lynx.native.kv";
 - (instancetype)init {
   self = [super init];
   if (self) {
+    EnsureMMKVInitialized();
     _storage = [MMKV mmkvWithID:kStorageID];
   }
   return self;

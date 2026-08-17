@@ -1,5 +1,20 @@
 import UIKit
 
+/// Explicit app adapter for the autolinked `<module-webview>` element.
+enum WebviewModuleBridgeHostAdapter {
+  static func install() {
+    LynxModuleBridgeCenter.shared().installLoaderProvider()
+  }
+
+  static func makeConfig(provider: LynxTemplateProvider) -> LynxModuleBridgeConfig {
+    LynxModuleBridgeConfig(provider: provider)
+  }
+
+  static func attach(_ config: LynxModuleBridgeConfig, to view: LynxView) {
+    LynxModuleBridgeCenter.shared().register(config, for: view)
+  }
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
@@ -10,7 +25,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // this stateless host handler; it must be installed before the first
     // Lynx view is created.
     RouterModule.setRouteHandler(AppRouteHandler())
-    LiquidGlassElements.register()
+    // Installs the loader selected only by the autolinked <module-webview>.
+    WebviewModuleBridgeHostAdapter.install()
     // LynxEnv init drives the LynxService lazy-load scan; it must run before
     // any LynxServices.getInstanceWith lookup or the registry is still empty.
     let lynxEnv = LynxEnv.sharedInstance()

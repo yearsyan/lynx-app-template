@@ -50,6 +50,9 @@ importers:
       '@lynx-template/autolink-album-utils':
         specifier: workspace:*
         version: link:autolink/album-utils
+      '@lynx-template/autolink-battery':
+        specifier: workspace:*
+        version: link:autolink/battery
       '@lynx-template/autolink-biometric':
         specifier: workspace:*
         version: link:autolink/biometric
@@ -68,21 +71,36 @@ importers:
       '@lynx-template/autolink-haptics':
         specifier: workspace:*
         version: link:autolink/haptics
+      '@lynx-template/autolink-liquid-glass':
+        specifier: workspace:*
+        version: link:autolink/liquid-glass
       '@lynx-template/autolink-mmkv':
         specifier: workspace:*
         version: link:autolink/mmkv
       '@lynx-template/autolink-router':
         specifier: workspace:*
         version: link:autolink/router
+      '@lynx-template/autolink-scanner':
+        specifier: workspace:*
+        version: link:autolink/scanner
       '@lynx-template/autolink-screenshot':
         specifier: workspace:*
         version: link:autolink/screenshot
+      '@lynx-template/autolink-secure-storage':
+        specifier: workspace:*
+        version: link:autolink/secure-storage
+      '@lynx-template/autolink-sensors':
+        specifier: workspace:*
+        version: link:autolink/sensors
       '@lynx-template/autolink-toast':
         specifier: workspace:*
         version: link:autolink/toast
       '@lynx-template/autolink-websocket':
         specifier: workspace:*
         version: link:autolink/websocket
+      '@lynx-template/autolink-webview-bridge':
+        specifier: workspace:*
+        version: link:autolink/webview-bridge
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -91,6 +109,8 @@ importers:
         version: 8.21.3
 
   autolink/album-utils: {}
+
+  autolink/battery: {}
 
   autolink/biometric: {}
 
@@ -104,15 +124,33 @@ importers:
 
   autolink/haptics: {}
 
+  autolink/liquid-glass:
+    dependencies:
+      '@lynx-js/types':
+        specifier: ^4.0.0
+        version: 4.0.0
+
   autolink/mmkv: {}
 
   autolink/router: {}
 
+  autolink/scanner: {}
+
   autolink/screenshot: {}
+
+  autolink/secure-storage: {}
+
+  autolink/sensors: {}
 
   autolink/toast: {}
 
   autolink/websocket: {}
+
+  autolink/webview-bridge:
+    devDependencies:
+      '@lynx-js/types':
+        specifier: 'catalog:'
+        version: 4.0.0
 
   bundle/main:
     dependencies:
@@ -125,6 +163,12 @@ importers:
       '@lynx-template/activity-sheet':
         specifier: workspace:*
         version: link:../../lib/activity-sheet
+      '@lynx-template/autolink-liquid-glass':
+        specifier: workspace:*
+        version: link:../../autolink/liquid-glass
+      '@lynx-template/autolink-webview-bridge':
+        specifier: workspace:*
+        version: link:../../autolink/webview-bridge
     devDependencies:
       '@lynx-js/preact-devtools':
         specifier: 'catalog:'
@@ -199,6 +243,10 @@ importers:
         version: 19.2.18
 
   lib/native-bridge:
+    dependencies:
+      '@lynx-app/native-contracts':
+        specifier: workspace:*
+        version: link:../native-contracts
     devDependencies:
       '@lynx-js/react':
         specifier: 'catalog:'
@@ -206,6 +254,77 @@ importers:
       '@lynx-js/types':
         specifier: 'catalog:'
         version: 4.0.0
+
+  lib/native-contracts:
+    dependencies:
+      '@lynx-template/autolink-album-utils':
+        specifier: workspace:*
+        version: link:../../autolink/album-utils
+      '@lynx-template/autolink-battery':
+        specifier: workspace:*
+        version: link:../../autolink/battery
+      '@lynx-template/autolink-biometric':
+        specifier: workspace:*
+        version: link:../../autolink/biometric
+      '@lynx-template/autolink-clipboard':
+        specifier: workspace:*
+        version: link:../../autolink/clipboard
+      '@lynx-template/autolink-device-info':
+        specifier: workspace:*
+        version: link:../../autolink/device-info
+      '@lynx-template/autolink-display':
+        specifier: workspace:*
+        version: link:../../autolink/display
+      '@lynx-template/autolink-file-system':
+        specifier: workspace:*
+        version: link:../../autolink/file-system
+      '@lynx-template/autolink-haptics':
+        specifier: workspace:*
+        version: link:../../autolink/haptics
+      '@lynx-template/autolink-mmkv':
+        specifier: workspace:*
+        version: link:../../autolink/mmkv
+      '@lynx-template/autolink-router':
+        specifier: workspace:*
+        version: link:../../autolink/router
+      '@lynx-template/autolink-scanner':
+        specifier: workspace:*
+        version: link:../../autolink/scanner
+      '@lynx-template/autolink-screenshot':
+        specifier: workspace:*
+        version: link:../../autolink/screenshot
+      '@lynx-template/autolink-secure-storage':
+        specifier: workspace:*
+        version: link:../../autolink/secure-storage
+      '@lynx-template/autolink-sensors':
+        specifier: workspace:*
+        version: link:../../autolink/sensors
+      '@lynx-template/autolink-toast':
+        specifier: workspace:*
+        version: link:../../autolink/toast
+      '@lynx-template/autolink-websocket':
+        specifier: workspace:*
+        version: link:../../autolink/websocket
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  lib/webview-bridge:
+    dependencies:
+      '@lynx-app/native-contracts':
+        specifier: workspace:*
+        version: link:../native-contracts
+    devDependencies:
+      '@lynx-app/native-bridge':
+        specifier: workspace:*
+        version: link:../native-bridge
+      '@lynx-js/types':
+        specifier: 'catalog:'
+        version: 4.0.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
 packages:
 

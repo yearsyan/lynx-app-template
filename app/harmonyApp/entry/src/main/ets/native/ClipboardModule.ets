@@ -1,29 +1,12 @@
-import {
-  abilityAccessCtrl,
-  common,
-  Permissions,
-} from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { LynxContext, LynxModule } from '@lynx/lynx';
-
-const READ_PASTEBOARD_PERMISSION: Permissions = 'ohos.permission.READ_PASTEBOARD';
-
-export class NativeClipboardRegistration {
-  readonly context: common.UIAbilityContext;
-
-  constructor(context: common.UIAbilityContext) {
-    this.context = context;
-  }
-}
 
 /** HarmonyOS Pasteboard bridge exported to Lynx as Clipboard. */
 export class ClipboardModule extends LynxModule {
   static readonly NAME: string = 'Clipboard';
-  private readonly registration: NativeClipboardRegistration | undefined;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.registration = param as NativeClipboardRegistration | undefined;
   }
 
   setString(text: string, callback: (error: string) => void): void {
@@ -52,29 +35,11 @@ export class ClipboardModule extends LynxModule {
         !systemPasteboard.hasDataType(pasteboard.MIMETYPE_TEXT_PLAIN)) {
         return null;
       }
-      if (!await this.ensureReadPermission()) {
-        return null;
-      }
       const data = await systemPasteboard.getData();
       const text = data.getPrimaryText();
       return text.length === 0 ? null : text;
     } catch (error) {
       return null;
-    }
-  }
-
-  private async ensureReadPermission(): Promise<boolean> {
-    if (this.registration === undefined) {
-      return false;
-    }
-    try {
-      const result = await abilityAccessCtrl.createAtManager().requestPermissionsFromUser(
-        this.registration.context,
-        [READ_PASTEBOARD_PERMISSION],
-      );
-      return result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED;
-    } catch (error) {
-      return false;
     }
   }
 

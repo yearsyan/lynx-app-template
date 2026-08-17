@@ -38,6 +38,7 @@
     "generated",
     "artifacts",
     "captures",
+    "test",
     ".test",
     ".preview",
     "create-lynx-app",

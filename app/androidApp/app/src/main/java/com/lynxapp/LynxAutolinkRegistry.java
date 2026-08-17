@@ -20,6 +20,7 @@ import com.lynx.tasm.library.LynxLibraryRegistry;
 public final class LynxAutolinkRegistry {
     private static final String[] PROVIDERS = new String[] {
             "com.lynxapp.autolink.albumutils.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.battery.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.biometric.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.clipboard.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.deviceinfo.LynxLibraryProviderImpl",
@@ -28,8 +29,12 @@ public final class LynxAutolinkRegistry {
             "com.lynxapp.autolink.haptics.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.mmkv.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.router.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.scanner.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.screenshot.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.securestorage.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.sensors.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.toast.LynxLibraryProviderImpl",
+            "com.lynxapp.autolink.webviewbridge.LynxLibraryProviderImpl",
             "com.lynxapp.autolink.websocket.LynxLibraryProviderImpl",
     };
 

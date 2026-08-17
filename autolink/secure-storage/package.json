@@ -1,0 +1,18 @@
+{
+  "name": "@lynx-template/autolink-secure-storage",
+  "description": "Autolinked secure storage module for small secrets (Android Keystore encryption, iOS Keychain) for Lynx hosts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "src",
+    "types",
+    "lynx.lib.json",
+    "README.md"
+  ]
+}

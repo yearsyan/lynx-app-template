@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
+  access,
   copyFile,
   mkdir,
   readdir,
@@ -10,6 +11,8 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { enabledNativePlatforms } from './native-platforms.mjs';
+
 const repositoryDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -18,6 +21,7 @@ const workspaceDirectory = join(repositoryDirectory, 'bundle');
 const rootPackageJson = JSON.parse(
   await readFile(join(repositoryDirectory, 'package.json'), 'utf8'),
 );
+const enabledPlatforms = enabledNativePlatforms(rootPackageJson);
 const engineVersion = rootPackageJson.lynx?.engineVersion;
 const sdkVersion = rootPackageJson.lynx?.sdkVersion;
 if (typeof engineVersion !== 'string' || engineVersion.length === 0) {
@@ -27,19 +31,41 @@ if (typeof sdkVersion !== 'string' || sdkVersion.length === 0) {
   throw new Error('package.json#lynx.sdkVersion must be a non-empty string');
 }
 
-const nativeTargets = [
-  join(repositoryDirectory, 'app/androidApp/app/src/main/assets/lynxbundle'),
-  join(repositoryDirectory, 'app/iosApp/lynxbundle'),
-  join(
-    repositoryDirectory,
-    'app/harmonyApp/entry/src/main/resources/rawfile/lynxbundle',
-  ),
-];
-const legacyNativeTargets = [
-  join(repositoryDirectory, 'app/androidApp/app/src/main/assets'),
-  join(repositoryDirectory, 'app/iosApp'),
-  join(repositoryDirectory, 'app/harmonyApp/entry/src/main/resources/rawfile'),
-];
+const nativePlatforms = {
+  android: {
+    root: 'app/androidApp',
+    target: 'app/androidApp/app/src/main/assets/lynxbundle',
+    legacyTarget: 'app/androidApp/app/src/main/assets',
+  },
+  ios: {
+    root: 'app/iosApp',
+    target: 'app/iosApp/lynxbundle',
+    legacyTarget: 'app/iosApp',
+  },
+  harmony: {
+    root: 'app/harmonyApp',
+    target: 'app/harmonyApp/entry/src/main/resources/rawfile/lynxbundle',
+    legacyTarget: 'app/harmonyApp/entry/src/main/resources/rawfile',
+  },
+};
+
+const nativeTargets = [];
+const legacyNativeTargets = [];
+for (const platform of enabledPlatforms) {
+  const nativePlatform = nativePlatforms[platform];
+  const root = join(repositoryDirectory, nativePlatform.root);
+  try {
+    await access(root);
+  } catch {
+    throw new Error(
+      `Enabled native platform directory is missing: ${nativePlatform.root}`,
+    );
+  }
+  nativeTargets.push(join(repositoryDirectory, nativePlatform.target));
+  legacyNativeTargets.push(
+    join(repositoryDirectory, nativePlatform.legacyTarget),
+  );
+}
 
 const entries = await readdir(workspaceDirectory, { withFileTypes: true });
 const bundles = [];
@@ -127,5 +153,5 @@ for (const target of legacyNativeTargets) {
 }
 
 console.info(
-  `Synced ${bundles.length} bundle(s) to artifacts and ${nativeTargets.length} native projects.`,
+  `Synced ${bundles.length} bundle(s) to artifacts and ${nativeTargets.length} native project(s): ${enabledPlatforms.join(', ')}.`,
 );

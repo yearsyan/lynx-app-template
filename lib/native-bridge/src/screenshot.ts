@@ -1,3 +1,9 @@
+import {
+  NATIVE_MODULE_NAMES,
+  type ScreenshotModule,
+} from '@lynx-app/native-contracts';
+import { requireNativeModule } from './moduleRegistry.js';
+
 export type ScreenshotFormat = 'png' | 'jpeg';
 
 export interface ScreenshotOptions {
@@ -32,21 +38,6 @@ export interface ScreenshotRequest {
   fileName: string | null;
 }
 
-export interface ScreenshotModule {
-  capture(
-    options: ScreenshotRequest,
-    callback: (resultJSON: string) => void,
-  ): void;
-  capturePage(
-    options: ScreenshotRequest,
-    callback: (resultJSON: string) => void,
-  ): void;
-}
-
-interface AppModules {
-  Screenshot?: ScreenshotModule;
-}
-
 interface ScreenshotValueResult {
   error?: unknown;
   value?: unknown;
@@ -57,11 +48,7 @@ const MAX_FILE_NAME_LENGTH = 120;
 
 function requireScreenshotModule(): ScreenshotModule {
   'background only';
-  const module = (NativeModules as AppModules).Screenshot;
-  if (module === undefined) {
-    throw new Error('Screenshot is not registered by the host');
-  }
-  return module;
+  return requireNativeModule(NATIVE_MODULE_NAMES.Screenshot);
 }
 
 function normalizeRequest(

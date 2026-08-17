@@ -23,12 +23,18 @@ async function main() {
   console.info('\nNext steps:');
   console.info(`  cd ${options.name}`);
   console.info('  pnpm install');
-  console.info('  pnpm build:lynx       # build bundles and sync embedded assets');
+  console.info(
+    '  pnpm build:lynx       # build bundles and sync embedded assets',
+  );
   console.info('  # native hosts: pnpm build:androidDebug | build:iosDebug |');
-  console.info('  #                build:harmonyDebug (see README.md for all variants)');
+  console.info(
+    '  #                build:harmonyDebug (see README.md for all variants)',
+  );
 }
 
 main().catch((error) => {
-  console.error(`\nerror: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(
+    `\nerror: ${error instanceof Error ? error.message : String(error)}`,
+  );
   process.exit(1);
 });

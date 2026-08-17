@@ -19,12 +19,20 @@
 	</array>
 	<key>LynxUpdateManifestURL</key>
 	<string></string>
+	<!-- Required by the Scanner module's camera scan page; the system shows
+	     this string before the first camera access. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Scan QR and barcodes in Lynx pages.</string>
 	<!-- Required whenever the Biometric module uses Face ID; Touch ID needs
 	     no key. The system shows this string before the first Face ID scan. -->
 	<key>NSFaceIDUsageDescription</key>
 	<string>Confirm your identity with Face ID in Lynx pages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to the local Rspeedy server while developing Lynx bundles.</string>
+	<!-- Required by the Sensors module's compass (CoreLocation heading
+	     updates); the system shows this string before the permission dialog. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Show which direction you are facing in Lynx pages.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save images you choose to keep into the photo album.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

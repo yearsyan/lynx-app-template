@@ -2,8 +2,8 @@ import {
   chmod,
   copyFile,
   mkdir,
-  readFile,
   readdir,
+  readFile,
   stat,
   writeFile,
 } from 'node:fs/promises';
@@ -18,7 +18,9 @@ const binaryExtensions = new Set(manifest.binaryExtensions);
  * so overlapping names cannot collide (e.g. {{name}} vs {{appName}}).
  */
 function replaceTokens(text, tokens) {
-  const entries = Object.entries(tokens).sort((a, b) => b[0].length - a[0].length);
+  const entries = Object.entries(tokens).sort(
+    (a, b) => b[0].length - a[0].length,
+  );
   let updated = text;
   for (const [key, value] of entries) {
     updated = updated.split(`{{${key}}}`).join(value);

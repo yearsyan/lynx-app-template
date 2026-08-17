@@ -11,6 +11,8 @@ import {
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { enabledNativePlatforms } from './native-platforms.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryDirectory = resolve(dirname(scriptPath), '..');
 const packageFile = join(repositoryDirectory, 'package.json');
@@ -28,15 +30,18 @@ const managedFiles = {
 // (java/com/lynxapp here, java/<dotted bundle id segments> when scaffolded).
 const engineVersionReferences = [
   {
+    platform: 'android',
     searchRoot: 'app/androidApp/app/src/main/java',
     searchFor: 'LynxBundleRepository.kt',
     pattern: /const val ENGINE_VERSION = "([^"]+)"/,
   },
   {
+    platform: 'ios',
     path: 'app/iosApp/iosApp/LynxBundleRepository.swift',
     pattern: /static let engineVersion = "([^"]+)"/,
   },
   {
+    platform: 'harmony',
     path: 'app/harmonyApp/entry/src/main/ets/config/BundleConfig.ets',
     pattern: /static readonly ENGINE_VERSION: string = '([^']+)'/,
   },
@@ -116,66 +121,75 @@ async function loadNativeConfig() {
     packageData.nativeApp,
     'package.json#nativeApp',
   );
+  const platforms = enabledNativePlatforms(packageData);
   const commonBundleId = requiredString(
     nativeApp,
     'bundleId',
     'package.json#nativeApp',
   );
-  const android = optionalRecord(nativeApp, 'android');
-  const ios = optionalRecord(nativeApp, 'ios');
-  const harmony = optionalRecord(nativeApp, 'harmony');
-
   const config = {
-    androidApplicationId: optionalString(
+    platforms,
+  };
+
+  if (platforms.includes('android')) {
+    const android = optionalRecord(nativeApp, 'android');
+    config.androidApplicationId = optionalString(
       android,
       'applicationId',
       commonBundleId,
       'package.json#nativeApp.android',
-    ),
-    androidDebugApplicationIdSuffix: optionalString(
+    );
+    config.androidDebugApplicationIdSuffix = optionalString(
       android,
       'debugApplicationIdSuffix',
       '',
       'package.json#nativeApp.android',
-    ),
-    iosBundleId: optionalString(
+    );
+    config.androidDebugApplicationId = effectiveAndroidDebugId(
+      config.androidApplicationId,
+      config.androidDebugApplicationIdSuffix,
+    );
+    validateIdentifier(
+      config.androidApplicationId,
+      androidApplicationId,
+      'package.json#nativeApp.android.applicationId',
+    );
+    validateIdentifier(
+      config.androidDebugApplicationId,
+      androidApplicationId,
+      'effective Android Debug applicationId',
+    );
+  }
+
+  if (platforms.includes('ios')) {
+    const ios = optionalRecord(nativeApp, 'ios');
+    config.iosBundleId = optionalString(
       ios,
       'bundleId',
       commonBundleId,
       'package.json#nativeApp.ios',
-    ),
-    harmonyBundleName: optionalString(
+    );
+    validateIdentifier(
+      config.iosBundleId,
+      appleBundleId,
+      'package.json#nativeApp.ios.bundleId',
+    );
+  }
+
+  if (platforms.includes('harmony')) {
+    const harmony = optionalRecord(nativeApp, 'harmony');
+    config.harmonyBundleName = optionalString(
       harmony,
       'bundleName',
       commonBundleId,
       'package.json#nativeApp.harmony',
-    ),
-  };
-  config.androidDebugApplicationId = effectiveAndroidDebugId(
-    config.androidApplicationId,
-    config.androidDebugApplicationIdSuffix,
-  );
-
-  validateIdentifier(
-    config.androidApplicationId,
-    androidApplicationId,
-    'package.json#nativeApp.android.applicationId',
-  );
-  validateIdentifier(
-    config.androidDebugApplicationId,
-    androidApplicationId,
-    'effective Android Debug applicationId',
-  );
-  validateIdentifier(
-    config.iosBundleId,
-    appleBundleId,
-    'package.json#nativeApp.ios.bundleId',
-  );
-  validateIdentifier(
-    config.harmonyBundleName,
-    harmonyBundleName,
-    'package.json#nativeApp.harmony.bundleName',
-  );
+    );
+    validateIdentifier(
+      config.harmonyBundleName,
+      harmonyBundleName,
+      'package.json#nativeApp.harmony.bundleName',
+    );
+  }
 
   const lynx = requireRecord(packageData.lynx, 'package.json#lynx');
   config.engineVersion = requiredString(
@@ -207,8 +221,9 @@ async function findFileByName(rootDirectory, fileName) {
   return null;
 }
 
-async function collectEngineVersionMismatches(engineVersion) {
+async function collectEngineVersionMismatches(engineVersion, platforms) {
   const references = [];
+  const enabled = new Set(platforms);
   const bundleDirectory = join(repositoryDirectory, 'bundle');
   let bundleEntries;
   try {
@@ -227,6 +242,7 @@ async function collectEngineVersionMismatches(engineVersion) {
     });
   }
   for (const reference of engineVersionReferences) {
+    if (!enabled.has(reference.platform)) continue;
     if (reference.searchFor) {
       const root = join(repositoryDirectory, reference.searchRoot);
       const found = await findFileByName(root, reference.searchFor);
@@ -278,63 +294,54 @@ function replaceManagedValue(text, pattern, value, expectedCount, label) {
 }
 
 async function buildUpdates(config) {
-  let androidBefore;
-  let iosBefore;
-  let harmonyBefore;
-  try {
-    [androidBefore, iosBefore, harmonyBefore] = await Promise.all([
-      readFile(managedFiles.android, 'utf8'),
-      readFile(managedFiles.ios, 'utf8'),
-      readFile(managedFiles.harmony, 'utf8'),
-    ]);
-  } catch (error) {
-    throw new NativeConfigError(
-      `cannot read managed native file: ${errorMessage(error)}`,
-    );
+  const updates = [];
+  for (const platform of config.platforms) {
+    const path = managedFiles[platform];
+    let before;
+    try {
+      before = await readFile(path, 'utf8');
+    } catch (error) {
+      throw new NativeConfigError(
+        `cannot read managed ${platform} file ${path}: ${errorMessage(error)}`,
+      );
+    }
+
+    let after = before;
+    if (platform === 'android') {
+      after = replaceManagedValue(
+        after,
+        /^(\s*applicationId\s*=\s*")[^"]*("\s*)$/gm,
+        config.androidApplicationId,
+        1,
+        'Android applicationId',
+      );
+      after = replaceManagedValue(
+        after,
+        /^(\s*applicationIdSuffix\s*=\s*")[^"]*("\s*)$/gm,
+        config.androidDebugApplicationIdSuffix,
+        1,
+        'Android Debug applicationIdSuffix',
+      );
+    } else if (platform === 'ios') {
+      after = replaceManagedValue(
+        after,
+        /^(\s*PRODUCT_BUNDLE_IDENTIFIER\s*=\s*)[^;]+(;\s*)$/gm,
+        config.iosBundleId,
+        2,
+        'iOS PRODUCT_BUNDLE_IDENTIFIER',
+      );
+    } else {
+      after = replaceManagedValue(
+        after,
+        /^(\s*"bundleName"\s*:\s*")[^"]*("\s*,?\s*)$/gm,
+        config.harmonyBundleName,
+        1,
+        'HarmonyOS bundleName',
+      );
+    }
+    updates.push({ path, before, after });
   }
-
-  let androidAfter = replaceManagedValue(
-    androidBefore,
-    /^(\s*applicationId\s*=\s*")[^"]*("\s*)$/gm,
-    config.androidApplicationId,
-    1,
-    'Android applicationId',
-  );
-  androidAfter = replaceManagedValue(
-    androidAfter,
-    /^(\s*applicationIdSuffix\s*=\s*")[^"]*("\s*)$/gm,
-    config.androidDebugApplicationIdSuffix,
-    1,
-    'Android Debug applicationIdSuffix',
-  );
-  const iosAfter = replaceManagedValue(
-    iosBefore,
-    /^(\s*PRODUCT_BUNDLE_IDENTIFIER\s*=\s*)[^;]+(;\s*)$/gm,
-    config.iosBundleId,
-    2,
-    'iOS PRODUCT_BUNDLE_IDENTIFIER',
-  );
-  const harmonyAfter = replaceManagedValue(
-    harmonyBefore,
-    /^(\s*"bundleName"\s*:\s*")[^"]*("\s*,?\s*)$/gm,
-    config.harmonyBundleName,
-    1,
-    'HarmonyOS bundleName',
-  );
-
-  return [
-    {
-      path: managedFiles.android,
-      before: androidBefore,
-      after: androidAfter,
-    },
-    { path: managedFiles.ios, before: iosBefore, after: iosAfter },
-    {
-      path: managedFiles.harmony,
-      before: harmonyBefore,
-      after: harmonyAfter,
-    },
-  ];
+  return updates;
 }
 
 async function atomicWrite(update) {
@@ -364,17 +371,23 @@ function repositoryRelative(path) {
 }
 
 function printIdentifiers(config) {
-  console.info(`Android Release: ${config.androidApplicationId}`);
-  console.info(`Android Debug:   ${config.androidDebugApplicationId}`);
-  console.info(`iOS:             ${config.iosBundleId}`);
-  console.info(`HarmonyOS:       ${config.harmonyBundleName}`);
+  if (config.platforms.includes('android')) {
+    console.info(`Android Release: ${config.androidApplicationId}`);
+    console.info(`Android Debug:   ${config.androidDebugApplicationId}`);
+  }
+  if (config.platforms.includes('ios')) {
+    console.info(`iOS:             ${config.iosBundleId}`);
+  }
+  if (config.platforms.includes('harmony')) {
+    console.info(`HarmonyOS:       ${config.harmonyBundleName}`);
+  }
 }
 
 function printHelp() {
   console.info(`usage: node scripts/apply_native_config.mjs [--check]
 
-Apply package.json#nativeApp identifiers to the three native hosts and verify
-that every Lynx engine version reference matches package.json#lynx.
+Apply package.json#nativeApp identifiers to its enabled native hosts and verify
+that their Lynx engine version references match package.json#lynx.
 
 options:
   --check  fail when native files do not match package.json without writing
@@ -397,6 +410,7 @@ async function main(args = process.argv.slice(2)) {
     const updates = await buildUpdates(config);
     const engineMismatches = await collectEngineVersionMismatches(
       config.engineVersion,
+      config.platforms,
     );
     if (engineMismatches.length > 0) {
       console.error(

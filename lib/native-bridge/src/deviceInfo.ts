@@ -1,3 +1,6 @@
+import { NATIVE_MODULE_NAMES } from '@lynx-app/native-contracts';
+import { requireNativeModule } from './moduleRegistry.js';
+
 /** Device and application facts reported by the native DeviceInfo module. */
 export interface DeviceInfo {
   /** Hardware model: Build.MODEL on Android, utsname machine on iOS. */
@@ -17,26 +20,14 @@ export interface DeviceInfo {
   isFoldable: boolean;
 }
 
-interface DeviceInfoModule {
-  getInfo(callback: (resultJSON: string) => void): void;
-}
-
-interface AppModules {
-  DeviceInfo?: DeviceInfoModule;
-}
-
 interface DeviceInfoResult {
   error?: unknown;
   value?: unknown;
 }
 
-function requireDeviceInfoModule(): DeviceInfoModule {
+function requireDeviceInfoModule() {
   'background only';
-  const module = (NativeModules as AppModules).DeviceInfo;
-  if (module === undefined) {
-    throw new Error('DeviceInfo is not registered by the host');
-  }
-  return module;
+  return requireNativeModule(NATIVE_MODULE_NAMES.DeviceInfo);
 }
 
 function decodeDeviceInfo(value: unknown): DeviceInfo {

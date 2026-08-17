@@ -1,0 +1,19 @@
+{
+  "name": "@lynx-template/autolink-liquid-glass",
+  "description": "Autolinked iOS Liquid Glass native elements for Lynx hosts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "ios",
+    "src",
+    "lynx.lib.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@lynx-js/types": "^4.0.0"
+  }
+}

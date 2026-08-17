@@ -44,7 +44,11 @@ class LynxPageViewController: UIViewController {
       ? .clear
       : UIColor(red: 247 / 255, green: 247 / 255, blue: 251 / 255, alpha: 1)
 
-    let config = LynxConfig(provider: bundleRepository)
+    // The explicit host adapter records the exact module registry installed
+    // on this view; the autolinked native component owns only WebView/RPC.
+    let config = WebviewModuleBridgeHostAdapter.makeConfig(
+      provider: bundleRepository
+    )
     let nativeBackController = NativeBackController(host: self)
     config.register(StatusBarModule.self, param: self)
     config.register(BackModule.self, param: nativeBackController)
@@ -59,6 +63,7 @@ class LynxPageViewController: UIViewController {
       builder.screenSize = self.view.frame.size
       builder.fontScale = 1.0
     }
+    WebviewModuleBridgeHostAdapter.attach(config, to: lynxView)
 
     lynxView.backgroundColor = transparent ? .clear : view.backgroundColor
     lynxView.isOpaque = !transparent

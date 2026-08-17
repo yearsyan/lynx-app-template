@@ -64,17 +64,12 @@
         "name": "ohos.permission.ACCESS_BIOMETRIC"
       },
       {
-        "name": "ohos.permission.READ_PASTEBOARD",
-        "reason": "$string:read_pasteboard",
-        "usedScene": {
-          "abilities": [
-            "EntryAbility"
-          ],
-          "when": "inuse"
-        }
+        "name": "ohos.permission.VIBRATE"
       },
       {
-        "name": "ohos.permission.VIBRATE"
+        // System-granted permission required by the accelerometer readings of
+        // the Sensors native module; no runtime dialog is shown.
+        "name": "ohos.permission.ACCELEROMETER"
       },
     ],
     "extensionAbilities": [

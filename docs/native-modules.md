@@ -2,7 +2,10 @@
 
 ## 设计目标
 
-`lib/native-bridge` 是所有 Lynx bundle 共享的 TypeScript 契约与调用封装。Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
+原生能力分为三层：每个 `autolink/*` 包拥有自己的原始 TypeScript 调用契约，
+`lib/native-contracts` 聚合这些类型并生成模块注册表，`lib/native-bridge` 则提供所有
+Lynx bundle 共享的 Promise、参数校验、返回值解码、事件生命周期和 React hooks。
+Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
 
 - `KV`：以 MMKV 保存字符串；JSON 编解码由共享 TypeScript 层完成；
 - `Router`：打开另一个 bundle 对应的原生页面，或关闭当前页面；
@@ -14,18 +17,46 @@
 - `AlbumUtils`：从系统相册选择一张或多张图片，或把图片 URI 保存回系统相册；
 - `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64；
 - `DeviceInfo`：按需读取机型、OS 版本、App 版本/构建号、屏幕密度、locale 以及平板/折叠屏判断；
+- `Battery`：按需读取电量（0..1，读不到时为 null）与充电状态；
 - `Toast`：一次性原生轻提示（info / success / error），替代 bundle 内自绘的 `<ToastHost />` 组件；
-- `Display`：按需查询屏幕宽度、当前窗口宽度与当前 LynxView 宽度，统一为 Lynx 逻辑像素；
+- `Display`：按需查询屏幕宽度、当前窗口宽度与当前 LynxView 宽度（统一为 Lynx 逻辑像素），以及窗口亮度读取/设置与屏幕常亮；
+- `Sensors`：加速度计与罗盘（磁北方位角）流式读数，经 `GlobalEventEmitter` 事件回传，监听计数归零自动停流；
 - `WebSocket`：提供不依赖 DevTool 的长连接、文本/二进制收发和生命周期事件；
 - `Screenshot`：把整个 LynxView、某个元素或当前原生页面截为 PNG/JPEG 写入应用缓存目录；
+- `Scanner`：拉起全屏扫码页识别 QR / 条形码，并支持对相册图片本地识码；
+- `SecureStorage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
 - `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
 
 其中 `WebSocket`、`KV`、`Clipboard`、`Haptics`、
-`AlbumUtils`、`FileSystem`、`Biometric`、`DeviceInfo`、`Display` 与 `Screenshot` 在 Android 和 iOS 上由
+`AlbumUtils`、`FileSystem`、`Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner` 与 `SecureStorage` 在 Android 和 iOS 上由
 `autolink/` workspace 目录中的 Lynx 原生库提供并自动注册（见下文「Lynx Autolink 集成」）；
 HarmonyOS 不支持 Autolink，仍由宿主手动注册同名模块。其余模块三端均保持宿主手动注册。
 
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
+
+### 契约来源与分层
+
+每个 Autolink NativeModule 的原始调用签名定义在所属包的
+`types/platform-native-module.d.ts`，例如 `KV` 位于
+`autolink/mmkv/types/platform-native-module.d.ts`。声明类本身就是 JS 侧的原始类型，
+不再在聚合包里复制一遍方法签名。宿主专属、不能由 Autolink 提供的 `Back` 和
+`StatusBar` 原始接口保留在 `lib/native-contracts/src/host.ts`。
+
+`contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
+映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
+`@lynx-app/native-contracts` 的模块名、方法白名单、参数个数和类型注册表，同时让各
+Autolink 包从根入口导出自己的原始类型与模块名常量。`lib/native-bridge` 和 WebView
+bridge 都消费该聚合结果，不再各自声明 `AppModules` 或硬编码模块、方法字符串。
+
+`native-bridge` 仍然保留，因为生成类只描述 callback 形式的传输协议，不包含 Promise
+封装、运行时参数校验、JSON/事件解码、LIFO 返回栈或 React hooks。业务 bundle 应使用
+`@lynx-app/native-bridge`；只有桥接基础设施需要直接消费原始契约。
+
+`pnpm native:contracts:check` 除了检查生成物，还会核对
+`package.json#nativeApp.platforms` 中启用平台的原生实现：Android 的
+`@LynxMethod`、iOS 的 `methodLookup`、HarmonyOS 的模块方法都必须与声明中的
+名称和参数个数一致。修改已有模块时更新所属包的声明和三端实现；新增模块时再补充
+JSON 映射元数据，最后运行生成命令。该检查已接入 `pnpm check`。
 
 ### 命名迁移
 
@@ -57,6 +88,7 @@ HarmonyOS 不支持 Autolink，仍由宿主手动注册同名模块。其余模�
 import {
   albumUtils,
   backStack,
+  battery,
   fileSystem,
   kv,
   router,
@@ -128,6 +160,24 @@ Lynx NativeModules 在后台线程使用，因此直接或间接访问它们的�
 | `getJSON(key, defaultValue)` | 读取并解析 JSON；缺失或格式错误时返回默认值 |
 
 当前契约刻意保持为字符串原语，不包含二进制、大对象、跨设备同步或事务。业务需要命名空间时，应在 key 前增加 bundle 或业务前缀。
+
+### SecureStorage 能力
+
+| 方法 | 说明 |
+| --- | --- |
+| `setString(key, value)` | 加密保存一个小型机密字符串 |
+| `getString(key, defaultValue?)` | 读取并解密；缺失（或校验失败，见下文）时返回默认值或 `null` |
+| `remove(key)` | 删除一个键（键不存在同样视为成功） |
+
+`SecureStorage` 面向 token、会话凭证等小型机密数据，value 上限 65536 字符；三端实现：
+
+- **Android**（`autolink/secure-storage`）：AES-256-GCM 密钥保存在 AndroidKeyStore 中且不可导出，落盘的只有随机 IV 与密文（应用私有 `SharedPreferences`）；
+- **iOS**（`autolink/secure-storage`）：Keychain 通用密码条目（`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`，不随备份迁移到其他设备）；
+- **HarmonyOS**（宿主 `native/SecureStorageModule.ets`）：AES-256-GCM 密钥保存在 HUKS 中，密文存放在专用 MMKV 实例 `lynx.secure.storage`。
+
+与 `KV` 不同，数据不跨平台、不跨设备同步。密文被篡改或系统密钥被清除时，
+GCM 校验失败，`getString` 按缺失处理并返回默认值；`remove` 与 KV 一致（幂等）。
+存放结构化机密时仍由调用方自行 JSON 编解码。
 
 ### 路由参数
 
@@ -201,9 +251,9 @@ iOS 在 `Info.plist` 声明 `CFBundleURLTypes`，HarmonyOS 在 `module.json5`
 | `clipboard.getString()` | 读取剪贴板文本；为空或不可用时返回 `null` |
 | `haptics.impact(style)` | 单击震动；`style` 为 `'light' \| 'medium' \| 'heavy'`，非法取值被共享层拒绝 |
 
-HarmonyOS 剪贴板实现基于 Pasteboard。写入不需要额外授权；读取会先确认剪贴板包含纯文本，
-再申请受限的用户授权权限 `ohos.permission.READ_PASTEBOARD`，未授权或读取失败时返回 `null`。
-正式签名发布前，需要在 AGC Profile 中获批该 ACL 权限。
+HarmonyOS 剪贴板实现基于 Pasteboard，不声明
+`ohos.permission.READ_PASTEBOARD`，也不会触发运行时授权。写入不需要额外授权；读取会先确认
+剪贴板包含纯文本，系统不允许读取、内容为空或读取失败时统一返回 `null`。
 
 HarmonyOS 触感反馈基于 Sensor Service Kit 的 Vibrator：light / medium / heavy 分别映射到
 soft / sharp / hard 预置效果；设备不支持对应预置效果时降级为 15 / 30 / 60ms 单次振动。
@@ -440,6 +490,49 @@ if (photoURI) {
 }
 ```
 
+### 扫码
+
+`Scanner` 提供两级识码 API：`scan()` 拉起全屏扫码页，`scanFromImage(uri)` 对
+本地图片识码（例如 `albumUtils.pick()` 的返回值），全程不进入 JS 的位图通道：
+
+```ts
+import { scanner } from '@lynx-app/native-bridge';
+
+const outcome = await scanner.scan();
+if (outcome.success) {
+  // { code: 'success', content: 'https://…', format: 'qr_code', message: '' }
+} else if (outcome.code === 'permissionDenied') {
+  // 引导用户去系统设置开启相机（Android / iOS 独有分支）
+}
+
+const [photoURI] = await albumUtils.pick();
+if (photoURI) {
+  const decoded = await scanner.scanFromImage(photoURI);
+  // 图片里没有码时 resolve 'noCodeFound'，而不是 reject
+}
+```
+
+`scan` 与 `scanFromImage` 都 resolve 结构化 outcome：用户关闭扫码页
+（`userCancel`）、相机权限被拒（`permissionDenied`，HarmonyOS 不会出现）、
+无相机硬件（`unavailable`）、同一页面并发第二个请求（`busy`）和图片无码
+（`noCodeFound`，仅 `scanFromImage`）都是正常业务分支，只有参数非法或宿主
+未注册模块才 reject。`content` / `format` 仅在 `code === 'success'` 时非空。
+`format` 是三端统一命名（`qr_code`、`code128`、`ean_13`、`data_matrix` 等）；
+HarmonyOS 额外报告系统特有的 `multifunctional`，iOS 按系统行为把 UPC-A
+回报为 `ean_13`。**扫码结果是不可信输入**：不要直接 `eval` 或无条件跳转
+`content` 中的 URL，应由业务确认或交服务端校验。
+
+三端实现与权限边界：
+
+| 平台 | `scan`（相机） | `scanFromImage`（图片） | 权限 |
+| --- | --- | --- | --- |
+| Android | autolink 库内全屏 `ScannerActivity`：CameraX Preview + ImageAnalysis，ML Kit bundled 模型离线识码（不依赖 Google Play Services），带取景框 / 手电筒 / 关闭按钮 | ML Kit `InputImage.fromFilePath` 解码 `content://` / `file://` URI | `CAMERA`：库 manifest 声明并合并进宿主，运行时授权由扫码页自己发起；识码被拒 resolve `permissionDenied` |
+| iOS | autolink 库内全屏 VC：`AVCaptureSession` + `AVCaptureMetadataOutput`，同样的取景框 / 关闭 UI | Vision `VNDetectBarcodesRequest` 解码 `file://` 图片（相册选择已复制进缓存） | 宿主 Info.plist 声明 `NSCameraUsageDescription`（已在宿主声明）；`AVCaptureDevice` 授权被拒 resolve `permissionDenied` |
+| HarmonyOS | Scan Kit 默认系统扫码页 `scanBarcode.startScanForResult` | Scan Kit `detectBarcode.decode`（`InputImage` 直接接受 URI） | 均无需相机权限：系统扫码页运行在系统侧，图片识码是纯本地解码 |
+
+HarmonyOS 的用户取消以 Scan Kit 错误码 `1000500002`
+（`scanCore.ScanErrorCode.SCAN_SERVICE_CANCELED`）识别并映射为 `userCancel`。
+
 ### 截图
 
 `Screenshot` 把视图快照编码为 PNG/JPEG 写入应用缓存目录（`<cache>/LynxImages/`），
@@ -479,9 +572,9 @@ JPEG 输出先合成白色底（JPEG 没有透明通道）；视图绘制在主�
 IO 在后台线程完成。目标未布局（宽高为 0）、`idSelector` 无匹配或 LynxView 尚未
 attach 时 reject。
 
-### 设备信息与显示宽度
+### 设备信息、显示宽度与亮度
 
-`DeviceInfo` 一次性返回设备与应用事实，`Display` 按需提供三种宽度；两者都是
+`DeviceInfo` 一次性返回设备与应用事实，`Display` 按需提供三种宽度与亮度/常亮控制；两者都是
 调用时现查，旋转、折叠/展开、多窗口拖拽与配置变更后立即反映最新值：
 
 ```ts
@@ -494,11 +587,22 @@ const info = await deviceInfo.getInfo();
 const screen = await display.screenWidth();     // 整屏宽度
 const window = await display.windowWidth();     // 当前窗口宽度（分屏/折叠时小于屏幕宽）
 const view = await display.lynxViewWidth();     // 当前 LynxView 宽度；未布局完成时为 0
+
+const brightness = await display.getBrightness(); // 当前亮度 0..1
+await display.setBrightness(0.8);                 // 设置窗口亮度（0..1）
+await display.setKeepScreenOn(true);              // 页面可见期间保持屏幕常亮
 ```
 
 所有宽度都是 Lynx 逻辑像素（Android dp / iOS pt / HarmonyOS vp），与 Lynx 布局
 单位一致；`display.lynxViewWidth()` 在 LynxView 尚未 attach 时 reject，布局未完成
 时解析为 `0`，业务可据此决定延后查询。
+
+亮度是**窗口级**语义：设置只在本应用/窗口可见期间生效，退出后系统自动恢复原亮度，
+三端都无需任何权限（Android 修改系统级亮度需要 `WRITE_SETTINGS` 特殊授权，模板
+不采用）。读取时若本窗口未单独设置过亮度，则回落为系统亮度。`setBrightness` 的
+取值必须在 0..1（共享层先行校验），无宿主窗口（Android 无 Activity、HarmonyOS 无
+UIAbilityContext）时命令 reject。`setKeepScreenOn(true)` 覆盖视频播放页的常亮需求，
+再次传 `false` 恢复系统默认息屏行为。
 
 | 字段 / 方法 | Android | iOS | HarmonyOS |
 | --- | --- | --- | --- |
@@ -542,6 +646,75 @@ toast.error('Network unreachable').catch(() => {});
 | `screenWidth()` | `LynxContext.getScreenMetrics()` | `UIScreen.mainScreen.bounds` | `display.getDefaultDisplaySync()` |
 | `windowWidth()` | 宿主 Activity 的 `WindowMetrics` | LynxView 所在 window / 前台 key window | 主窗口 `windowRect` |
 | `lynxViewWidth()` | `LynxContext.getLynxView()` | `LynxContext.getLynxView()` | 宿主经 `onAreaChange` 实测上报 |
+| `getBrightness()` | 窗口 `screenBrightness`，否则系统亮度 /255 | `UIScreen.mainScreen.brightness` | 窗口 `brightness`，否则 `display…brightness` |
+| `setBrightness(v)` | 窗口 `WindowManager.LayoutParams.screenBrightness` | `UIScreen.mainScreen.brightness = v` | `window.setWindowBrightness(v)` |
+| `setKeepScreenOn(b)` | `FLAG_KEEP_SCREEN_ON` add/clear | `UIApplication.idleTimerDisabled` | `window.setKeepScreenOn(b)` |
+
+### 电量
+
+`Battery` 按需读取当前电量与充电状态，三端均免权限：
+
+```ts
+import { battery } from '@lynx-app/native-bridge';
+
+const info = await battery.getInfo();
+// { level: 0.85, charging: true }
+// 模拟器 / 无电池设备上 level 为 null
+```
+
+`level` 统一为 0..1；`charging` 表示已接入电源（充电中或已充满）。iOS 模拟器读不到
+电量（`level: null`）。模板只提供快照查询，需要电量变化通知时由原生宿主自行扩展。
+
+| 平台 | 实现 |
+| --- | --- |
+| Android | 粘性 `ACTION_BATTERY_CHANGED` 广播现查（无需注册 receiver）：`EXTRA_LEVEL/EXTRA_SCALE` 与 `EXTRA_STATUS` |
+| iOS | `UIDevice.batteryLevel` / `batteryState`；调用前自动开启 `batteryMonitoringEnabled` |
+| HarmonyOS | `@ohos.batteryInfo` 的 `batterySOC` / `chargingStatus` / `isBatteryPresent` |
+
+### 传感器（加速度计 / 罗盘）
+
+`Sensors` 以「命令 + 事件」模型提供流式传感器读数，与 `WebSocket` 一致：契约方法
+只有 `isAvailable` / `start` / `stop`（error-string ack），读数经 Lynx
+`GlobalEventEmitter` 的 `sensors` 事件回传。共享层 `sensors.observe()` 按类型做
+监听引用计数——第一个监听者出现时调用原生 `start`，最后一个取消时调用 `stop`，
+业务不需要手动管理传感器开关：
+
+```ts
+import { sensors } from '@lynx-app/native-bridge';
+
+if (await sensors.available('compass')) {
+  const stop = sensors.observe(
+    'compass',
+    (reading) => {
+      'background only';
+      // reading.heading: 磁北方位角 0-360°
+      // reading.accuracy: 估计误差角度；-1 表示不可靠
+    },
+    (message) => {
+      // 启动失败（如 iOS 罗盘定位权限被拒）经此回调报告
+    },
+  );
+  // stop() 取消订阅；最后一个 stop 后原生传感器自动停流
+}
+```
+
+- `accelerometer` 读数为设备坐标系 m/s²，**包含重力**（静置时 z 约 9.8），三端口径一致；
+- `compass` 读数为磁北方位角（0-360°，绕竖直轴），`accuracy` 是以角度计的估计误差
+  （iOS 直接使用 `headingAccuracy`；Android / HarmonyOS 由精度枚举映射为
+  ±15°/±30°/±45°，不可靠时 -1）；
+- `timestamp` 为原生发出时刻的 epoch 毫秒，各平台原生时间源不保证跨端可比，仅用于
+  排序与间隔估算。
+
+| 平台 | `accelerometer` | `compass` | 权限 |
+| --- | --- | --- | --- |
+| Android | `SensorManager` `TYPE_ACCELEROMETER`（UI 速率） | `TYPE_ROTATION_VECTOR`（缺失时回落加速度计+磁力计融合），`getOrientation` 求方位角并按屏幕旋转重映射 | 均免权限 |
+| iOS | `CMMotionManager` 加速度计更新（含重力） | `CLLocationManager` heading（`magneticHeading` / `headingAccuracy`） | 罗盘需定位授权：宿主声明 `NSLocationWhenInUseUsageDescription`，模块在首次 `start` 时发起申请；拒绝经 `onError` 报告，模拟器/无磁力计设备 `available()` 为 `false`。加速度计免权限 |
+| HarmonyOS | `sensor.on(ACCELEROMETER)` | `sensor.on(ORIENTATION)`，`alpha` 即地磁融合方位角 | `ohos.permission.ACCELEROMETER`（system_grant，已在宿主声明）；罗盘免权限 |
+
+与 `WebSocket` 相同，事件进入后台运行时（`'background only'`）；传感器回调高频触发，
+避免在监听器里做重计算，必要时自行节流。页面销毁时三端宿主都会停流（Android
+`destroy()` 反注册、iOS `-destroy`、HarmonyOS 页面 `aboutToDisappear` 销毁
+controller）。
 
 ### 共享 hooks
 
@@ -687,20 +860,28 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 ```text
 autolink/
 ├── album-utils/   # AlbumUtils（相册选图 + 存图）
+├── battery/       # Battery（电量 + 充电状态）
 ├── biometric/     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
 ├── device-info/   # DeviceInfo（机型、OS/App 版本、密度、locale、平板/折叠屏）
-├── display/       # Display（屏幕宽 / 窗口宽 / LynxView 宽）
+├── display/       # Display（屏幕宽 / 窗口宽 / LynxView 宽 / 亮度 / 常亮）
+├── sensors/       # Sensors（加速度计 + 罗盘流式读数）
 ├── toast/         # Toast（原生轻提示；iOS 为模块自绘气泡）
 ├── file-system/   # FileSystem（系统文件选择器 + URI 元数据、缓存复制与受限读取）
 ├── websocket/     # WebSocket（Android OkHttp / iOS NSURLSession）
 ├── mmkv/          # KV（MMKV 字符串存储）
+├── secure-storage/ # SecureStorage（小机密数据：Keystore 加密 / Keychain）
 ├── clipboard/     # Clipboard（系统剪贴板纯文本）
 ├── haptics/       # Haptics（单击式触感反馈）
+├── scanner/       # Scanner（全屏扫码 + 相册图片识码）
 └── router/        # Router（应用内导航 + 系统 scheme 打开）
 ```
 
-十一个库注册的模块名与 `lib/native-bridge` 的契约完全一致，因此 JS 侧零改动；库自身只承载
-原生实现，JS 常量（如模块名）从各库的 `src/index.ts` 导出。
+`autolink/liquid-glass/` 是 iOS-only Element 库，自动注册 `glass-switch` 与
+`glass-dropdown`；Android 与 HarmonyOS 继续使用 bundle 内的 Lynx 降级控件。
+
+这些库注册的模块名与聚合契约完全一致，因此 JS 侧零改动。每个库同时拥有原生实现和
+`types/platform-native-module.d.ts` 原始调用声明；生成的 `src/index.ts` 从包根导出该
+类型及模块名常量。
 
 `router` 是唯一需要宿主参与的库：`open`/`close` 的应用内导航是宿主专属逻辑
 （Activity / ViewController / Navigation），模块从自身 `LynxContext` 解析出调用方
@@ -730,13 +911,16 @@ Lynx 发布兼容 AGP 9 的插件后，可删除该类并换回官方生成物�
 `app/harmonyApp/entry/src/main/ets/native/` 手动注册同名模块，JS 契约不变。
 
 **新增一个 autolink 库**：在 `autolink/` 下新建目录（`package.json` + `lynx.lib.json` +
-`android/` + `ios/`），加入根 `package.json` 的 devDependencies（`workspace:*`），执行
-`pnpm install`；Android 侧在 `LynxAutolinkRegistry.PROVIDERS` 中加一条 provider 类名，
-iOS 侧重新 `bundle exec pod install` 即可。
+`types/platform-native-module.d.ts` + `android/` + `ios/`），在
+`contracts/native-modules.json` 添加声明与三端实现映射，加入根 `package.json` 和
+`lib/native-contracts/package.json` 的 workspace 依赖后执行 `pnpm install` 与
+`pnpm native:contracts:generate`；Android 侧在 `LynxAutolinkRegistry.PROVIDERS` 中加一条
+provider 类名，iOS 侧重新 `bundle exec pod install` 即可。
 
 ## 原生实现位置
 
-- Autolink 库（Android + iOS）：`autolink/websocket`、`autolink/mmkv`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/display`、`autolink/file-system`、`autolink/router`、`autolink/screenshot`、`autolink/toast`；
+- Autolink 库（Android + iOS）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/toast`；
+- iOS-only Autolink Element：`autolink/liquid-glass`；
 - Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`、`LynxAutolinkRegistry.java`；
 - iOS 宿主：`NativeModules/` 下的 `AppRouteHandler.swift`（Router 的宿主导航）与其他宿主模块、`LynxPageViewController.swift`；
 - HarmonyOS 宿主：`native/` 下的各模块、`pages/Index.ets`。
