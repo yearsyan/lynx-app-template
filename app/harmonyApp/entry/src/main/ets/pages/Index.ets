@@ -14,7 +14,6 @@ import { window } from '@kit.ArkUI';
 
 import { BundleConfig } from '../config/BundleConfig';
 import { DevelopmentSettings } from '../config/DevelopmentSettings';
-import { BatteryModule } from '../native/BatteryModule';
 import { NativeSensorsController, SensorsModule } from '../native/SensorsModule';
 import {
   WebviewModuleBridgeHostAdapter,
@@ -25,34 +24,17 @@ import {
   BackModule,
   NativeBackRegistration,
 } from '../native/BackModule';
-import { BiometricModule } from '../native/BiometricModule';
-import {
-  AlbumUtilsModule,
-  AlbumUtilsRegistration,
-} from '../native/AlbumUtilsModule';
-import { ClipboardModule } from '../native/ClipboardModule';
-import { DeviceInfoModule } from '../native/DeviceInfoModule';
 import {
   DisplayModule,
   DisplayRegistration,
   LynxViewSizeTracker,
 } from '../native/DisplayModule';
 import {
-  FileSystemModule,
-  FileSystemRegistration,
-} from '../native/FileSystemModule';
-import { HapticsModule } from '../native/HapticsModule';
-import { KVModule } from '../native/KVModule';
-import {
   NativeRoute,
   nativeRouteTransitionType,
   NativeRouterController,
   RouterModule,
 } from '../native/RouterModule';
-import {
-  ScannerModule,
-  ScannerRegistration,
-} from '../native/ScannerModule';
 import {
   NativeStatusBarController,
   StatusBarModule,
@@ -64,11 +46,6 @@ import {
   screenshotViewContainerId,
   SCREENSHOT_PAGE_ROOT_ID,
 } from '../native/ScreenshotModule';
-import { SecureStorageModule } from '../native/SecureStorageModule';
-import {
-  NativeToastRegistration,
-  ToastModule,
-} from '../native/ToastModule';
 import {
   NativeWebSocketController,
   WebSocketModule,
@@ -261,47 +238,8 @@ struct LynxBundlePage {
 
   private createModules(context: common.UIAbilityContext): Map<string, ModuleClassWrapper> {
     const modules = new Map<string, ModuleClassWrapper>();
-    modules.set(
-      ClipboardModule.NAME,
-      new NativeModuleRegistration(ClipboardModule),
-    );
-    modules.set(
-      HapticsModule.NAME,
-      new NativeModuleRegistration(HapticsModule),
-    );
-    modules.set(
-      BiometricModule.NAME,
-      new NativeModuleRegistration(BiometricModule),
-    );
-    modules.set(
-      AlbumUtilsModule.NAME,
-      new NativeModuleRegistration(
-        AlbumUtilsModule,
-        new AlbumUtilsRegistration(context),
-      ),
-    );
-    modules.set(
-      FileSystemModule.NAME,
-      new NativeModuleRegistration(
-        FileSystemModule,
-        new FileSystemRegistration(context),
-      ),
-    );
-    modules.set(
-      ScannerModule.NAME,
-      new NativeModuleRegistration(
-        ScannerModule,
-        new ScannerRegistration(context),
-      ),
-    );
-    modules.set(
-      KVModule.NAME,
-      new NativeModuleRegistration(KVModule),
-    );
-    modules.set(
-      SecureStorageModule.NAME,
-      new NativeModuleRegistration(SecureStorageModule),
-    );
+    // Self-contained libraries are installed globally by the official
+    // HarmonyOS Autolink AppStartup task. Only host-scoped modules live here.
     modules.set(
       RouterModule.NAME,
       new NativeModuleRegistration(RouterModule, this.routerController),
@@ -324,14 +262,6 @@ struct LynxBundlePage {
       ),
     );
     modules.set(
-      DeviceInfoModule.NAME,
-      new NativeModuleRegistration(DeviceInfoModule),
-    );
-    modules.set(
-      BatteryModule.NAME,
-      new NativeModuleRegistration(BatteryModule),
-    );
-    modules.set(
       SensorsModule.NAME,
       new NativeModuleRegistration(
         SensorsModule,
@@ -343,13 +273,6 @@ struct LynxBundlePage {
       new NativeModuleRegistration(
         DisplayModule,
         new DisplayRegistration(context, this.lynxViewSizeTracker),
-      ),
-    );
-    modules.set(
-      ToastModule.NAME,
-      new NativeModuleRegistration(
-        ToastModule,
-        new NativeToastRegistration(this.getUIContext()),
       ),
     );
     modules.set(

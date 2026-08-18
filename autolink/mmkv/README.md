@@ -11,6 +11,6 @@ string storage) on Android and iOS hosts. Bundles consume the JS API through
   `MMKV` pod, and performs MMKV's required main-thread bootstrap on first
   module construction.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and continue to
-register their own `KV` in
-`app/harmonyApp/entry/src/main/ets/native/`.
+HarmonyOS ships its `@tencent/mmkv`-backed `KV` as the `harmony/` source
+HAR (ohpm dependency included), registered globally by the official
+HarmonyOS Hvigor Autolink provider.

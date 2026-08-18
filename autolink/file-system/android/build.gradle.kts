@@ -4,15 +4,11 @@ plugins {
 
 android {
     namespace = "com.lynxapp.autolink.filesystem"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
     }
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Alynx.library.packageName=com.lynxapp.autolink.filesystem")
 }
 
 dependencies {

@@ -9,8 +9,8 @@ small secret strings.
 - **iOS** — values are stored as Keychain generic-password items
   (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`).
 
-HarmonyOS hosts provide an HUKS-backed implementation of the same module
-manually (`app/harmonyApp/entry/src/main/ets/native/SecureStorageModule.ets`).
+HarmonyOS ships its HUKS-backed implementation as the `harmony/` source
+HAR, registered globally by the official HarmonyOS Hvigor Autolink provider.
 
 The raw method signatures are defined in `types/platform-native-module.d.ts`.
 `contracts/native-modules.json` maps that declaration to the native

@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_file_system",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

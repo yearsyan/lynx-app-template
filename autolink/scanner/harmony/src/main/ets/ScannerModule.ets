@@ -3,15 +3,6 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { detectBarcode, scanBarcode, scanCore } from '@kit.ScanKit';
 import { LynxContext, LynxModule } from '@lynx/lynx';
 
-/** Carries the UIAbilityContext the system scan page is launched from. */
-export class ScannerRegistration {
-  readonly context: common.UIAbilityContext;
-
-  constructor(context: common.UIAbilityContext) {
-    this.context = context;
-  }
-}
-
 class ScanValue {
   code: string;
   content: string | null;
@@ -51,19 +42,15 @@ class ScanEnvelope {
  */
 export class ScannerModule extends LynxModule {
   static readonly NAME: string = 'Scanner';
-  private readonly registration: ScannerRegistration | undefined;
+  private readonly abilityContext: common.UIAbilityContext;
   private isScanning: boolean = false;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.registration = param as ScannerRegistration | undefined;
+    this.abilityContext = getContext(this) as common.UIAbilityContext;
   }
 
   scan(callback: (resultJSON: string) => void): void {
-    if (this.registration === undefined) {
-      callback(this.encodeError('Scanner has no UIAbilityContext'));
-      return;
-    }
     if (this.isScanning) {
       callback(this.encodeOutcome(
         'busy', null, null, 'Another scanner request is already active'));
@@ -75,7 +62,7 @@ export class ScannerModule extends LynxModule {
       enableMultiMode: false,
       enableAlbum: false,
     };
-    scanBarcode.startScanForResult(this.registration.context, options)
+    scanBarcode.startScanForResult(this.abilityContext, options)
       .then((result: scanBarcode.ScanResult) => {
         this.isScanning = false;
         callback(this.encodeOutcome(

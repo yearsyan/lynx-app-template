@@ -7,6 +7,9 @@
     "ios": {
       "sourceDir": "ios",
       "podspecPath": "ios/lynx-app-file-system.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
     }
   }
 }

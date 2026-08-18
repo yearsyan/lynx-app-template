@@ -21,5 +21,5 @@ Platform behavior:
   `PHAssetCreationRequest`; the host must declare
   `NSPhotoLibraryAddUsageDescription`.
 
-HarmonyOS is not covered by Lynx Autolink and manually registers its
-`PhotoViewPicker` implementation from `app/harmonyApp`.
+HarmonyOS ships the `PhotoViewPicker` implementation as the `harmony/`
+source HAR, registered globally by the official HarmonyOS Hvigor Autolink provider.

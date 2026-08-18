@@ -9,5 +9,5 @@ consuming the JS API through `@lynx-app/native-bridge`.
 - **iOS** (`ios/`) — `UIPasteboard` transport packaged as the
   `lynx-app-clipboard` pod and registered by `cocoapods-lynx-library`.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their Pasteboard-backed `Clipboard` from `app/harmonyApp`.
+HarmonyOS ships the Pasteboard-backed `Clipboard` as the `harmony/` source
+HAR, registered globally by the official HarmonyOS Hvigor Autolink provider.

@@ -15,5 +15,6 @@ No permissions are required on either platform. iOS values become readable
 after enabling `UIDevice.batteryMonitoringEnabled`, which the module does on
 demand.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `BatteryModule` (backed by `@ohos.batteryInfo`) from `app/harmonyApp`.
+HarmonyOS ships the `@ohos.batteryInfo`-backed `BatteryModule` as the
+`harmony/` source HAR, registered globally by the official HarmonyOS Hvigor
+Autolink provider.

@@ -47,36 +47,24 @@ class PickerResult {
   }
 }
 
-export class FileSystemRegistration {
-  readonly context: common.UIAbilityContext;
-
-  constructor(context: common.UIAbilityContext) {
-    this.context = context;
-  }
-}
-
 /** System file picker and URI-aware file operations exported to Lynx as FileSystem. */
 export class FileSystemModule extends LynxModule {
   static readonly NAME: string = 'FileSystem';
   private static readonly MAX_READ_BYTES: number = 20 * 1024 * 1024;
   private static nextCacheID: number = 0;
 
-  private readonly registration: FileSystemRegistration | undefined;
+  private readonly abilityContext: common.UIAbilityContext;
   private readonly base64: util.Base64Helper = new util.Base64Helper();
   private isPicking: boolean = false;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.registration = param as FileSystemRegistration | undefined;
+    this.abilityContext = getContext(this) as common.UIAbilityContext;
   }
 
   pick(maxSelection: number, callback: (resultJSON: string) => void): void {
     if (!Number.isInteger(maxSelection) || maxSelection < 1 || maxSelection > 50) {
       callback(this.pickerError('File picker maxSelection must be between 1 and 50'));
-      return;
-    }
-    if (this.registration === undefined) {
-      callback(this.pickerError('File picker has no UIAbilityContext'));
       return;
     }
     if (this.isPicking) {
@@ -88,7 +76,7 @@ export class FileSystemModule extends LynxModule {
     const options = new picker.DocumentSelectOptions();
     options.maxSelectNumber = maxSelection;
     try {
-      const documentPicker = new picker.DocumentViewPicker(this.registration.context);
+      const documentPicker = new picker.DocumentViewPicker(this.abilityContext);
       documentPicker.select(options).then((uris: Array<string>) => {
         this.isPicking = false;
         callback(this.pickerURIs(uris.slice(0, maxSelection)));
@@ -126,13 +114,9 @@ export class FileSystemModule extends LynxModule {
   }
 
   copyToCache(uri: string, callback: (resultJSON: string) => void): void {
-    if (this.registration === undefined) {
-      callback(this.stringError('FileSystem has no UIAbilityContext'));
-      return;
-    }
     let source: fs.File | undefined;
     try {
-      const directory: string = `${this.registration.context.cacheDir}/LynxFiles`;
+      const directory: string = `${this.abilityContext.cacheDir}/LynxFiles`;
       if (!fs.accessSync(directory)) {
         fs.mkdirSync(directory, true);
       }

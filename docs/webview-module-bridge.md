@@ -9,8 +9,8 @@ Native Modules。Android、iOS、HarmonyOS 使用相同的请求/响应协议；
 
 1. 原生组件不维护第二份模块注册表。每个宿主适配器复用该 LynxView 已安装的模块注册表；
 2. 原生组件与宿主策略分离。Android/iOS 组件由 `autolink/webview-bridge` 注册，宿主只
-   负责把当前 view 的模块注册表交给组件；HarmonyOS 4.0 尚无已发布的 Autolink 支持，
-   因此保留显式 behavior 适配器。
+   负责把当前 view 的模块注册表交给组件；HarmonyOS 版本依赖当前页面的显式模块表，
+   因此不做全局 Provider，仍保留 behavior 适配器。
 
 ## 页面协议
 
@@ -65,7 +65,8 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
   `LynxUIWebView` 和 `ILynxWebViewService` 实现 WebView、RPC、参数转换和模块调用；
 - `WebviewModuleBridgeHostAdapter` 使用 `RecordingLynxViewBuilder` 记录 Autolink 与宿主
   手动注册的全部模块，并在 build 后把同一注册表挂到 `LynxContext`；
-- `LynxLibraryProviderImpl` 由 Lynx processor 生成，并由模板的 Autolink registry 加载；
+- `LynxLibraryProviderImpl` 由 Lynx processor 生成，并由官方 `library-build` Gradle 插件
+  生成的 app-wide Autolink registry 加载；
 - `addJavascriptInterface` 方法和 Lynx props setter 均有对应的 R8 keep 规则。
 
 ### iOS

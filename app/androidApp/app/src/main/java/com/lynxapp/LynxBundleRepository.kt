@@ -260,15 +260,15 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
         val size: Long,
     )
 
-    private companion object {
-        const val TAG = "LynxBundleRepository"
-        const val CACHE_SCHEME = "lynx-cache"
-        const val CACHE_METADATA = "main.metadata.json"
+    companion object {
         const val BUNDLE_NAME = "main"
-        const val EMBEDDED_BUNDLE_DIRECTORY = "lynxbundle"
-        const val EMBEDDED_BUNDLE = "main.lynx.bundle"
-        const val EMBEDDED_BUNDLE_PATH = "lynxbundle/main.lynx.bundle"
-        const val ENGINE_VERSION = "3.9"
-        val SHA_256 = Regex("^[a-f0-9]{64}$")
+        private const val TAG = "LynxBundleRepository"
+        private const val CACHE_SCHEME = "lynx-cache"
+        private const val CACHE_METADATA = "main.metadata.json"
+        private const val EMBEDDED_BUNDLE_DIRECTORY = "lynxbundle"
+        private const val EMBEDDED_BUNDLE = "main.lynx.bundle"
+        private const val EMBEDDED_BUNDLE_PATH = "lynxbundle/main.lynx.bundle"
+        private const val ENGINE_VERSION = "3.9"
+        private val SHA_256 = Regex("^[a-f0-9]{64}$")
     }
 }

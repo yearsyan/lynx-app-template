@@ -13,11 +13,12 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@lynx-app/native-bridge": "workspace:*",
+    "@lynx-js/lynx-ui": "3.136.0",
     "@lynx-js/react": "catalog:",
     "@lynx-template/activity-sheet": "workspace:*",
     "@lynx-template/autolink-liquid-glass": "workspace:*",
-    "@lynx-template/autolink-webview-bridge": "workspace:*",
-    "@lynx-app/native-bridge": "workspace:*"
+    "@lynx-template/autolink-webview-bridge": "workspace:*"
   },
   "devDependencies": {
     "@lynx-js/preact-devtools": "catalog:",

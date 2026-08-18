@@ -25,8 +25,8 @@ Notes:
   `upc_a`, `upc_e`, `unknown` (iOS reports UPC-A as `ean_13`, matching
   AVFoundation).
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `ScannerModule` from `app/harmonyApp`. It launches the Scan Kit
+HarmonyOS ships the `ScannerModule` as the `harmony/` source HAR,
+registered globally by the official HarmonyOS Hvigor Autolink provider. It launches the Scan Kit
 default system scan page (`scanBarcode.startScanForResult`) — no camera
 permission required because the page runs inside a system ability — and
 decodes images with `detectBarcode.decode`.

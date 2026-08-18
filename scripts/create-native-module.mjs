@@ -11,24 +11,17 @@ const contractsFile = join(
   'contracts/native-modules.json',
 );
 const packageFile = join(repositoryDirectory, 'package.json');
-const androidRegistryFile = join(
-  repositoryDirectory,
-  'app/androidApp/app/src/main/java/com/lynxapp/LynxAutolinkRegistry.java',
-);
-const harmonyIndexFile = join(
-  repositoryDirectory,
-  'app/harmonyApp/entry/src/main/ets/pages/Index.ets',
-);
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
 const PASCAL = /^[A-Z][A-Za-z0-9]*$/;
+const HARMONY_LYNX_VERSION = '4.2.0-nightly.202608180606.150.ga573c3b8';
 
 function usage() {
   console.info(`usage: pnpm new:native-module <kebab-case-name> [--module-name <PascalName>]
 
 Scaffolds a Lynx Autolink NativeModule workspace package with matching
 Android, iOS and HarmonyOS stubs, a raw TypeScript contract, a
-contracts/native-modules.json entry, and the host-side registrations.
+contracts/native-modules.json entry, and official Autolink metadata.
 The stubs export a single ping(message, callback) method so
 pnpm native:contracts:check passes immediately; replace it on all three
 hosts, keeping the contract in sync.
@@ -108,12 +101,6 @@ function insertSortedKey(object, key, value) {
   return rebuilt;
 }
 
-function insertLineBefore(content, anchor, line, label) {
-  const index = content.indexOf(anchor);
-  if (index < 0) fail(`cannot find ${label} anchor`);
-  return content.slice(0, index) + line + content.slice(index);
-}
-
 async function main() {
   const { name, moduleName: moduleNameOverride } = parseArguments(
     process.argv.slice(2),
@@ -141,28 +128,26 @@ async function main() {
   if (contracts.modules.some((module) => module.autolink?.directory === name)) {
     fail(`autolink/${name} is already registered in contracts`);
   }
-  const androidRegistry = await readText(
-    androidRegistryFile,
-    'LynxAutolinkRegistry.java',
-  );
-  if (androidRegistry.includes(`com.lynxapp.autolink.${packageSegment}.`)) {
-    fail(
-      `Android autolink package com.lynxapp.autolink.${packageSegment} is already registered`,
-    );
-  }
-
   const files = {
     'package.json': `${JSON.stringify(
       {
         name: `@lynx-template/autolink-${name}`,
-        description: `Autolinked ${name} module for Lynx hosts (Android & iOS)`,
+        description: `Autolinked ${name} module for Lynx hosts (Android, iOS & HarmonyOS)`,
         version: '1.0.0',
         private: true,
         type: 'module',
         exports: {
           '.': './src/index.ts',
         },
-        files: ['android', 'ios', 'src', 'types', 'lynx.lib.json', 'README.md'],
+        files: [
+          'android',
+          'ios',
+          'harmony',
+          'src',
+          'types',
+          'lynx.lib.json',
+          'README.md',
+        ],
       },
       null,
       2,
@@ -178,6 +163,9 @@ async function main() {
             sourceDir: 'ios',
             podspecPath: `ios/lynx-app-${name}.podspec`,
           },
+          harmony: {
+            packageDir: 'harmony',
+          },
         },
       },
       null,
@@ -191,7 +179,7 @@ result envelope; replace it with real functionality on every host.
 
 - Android: \`android/src/main/java/com/lynxapp/autolink/${packageSegment}/${interfaceName}.java\`
 - iOS: \`ios/src/${interfaceName}.m\`
-- HarmonyOS: \`app/harmonyApp/entry/src/main/ets/native/${interfaceName}.ets\` (host-registered)
+- HarmonyOS: \`harmony/src/main/ets/${interfaceName}.ets\` (source HAR, autolink-registered)
 - Raw TypeScript contract: \`types/platform-native-module.d.ts\`
 
 Keep the three implementations and the contract in sync —
@@ -215,17 +203,11 @@ export declare class ${moduleName} {
 
 android {
     namespace = "com.lynxapp.autolink.${packageSegment}"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
     }
-}
-
-// lynx-processor generates the LynxLibraryProvider glue scanned by
-// com.lynx.tasm.library.LynxLibraryRegistry; it needs the target package.
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Alynx.library.packageName=com.lynxapp.autolink.${packageSegment}")
 }
 
 dependencies {
@@ -325,7 +307,67 @@ NS_ASSUME_NONNULL_END
 
 @end
 `,
-    [`../../app/harmonyApp/entry/src/main/ets/native/${interfaceName}.ets`]: `import { LynxContext, LynxModule } from '@lynx/lynx';
+    'harmony/oh-package.json5': `${JSON.stringify(
+      {
+        name: `@lynx-template/autolink-${name}`,
+        version: '1.0.0',
+        description: `Autolinked ${name} module for Lynx hosts (HarmonyOS source HAR)`,
+        main: 'Index.ets',
+        license: 'Apache-2.0',
+        dependencies: {
+          '@lynx/lynx': HARMONY_LYNX_VERSION,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    'harmony/build-profile.json5': `{
+  "apiType": "stageMode",
+  "buildOption": {
+    "arkOptions": {
+      "byteCodeHar": false,
+    },
+  },
+  "targets": [
+    {
+      "name": "default",
+    },
+  ],
+}
+`,
+    'harmony/hvigorfile.ts': `import { harTasks } from '@ohos/hvigor-ohos-plugin';
+
+export default {
+  system: harTasks /* Built-in plugin of Hvigor. It cannot be modified. */,
+  plugins: [] /* Custom plugin to extend the functionality of Hvigor. */,
+};
+`,
+    'harmony/Index.ets': `export { LynxLibraryProviderImpl } from './src/main/ets/LynxLibraryProviderImpl';
+export { ${interfaceName} } from './src/main/ets/${interfaceName}';
+`,
+    'harmony/src/main/module.json5': `{
+  "module": {
+    "name": "autolink_${name.replaceAll('-', '_')}",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}
+`,
+    'harmony/src/main/ets/LynxLibraryProviderImpl.ets': `import { LynxLibraryProvider, LynxLibraryRegistry } from '@lynx/lynx';
+import { ${interfaceName} } from './${interfaceName}';
+
+/** Registers this source HAR with Lynx's global HarmonyOS library registry. */
+export class LynxLibraryProviderImpl implements LynxLibraryProvider {
+  register(registry: LynxLibraryRegistry): void {
+    registry.registerModule(${interfaceName}.NAME, { moduleClass: ${interfaceName} });
+  }
+}
+`,
+    [`harmony/src/main/ets/${interfaceName}.ets`]: `import { LynxContext, LynxModule } from '@lynx/lynx';
 
 /** ${moduleName} scaffolded by pnpm new:native-module; replace ping with real functionality. */
 export class ${interfaceName} extends LynxModule {
@@ -363,7 +405,7 @@ export class ${interfaceName} extends LynxModule {
         fileName: `${interfaceName}.java`,
       },
       ios: `autolink/${name}/ios/src/${interfaceName}.m`,
-      harmony: `app/harmonyApp/entry/src/main/ets/native/${interfaceName}.ets`,
+      harmony: `autolink/${name}/harmony/src/main/ets/${interfaceName}.ets`,
     },
   };
   const insertBefore = contracts.modules.findIndex(
@@ -393,33 +435,8 @@ export class ${interfaceName} extends LynxModule {
     'utf8',
   );
 
-  // Hand-written Android registry (see the class comment there).
-  const provider = `com.lynxapp.autolink.${packageSegment}.LynxLibraryProviderImpl`;
-  await writeFile(
-    androidRegistryFile,
-    insertProviderSorted(androidRegistry, provider),
-    'utf8',
-  );
-
-  // HarmonyOS hosts register modules manually in Index.ets.
-  const harmonyIndex = await readText(harmonyIndexFile, 'HarmonyOS Index.ets');
-  const withImport = insertLineBefore(
-    harmonyIndex,
-    "import { BatteryModule } from '../native/BatteryModule';",
-    `import { ${interfaceName} } from '../native/${interfaceName}';\n`,
-    'HarmonyOS native import',
-  );
-  await writeFile(
-    harmonyIndexFile,
-    insertLineBefore(
-      withImport,
-      '    modules.set(',
-      `    modules.set(\n      ${interfaceName}.NAME,\n      new NativeModuleRegistration(${interfaceName}),\n    );\n`,
-      'HarmonyOS module registration',
-    ),
-    'utf8',
-  );
-
+  // All hosts discover the package from lynx.lib.json through official
+  // Android, iOS and HarmonyOS Autolink tooling.
   // Generates autolink/<name>/src/index.ts and the aggregated registries.
   const generated = spawnSync(
     process.execPath,
@@ -445,24 +462,6 @@ export class ${interfaceName} extends LynxModule {
   );
   console.info('  # validated by pnpm native:contracts:check');
   console.info('  pnpm check                  # contracts, types and lint');
-}
-
-function insertProviderSorted(content, provider) {
-  const providers = [
-    ...content.matchAll(
-      /^[ ]+"(com\.lynxapp\.autolink\.[a-z]+\.LynxLibraryProviderImpl)",$/gm,
-    ),
-  ];
-  if (providers.length === 0) fail('cannot find Android provider list entries');
-  const line = `            "${provider}",\n`;
-  const next = providers.find((match) => match[1] > provider);
-  if (next !== undefined) {
-    const at = next.index;
-    return content.slice(0, at) + line + content.slice(at);
-  }
-  const last = providers.at(-1);
-  const at = last.index + last[0].length + 1; // past the newline
-  return content.slice(0, at) + line + content.slice(at);
 }
 
 main().catch((error) => {

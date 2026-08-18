@@ -1,6 +1,6 @@
 {
   "name": "@lynx-template/autolink-battery",
-  "description": "Autolinked battery state module for Lynx hosts (Android & iOS)",
+  "description": "Autolinked battery state module for Lynx hosts (Android, iOS & HarmonyOS)",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
   "files": [
     "android",
     "ios",
+    "harmony",
     "src",
     "types",
     "lynx.lib.json",

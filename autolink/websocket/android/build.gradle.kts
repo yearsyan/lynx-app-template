@@ -4,22 +4,16 @@ plugins {
 
 android {
     namespace = "com.lynxapp.autolink.websocket"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
     }
 }
 
-// lynx-processor generates the LynxLibraryProvider glue scanned by
-// com.lynx.tasm.library.LynxLibraryRegistry; it needs the target package.
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Alynx.library.packageName=com.lynxapp.autolink.websocket")
-}
-
 dependencies {
     implementation("androidx.annotation:annotation:1.9.1")
     implementation("org.lynxsdk.lynx:lynx:4.0.0")
-    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
     annotationProcessor("org.lynxsdk.lynx:lynx-processor:4.0.0")
 }

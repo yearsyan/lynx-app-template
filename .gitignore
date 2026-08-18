@@ -92,8 +92,11 @@ app/iosApp/generated/
 autolink/*/android/build/
 autolink/*/android/.gradle/
 autolink/*/android/.cxx/
-# HarmonyOS dependencies pulled by autolinked packages
-autolink/*/oh_modules/
+# HarmonyOS source HAR dependencies and generated build metadata
+autolink/*/harmony/oh_modules/
+autolink/*/harmony/build/
+autolink/*/harmony/BuildProfile.ets
+autolink/*/harmony/oh-package-lock.json5
 app/iosApp/*.xcworkspace/
 app/iosApp/**/xcuserdata/
 app/iosApp/**/*.xcuserstate

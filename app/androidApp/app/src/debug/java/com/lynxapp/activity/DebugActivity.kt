@@ -17,14 +17,17 @@ class DebugActivity : Activity() {
         super.onCreate(savedInstanceState)
         enableLynxEdgeToEdge()
         nativeBackController = NativeBackController(this)
+        val url = intent.getStringExtra("url")
         lynxView = createLynxView(
             LynxBundleRepository(this),
             nativeBackController,
+            url ?: "debug",
+            url,
         )
         nativeBackController.attach(lynxView)
         setContentView(lynxView)
-        intent.getStringExtra("url")?.let { url ->
-            lynxView.renderTemplateUrl(url, TemplateData.empty())
+        url?.let {
+            lynxView.renderTemplateUrl(it, TemplateData.empty())
         }
     }
 

@@ -19,5 +19,6 @@ permissions:
 - **iOS** uses `UIDocumentPickerViewController` in copy mode and copies the
   result into the app cache before returning it.
 
-HarmonyOS is not covered by Lynx Autolink and registers its host-owned
-`FileSystem` implementation from `app/harmonyApp`.
+HarmonyOS ships its `FileSystem` implementation as the `harmony/` source
+HAR. Its module instance obtains `UIAbilityContext` directly, so the official
+global HarmonyOS Autolink provider needs no host-supplied registration object.

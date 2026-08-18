@@ -1,4 +1,3 @@
-import { UIContext } from '@kit.ArkUI';
 import { LynxContext, LynxModule } from '@lynx/lynx';
 
 const TYPE_SUCCESS: string = 'success';
@@ -18,15 +17,6 @@ export interface ToastOptions {
   durationMs?: number;
 }
 
-/** Carries the page UIContext so the module can reach PromptAction. */
-export class NativeToastRegistration {
-  readonly uiContext: UIContext;
-
-  constructor(uiContext: UIContext) {
-    this.uiContext = uiContext;
-  }
-}
-
 /**
  * One-shot toast exported to Lynx as Toast, backed by promptAction.showToast.
  * The ArkUI toast lives inside the app's own window, so it needs no
@@ -35,34 +25,32 @@ export class NativeToastRegistration {
  */
 export class ToastModule extends LynxModule {
   static readonly NAME: string = 'Toast';
-  private readonly registration: NativeToastRegistration | undefined;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.registration = param instanceof NativeToastRegistration ? param : undefined;
   }
 
   show(message: string, options: ToastOptions, callback: (error: string) => void): void {
-    const registration = this.registration;
-    if (registration === undefined) {
-      callback('Toast has no UIContext');
+    const currentWindow = this.context.getCurrentWindow();
+    if (currentWindow === undefined) {
+      callback('Toast has no Lynx window');
       return;
     }
     const durationMs = options.durationMs ?? 2000;
-    try {
-      registration.uiContext.getPromptAction().showToast({
+    currentWindow.then((hostWindow) => {
+      hostWindow.getUIContext().getPromptAction().showToast({
         message: ToastModule.decorate(message, options),
         duration: Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, Math.round(durationMs))),
         backgroundColor: options.backgroundColor ?? DEFAULT_BACKGROUND,
         textColor: options.textColor ?? DEFAULT_TEXT_COLOR,
       });
       callback('');
-    } catch (error) {
+    }).catch((error: Error) => {
       const messageText = error instanceof Error && error.message.length > 0
         ? error.message
         : 'Unable to show the toast';
       callback(messageText);
-    }
+    });
   }
 
   private static decorate(message: string, options: ToastOptions): string {

@@ -27,6 +27,7 @@ class MainActivity : FragmentActivity() {
         lynxView = createLynxView(
             bundleRepository,
             nativeBackController,
+            LynxBundleRepository.BUNDLE_NAME,
         )
         nativeBackController.attach(lynxView)
         val root = FrameLayout(this).apply {

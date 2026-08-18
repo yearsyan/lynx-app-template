@@ -1,159 +1,941 @@
+/* ============ Root & layout ============ */
+
 .AppRoot {
   width: 100%;
   height: 100%;
-  background-color: #f7f7fb;
+  background-color: #f7f7f7;
 }
 
-.AppScroll {
+.Home {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: #f7f7f7;
+}
+
+.Home__scroll {
+  width: 100%;
+  flex: 1;
+}
+
+.Home__body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+/* ============ Nav bar & capsule ============ */
+
+.NavBar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  background-color: #f7f7f7;
+  position: relative;
+  box-sizing: content-box;
+}
+
+.NavBar__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.NavBar__back {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.NavBar__backIcon {
+  font-size: 30px;
+  font-weight: 300;
+  color: #1a1a1a;
+}
+
+/* ============ Home hero ============ */
+
+.Hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 28px 20px 22px;
+  box-sizing: border-box;
+}
+
+.Hero__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background-color: #ececec;
+}
+
+.Hero__iconText {
+  font-size: 28px;
+  font-weight: 600;
+  color: #555555;
+}
+
+.Hero__desc {
+  margin-top: 18px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #888888;
+  text-align: center;
+}
+
+/* ============ Accordion groups ============ */
+
+.GroupList {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.Group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.Group__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 16px;
+  box-sizing: border-box;
+}
+
+.Group__header:active {
+  background-color: #f2f2f2;
+}
+
+.Group__title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.Group__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+.Group__iconGlyph {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.Group__items {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-top: 1px solid #f0f0f0;
+}
+
+.GroupItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 13px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  box-sizing: border-box;
+}
+
+.GroupItem--last {
+  border-bottom-width: 0;
+}
+
+.GroupItem:active {
+  background-color: #f2f2f2;
+}
+
+.GroupItem__title {
+  font-size: 15px;
+  color: #1a1a1a;
+}
+
+.GroupItem__chevron {
+  font-size: 18px;
+  color: #b2b2b2;
+}
+
+/* Edge tag revealed while over-dragging past the scroll boundaries. */
+.BounceTag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
 }
 
-.App {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  min-height: 100%;
-  padding: 48px 20px 32px;
-  background-color: #f7f7fb;
-  box-sizing: border-box;
-}
-
-.Header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 32px;
-}
-
-.Title {
-  font-size: 28px;
-  font-weight: bold;
-  color: #1d1b20;
-}
-
-.Subtitle {
-  margin-top: 6px;
+.BounceTag__text {
   font-size: 13px;
-  color: #625b71;
+  color: #b2b2b2;
 }
 
-.Card {
+/* ============ Tab bar ============ */
+
+.TabBar {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
   width: 100%;
-  margin-bottom: 20px;
-  padding: 24px 20px;
-  border: 1px solid #e7e0ec;
-  border-radius: 16px;
-  background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(29, 27, 32, 0.1);
+  padding-top: 6px;
+  border-top: 1px solid #e5e5e5;
+  background-color: #fafafa;
   box-sizing: border-box;
 }
 
-.CardTitle {
-  font-size: 15px;
+.TabBar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.TabIconChip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #9a9a9a;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.TabIconChip__core {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.TabIconGrid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: space-between;
+  justify-content: space-between;
+  width: 24px;
+  height: 24px;
+}
+
+.TabIconGrid__cell {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.TabBar__label {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #888888;
+}
+
+.TabBar__label--active {
+  color: #07c160;
   font-weight: 600;
-  color: #1d1b20;
 }
 
-.CardBody {
+/* ============ Detail page ============ */
+
+.Page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: #f7f7f7;
+}
+
+.Page__scroll {
+  width: 100%;
+  flex: 1;
+}
+
+.Page__body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 12px 12px 0;
+  box-sizing: border-box;
+}
+
+/* ============ Demo building blocks ============ */
+
+.ApiName {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 12px 0 18px;
+}
+
+.ApiName__text {
+  font-size: 20px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.ApiName__underline {
   margin-top: 10px;
+  width: 80px;
+  height: 1px;
+  background-color: #c8c8c8;
+}
+
+.DemoCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.DemoCard__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.DemoCard__desc {
+  margin-top: 6px;
+  margin-bottom: 6px;
   font-size: 13px;
-  color: #49454f;
+  line-height: 19px;
+  color: #888888;
+}
+
+.DemoButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  background-color: #f8f8f8;
+  box-sizing: border-box;
+}
+
+.DemoButton:active {
+  opacity: 0.7;
+}
+
+.DemoButton--primary {
+  border-color: #07c160;
+  background-color: #07c160;
+}
+
+.DemoButton--disabled {
+  opacity: 0.4;
+}
+
+.DemoButton__label {
+  font-size: 15px;
+  color: #1a1a1a;
+}
+
+.DemoButton__label--primary {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.ResultLine {
+  display: flex;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: #f4f4f4;
+  box-sizing: border-box;
+}
+
+.ResultLine__text {
+  font-size: 12px;
+  line-height: 18px;
+  color: #555555;
+}
+
+.LogBox {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: #1f1f1f;
+  box-sizing: border-box;
+}
+
+.LogBox__empty {
+  font-size: 12px;
+  color: #777777;
+}
+
+.LogBox__line {
+  font-size: 11px;
+  line-height: 17px;
+  color: #9fe8b8;
+}
+
+.ShotTarget {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 72px;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #07c160, #576b95);
+}
+
+.ShotTarget__text {
+  font-size: 14px;
+  color: #ffffff;
 }
 
 .WebviewBridgeDemo {
   width: 100%;
   height: 220px;
   margin-top: 12px;
-  border: 1px solid #e7e0ec;
-  border-radius: 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
   overflow: hidden;
 }
 
-.Counter {
-  margin: 16px 0;
-  font-size: 56px;
-  font-weight: bold;
-  color: #6750a4;
-}
-
-.Row {
+.RowButtons {
   display: flex;
   flex-direction: row;
-  justify-content: center;
-  margin-top: 16px;
-}
-
-.Button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 96px;
-  height: 44px;
-  margin: 0 6px;
-  padding: 0 20px;
-  border-radius: 22px;
-  background-color: #e8def8;
-}
-
-.Button--primary {
-  background-color: #6750a4;
-}
-
-.Button:active {
-  opacity: 0.7;
-}
-
-.ButtonLabel {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1d192b;
-}
-
-.ButtonLabel--primary {
-  color: #ffffff;
-}
-
-.Status {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #625b71;
-}
-
-.FieldRow {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
   width: 100%;
-  margin-top: 14px;
+  column-gap: 10px;
 }
 
-.FieldLabel {
-  font-size: 14px;
-  color: #1d1b20;
+.RowButtons .DemoButton {
+  flex: 1;
 }
 
-.PredictiveBackCard {
-  border: 1px solid #cac4d0;
+/* ============ lynx-ui: Button ============ */
+
+.UiButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.UiButton--primary {
+  background-color: #07c160;
+}
+
+.UiButton--primary.ui-active {
+  background-color: #06ad56;
+}
+
+.UiButton--default {
+  border: 1px solid #dcdcdc;
+  background-color: #f8f8f8;
+}
+
+.UiButton--default.ui-active {
+  background-color: #ececec;
+}
+
+.UiButton--warn {
+  border: 1px solid #f3c1c1;
   background-color: #ffffff;
 }
 
-.PredictiveBackCard__body {
-  line-height: 19px;
+.UiButton--warn.ui-active {
+  background-color: #fbefef;
+}
+
+.UiButton.ui-disabled {
+  opacity: 0.4;
+}
+
+.UiButton__text {
+  font-size: 15px;
+  color: #1a1a1a;
+}
+
+.UiButton__text--primary {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.UiButton__text--warn {
+  color: #e64340;
+}
+
+.UiButton__text--disabled {
+  color: #999999;
+}
+
+/* ============ lynx-ui: Input ============ */
+
+.UiInput {
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fafafa;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.UiTextArea {
+  width: 100%;
+  height: 96px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fafafa;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+/* ============ lynx-ui: Slider ============ */
+
+.SliderRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  margin-top: 14px;
+  column-gap: 12px;
+}
+
+.SliderRow__value {
+  width: 44px;
+  font-size: 13px;
+  color: #1a1a1a;
+  text-align: right;
+}
+
+.SliderRow__value--disabled {
+  color: #999999;
+}
+
+.UiSlider {
+  flex: 1;
+  height: 28px;
+}
+
+.UiSlider.ui-disabled {
+  opacity: 0.4;
+}
+
+.UiSlider__track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #e5e5e5;
+}
+
+.UiSlider__indicator {
+  height: 100%;
+  border-radius: 2px;
+  background-color: #07c160;
+}
+
+.UiSlider__thumbWrap {
+  position: absolute;
+  top: -12px;
+  width: 28px;
+  height: 28px;
+}
+
+.UiSlider__thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* ============ Choice rows (switch / checkbox / radio) ============ */
+
+.ChoiceRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  padding: 10px 0;
+  column-gap: 12px;
+}
+
+.ChoiceRow__label {
+  font-size: 15px;
+  color: #1a1a1a;
+}
+
+.ChoiceRow__label--disabled {
+  color: #999999;
+}
+
+.UiSwitch {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 52px;
+  height: 32px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.UiSwitch.ui-disabled {
+  opacity: 0.4;
+}
+
+.UiSwitch__track {
+  width: 100%;
+  height: 100%;
+  background-color: #e5e5e5;
+  transition: background-color 150ms ease;
+}
+
+.UiSwitch__track.ui-checked {
+  background-color: #07c160;
+}
+
+.UiSwitch__thumb {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  transform: translateX(2px);
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 150ms ease;
+}
+
+.UiSwitch__thumb.ui-checked {
+  transform: translateX(22px);
+}
+
+.UiCheckbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #b9b9b9;
+  border-radius: 4px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.UiCheckbox.ui-checked {
+  border-color: #07c160;
+  background-color: #07c160;
+}
+
+.UiCheckbox__indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.UiCheckbox__mark {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.UiRadio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #b9b9b9;
+  border-radius: 11px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.UiRadio.ui-checked {
+  border-color: #07c160;
+}
+
+.UiRadio__indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.UiRadio__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+  background-color: #07c160;
+}
+
+/* Dark stage so the iOS Liquid Glass (frosted, white-text) controls read well. */
+.GlassStage {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 10px;
+  padding: 18px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3a4a5f, #6b7d94);
+  box-sizing: border-box;
+}
+
+.GlassStage__hint {
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
   text-align: center;
 }
 
-.PredictiveBackCard__button {
+/* ============ lynx-ui: Dialog ============ */
+
+.UiDialog__viewport {
+  position: absolute;
   width: 100%;
-  margin-top: 18px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 36px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-/* Lynx fallback switch (Android / HarmonyOS) */
+.UiDialog__backdrop {
+  background-color: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.UiDialog__backdrop.ui-open {
+  opacity: 1;
+}
+
+.UiDialog__content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-radius: 12px;
+  background-color: #ffffff;
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+  overflow: hidden;
+}
+
+.UiDialog__content.ui-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.UiDialog__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 24px 20px 20px;
+  box-sizing: border-box;
+}
+
+.UiDialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.UiDialog__desc {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #888888;
+  text-align: center;
+}
+
+.UiDialog__footer {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  border-top: 1px solid #f0f0f0;
+}
+
+.UiDialog__action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+}
+
+.UiDialog__action:active {
+  background-color: #f2f2f2;
+}
+
+.UiDialog__action--danger {
+  border-left: 1px solid #f0f0f0;
+}
+
+.UiDialog__actionText {
+  font-size: 15px;
+  color: #555555;
+}
+
+.UiDialog__actionText--danger {
+  color: #e64340;
+  font-weight: 500;
+}
+
+/* ============ lynx-ui: Sheet ============ */
+
+.UiSheet__viewport {
+  width: 100%;
+  height: 100%;
+}
+
+.UiSheet__backdrop {
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.UiSheet__content {
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.UiSheet__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 24px 40px;
+  box-sizing: border-box;
+}
+
+.UiSheet__handle {
+  align-self: center;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #d8d8d8;
+}
+
+.UiSheet__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.UiSheet__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.UiSheet__desc {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 19px;
+  color: #888888;
+  text-align: center;
+}
+
+/* ============ lynx-ui: Swiper ============ */
+
+.SwiperBox {
+  display: flex;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.SwiperCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 160px;
+  border-radius: 12px;
+}
+
+.SwiperCard__text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.SwiperDots {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  width: 100%;
+  margin-top: 12px;
+  column-gap: 6px;
+}
+
+.SwiperDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: #d0d0d0;
+}
+
+.SwiperDot--active {
+  width: 16px;
+  background-color: #07c160;
+}
+
+/* ============ Lynx fallback switch (Android / HarmonyOS) ============ */
+
 .FallbackSwitch {
   display: flex;
   align-items: center;
@@ -161,15 +943,15 @@
   height: 32px;
   padding: 2px;
   border-radius: 16px;
-  border: 1px solid #79747e;
-  background-color: #e6e0e9;
+  border: 1px solid #b9b9b9;
+  background-color: #e5e5e5;
   transition: background-color 0.2s ease;
   box-sizing: border-box;
 }
 
 .FallbackSwitch--on {
-  border-color: #6750a4;
-  background-color: #6750a4;
+  border-color: #07c160;
+  background-color: #07c160;
 }
 
 .FallbackSwitch--disabled {
@@ -180,7 +962,7 @@
   width: 28px;
   height: 28px;
   border-radius: 14px;
-  background-color: #79747e;
+  background-color: #9a9a9a;
   transform: translateX(0px);
   transition: transform 0.2s ease;
 }
@@ -190,7 +972,8 @@
   transform: translateX(20px);
 }
 
-/* Lynx fallback dropdown (Android / HarmonyOS) — menu floats in an <overlay> */
+/* ============ Lynx fallback dropdown (Android / HarmonyOS) ============ */
+
 .FallbackDropdown {
   display: flex;
   flex-direction: column;
@@ -216,8 +999,8 @@
   width: 100%;
   height: 44px;
   padding: 0 16px;
-  border: 1px solid #cac4d0;
-  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
   background-color: #ffffff;
   box-sizing: border-box;
 }
@@ -236,21 +1019,21 @@
 
 .FallbackDropdown__label {
   font-size: 14px;
-  color: #1d1b20;
+  color: #1a1a1a;
 }
 
 .FallbackDropdown__chevron {
   font-size: 10px;
-  color: #49454f;
+  color: #888888;
 }
 
 .FallbackDropdown__menu {
   display: flex;
   flex-direction: column;
-  border-radius: 14px;
-  border: 1px solid #e7e0ec;
+  border-radius: 12px;
+  border: 1px solid #e5e5e5;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(29, 27, 32, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
   transition: height 320ms ease-in-out;
   overflow: hidden;
 }
@@ -266,19 +1049,19 @@
 }
 
 .FallbackDropdown__option:active {
-  background-color: #f7f2fa;
+  background-color: #f2f2f2;
 }
 
 .FallbackDropdown__option--selected {
-  background-color: #e8def8;
+  background-color: #e8f7ef;
 }
 
 .FallbackDropdown__optionLabel {
   font-size: 14px;
-  color: #1d1b20;
+  color: #1a1a1a;
 }
 
 .FallbackDropdown__optionLabel--selected {
-  color: #6750a4;
+  color: #07c160;
   font-weight: 600;
 }

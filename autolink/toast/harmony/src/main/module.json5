@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_toast",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

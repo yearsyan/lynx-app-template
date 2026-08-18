@@ -14,6 +14,6 @@ Android and iOS hosts. Bundles keep consuming the JS API through
   packaged as the `lynx-app-biometric` pod. Face ID additionally needs
   `NSFaceIDUsageDescription` in the host's `Info.plist`.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `userAuth`-backed `Biometric` from `app/harmonyApp`
-(permission `ohos.permission.ACCESS_BIOMETRIC`).
+HarmonyOS ships the `userAuth`-backed `Biometric` (permission
+`ohos.permission.ACCESS_BIOMETRIC`) as the `harmony/` source HAR,
+registered globally by the official HarmonyOS Hvigor Autolink provider.

@@ -5,7 +5,6 @@ import com.lynx.tasm.LynxBooleanOption
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.xelement.XElementBehaviors
-import com.lynxapp.LynxAutolinkRegistry
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxGenericResourceFetcher
 import com.lynxapp.nativemodule.NativeBackController
@@ -16,17 +15,29 @@ import com.lynxapp.nativemodule.StatusBarModule
 internal fun Activity.createLynxView(
     bundleRepository: LynxBundleRepository,
     nativeBackController: NativeBackController,
+    bundleKey: String,
+    groupUrl: String? = null,
 ): LynxView {
     val webviewBridgeAdapter = WebviewModuleBridgeHostAdapter()
     val builder = webviewBridgeAdapter.builder
+    // Same-bundle views join one engine-caching group: a destroyed view's
+    // LynxEngine returns to the group and the next view reuses it instead of
+    // cold-creating an engine. groupUrl overrides the resolved bundle URL for
+    // callers that render an arbitrary URL (DebugActivity).
+    builder.setLynxViewGroup(
+        LynxViewGroupCache.groupFor(
+            this,
+            bundleKey,
+            groupUrl ?: bundleRepository.urlForBundle(bundleKey),
+        ),
+    )
     builder.addBehaviors(XElementBehaviors().create())
     builder.setTemplateProvider(bundleRepository)
     builder.setGenericResourceFetcher(LynxGenericResourceFetcher)
     builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
-    // Router, WebSocket, MMKV storage, clipboard and haptics come from the
-    // autolink/* workspace libraries; HarmonyOS hosts register their own
-    // instead. The Router's host navigation installs once in the Application.
-    LynxAutolinkRegistry.setup(builder)
+    // Workspace libraries are registered app-wide by Lynx's generated
+    // Autolink entry. The Router's host navigation installs once in the
+    // Application; only view-owned modules are registered explicitly here.
     builder.registerModule(
         StatusBarModule.NAME,
         StatusBarModule::class.java,

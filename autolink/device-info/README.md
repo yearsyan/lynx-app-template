@@ -21,6 +21,6 @@ with:
 
 No permissions are required on either platform.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `DeviceInfoModule` (backed by `deviceInfo`, `bundleManager` and
-`display`) from `app/harmonyApp`.
+HarmonyOS ships `DeviceInfoModule` (backed by `deviceInfo`,
+`bundleManager` and `display`) as the `harmony/` source HAR, registered
+globally by the official HarmonyOS Hvigor Autolink provider.

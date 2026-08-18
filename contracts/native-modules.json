@@ -16,7 +16,7 @@
           "fileName": "AlbumUtilsModule.java"
         },
         "ios": "autolink/album-utils/ios/src/AlbumUtilsModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/AlbumUtilsModule.ets"
+        "harmony": "autolink/album-utils/harmony/src/main/ets/AlbumUtilsModule.ets"
       }
     },
     {
@@ -48,7 +48,7 @@
           "fileName": "BatteryModule.java"
         },
         "ios": "autolink/battery/ios/src/BatteryModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/BatteryModule.ets"
+        "harmony": "autolink/battery/harmony/src/main/ets/BatteryModule.ets"
       }
     },
     {
@@ -66,7 +66,7 @@
           "fileName": "BiometricModule.java"
         },
         "ios": "autolink/biometric/ios/src/BiometricModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/BiometricModule.ets"
+        "harmony": "autolink/biometric/harmony/src/main/ets/BiometricModule.ets"
       }
     },
     {
@@ -84,7 +84,7 @@
           "fileName": "ClipboardModule.java"
         },
         "ios": "autolink/clipboard/ios/src/ClipboardModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/ClipboardModule.ets"
+        "harmony": "autolink/clipboard/harmony/src/main/ets/ClipboardModule.ets"
       }
     },
     {
@@ -102,7 +102,7 @@
           "fileName": "DeviceInfoModule.java"
         },
         "ios": "autolink/device-info/ios/src/DeviceInfoModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/DeviceInfoModule.ets"
+        "harmony": "autolink/device-info/harmony/src/main/ets/DeviceInfoModule.ets"
       }
     },
     {
@@ -138,7 +138,7 @@
           "fileName": "FileSystemModule.java"
         },
         "ios": "autolink/file-system/ios/src/FileSystemModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/FileSystemModule.ets"
+        "harmony": "autolink/file-system/harmony/src/main/ets/FileSystemModule.ets"
       }
     },
     {
@@ -156,7 +156,7 @@
           "fileName": "HapticsModule.java"
         },
         "ios": "autolink/haptics/ios/src/HapticsModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/HapticsModule.ets"
+        "harmony": "autolink/haptics/harmony/src/main/ets/HapticsModule.ets"
       }
     },
     {
@@ -174,7 +174,7 @@
           "fileName": "KVModule.java"
         },
         "ios": "autolink/mmkv/ios/src/KVModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/KVModule.ets"
+        "harmony": "autolink/mmkv/harmony/src/main/ets/KVModule.ets"
       }
     },
     {
@@ -210,7 +210,7 @@
           "fileName": "ScannerModule.java"
         },
         "ios": "autolink/scanner/ios/src/ScannerModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/ScannerModule.ets"
+        "harmony": "autolink/scanner/harmony/src/main/ets/ScannerModule.ets"
       }
     },
     {
@@ -264,7 +264,7 @@
           "fileName": "SecureStorageModule.java"
         },
         "ios": "autolink/secure-storage/ios/src/SecureStorageModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/SecureStorageModule.ets"
+        "harmony": "autolink/secure-storage/harmony/src/main/ets/SecureStorageModule.ets"
       }
     },
     {
@@ -296,7 +296,7 @@
           "fileName": "ToastModule.java"
         },
         "ios": "autolink/toast/ios/src/ToastModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/ToastModule.ets"
+        "harmony": "autolink/toast/harmony/src/main/ets/ToastModule.ets"
       }
     },
     {

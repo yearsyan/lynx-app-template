@@ -1,6 +1,6 @@
 {
   "name": "@lynx-template/autolink-toast",
-  "description": "Autolinked toast notification module for Lynx hosts (Android & iOS)",
+  "description": "Autolinked toast notification module for Lynx hosts (Android, iOS & HarmonyOS)",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
   "files": [
     "android",
     "ios",
+    "harmony",
     "src",
     "types",
     "lynx.lib.json",

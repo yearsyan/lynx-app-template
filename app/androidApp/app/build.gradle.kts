@@ -1,7 +1,12 @@
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    // The settings plugin already places the shared 4.0.1 implementation JAR
+    // on the classpath, so this companion plugin must be applied unversioned.
+    id("org.lynxsdk.lynx.library-build")
 }
 
 val localProperties = Properties().apply {
@@ -20,7 +25,7 @@ fun buildConfigString(property: String): String {
 
 android {
     namespace = "com.lynxapp"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.lynxapp"
@@ -76,28 +81,20 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
+}
+
 dependencies {
-
-    // Autolinked Lynx native libraries from autolink/* in the repository
-    // root. The projects themselves are included by the
-    // org.lynxsdk.lynx.library-settings plugin, whose generated
-    // lynx_library__* names derive from the npm package names, so resolve
-    // them dynamically instead of hardcoding the workspace scope. The
-    // app-side registry glue normally added by the library-build plugin is
-    // hand-written in LynxAutolinkRegistry because that plugin still targets
-    // pre-AGP 9.
-    rootProject.subprojects
-        .filter { it.name.startsWith("lynx_library__") }
-        .forEach { implementation(it) }
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     // LynxPageActivity extends FragmentActivity so the autolinked Biometric
     // library can host BiometricPrompt on the current Lynx page.
     implementation("androidx.fragment:fragment:1.8.9")
-    // Lynx 4.0 still requests AppCompat 1.0.0, whose VectorDrawable AARs
-    // shared one namespace. Pin the binary-compatible artifacts that use
-    // unique namespaces as required by AGP 9.
+    // Lynx 4.0 still requests AppCompat 1.0.0. Pin the current,
+    // binary-compatible VectorDrawable artifacts across build toolchains.
     implementation(libs.androidx.vectordrawable)
     implementation(libs.androidx.vectordrawable.animated)
 
@@ -122,7 +119,7 @@ dependencies {
 
     // App-owned Lynx HTTP service and bundle delivery share this transport.
     // OkHttp 5.x resolves okio 3.x and kotlin-stdlib 2.x transitively.
-    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
 
     // LynxEnv uses Gson for its optional environment/FSP JSON helpers. DevTool
     // used to provide this transitively, so declare the runtime requirement.

@@ -56,6 +56,7 @@ open class LynxPageActivity : FragmentActivity() {
         lynxView = createLynxView(
             bundleRepository,
             nativeBackController,
+            bundleName,
         ).apply {
             setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
         }

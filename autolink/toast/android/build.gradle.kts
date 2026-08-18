@@ -4,17 +4,11 @@ plugins {
 
 android {
     namespace = "com.lynxapp.autolink.toast"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
     }
-}
-
-// lynx-processor generates the LynxLibraryProvider glue scanned by
-// com.lynx.tasm.library.LynxLibraryRegistry; it needs the target package.
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Alynx.library.packageName=com.lynxapp.autolink.toast")
 }
 
 dependencies {

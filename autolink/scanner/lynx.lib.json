@@ -7,6 +7,9 @@
     "ios": {
       "sourceDir": "ios",
       "podspecPath": "ios/lynx-app-scanner.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
     }
   }
 }

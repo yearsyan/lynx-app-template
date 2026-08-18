@@ -12,23 +12,15 @@ class NativePickerResult {
   }
 }
 
-export class AlbumUtilsRegistration {
-  readonly context: common.UIAbilityContext;
-
-  constructor(context: common.UIAbilityContext) {
-    this.context = context;
-  }
-}
-
 /** HarmonyOS album utilities exported to Lynx as AlbumUtils. */
 export class AlbumUtilsModule extends LynxModule {
   static readonly NAME: string = 'AlbumUtils';
-  private readonly registration: AlbumUtilsRegistration | undefined;
+  private readonly abilityContext: common.UIAbilityContext;
   private isPicking: boolean = false;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.registration = param as AlbumUtilsRegistration | undefined;
+    this.abilityContext = getContext(this) as common.UIAbilityContext;
   }
 
   pick(maxSelection: number, callback: (resultJSON: string) => void): void {
@@ -66,10 +58,6 @@ export class AlbumUtilsModule extends LynxModule {
   }
 
   async saveToAlbum(uri: string, callback: (error: string) => void): Promise<void> {
-    if (this.registration === undefined) {
-      callback('AlbumUtils has no UIAbilityContext');
-      return;
-    }
     const imageURI: string = uri.trim();
     if (imageURI.length === 0) {
       callback('Image URI must not be empty');
@@ -77,10 +65,10 @@ export class AlbumUtilsModule extends LynxModule {
     }
     try {
       const helper: photoAccessHelper.PhotoAccessHelper =
-        photoAccessHelper.getPhotoAccessHelper(this.registration.context);
+        photoAccessHelper.getPhotoAccessHelper(this.abilityContext);
       const request: photoAccessHelper.MediaAssetChangeRequest =
         photoAccessHelper.MediaAssetChangeRequest.createAssetRequest(
-          this.registration.context,
+          this.abilityContext,
           photoAccessHelper.PhotoType.IMAGE,
           this.imageExtension(imageURI),
         );

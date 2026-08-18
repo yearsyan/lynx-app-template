@@ -28,8 +28,9 @@ Options:
 - **iOS** — the same bubble is drawn at the bottom of the LynxView's window
   (falling back to the key window).
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `promptAction.showToast`-backed `ToastModule` from `app/harmonyApp`.
+HarmonyOS ships the `promptAction.showToast`-backed `ToastModule` as the
+`harmony/` source HAR. It resolves the current window from `LynxContext`, so
+the official global HarmonyOS Autolink provider needs no host parameter.
 The ArkUI toast is also in-window and permission-free; it honors
 `backgroundColor`/`textColor` natively, renders the icon as a text prefix,
 and clamps `durationMs` to the system range (1500–10000ms).

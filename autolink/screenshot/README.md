@@ -19,8 +19,9 @@ Notes:
 - `capture` rejects when the LynxView is not attached, the `idSelector`
   matches nothing, or the target has not been laid out (`width`/`height` 0).
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `ScreenshotModule` from `app/harmonyApp`. It captures the host
+The HarmonyOS implementation is host-scoped rather than a global Autolink
+provider, so each page manually registers `ScreenshotModule` from
+`app/harmonyApp`. It captures the host
 containers around the LynxView through `componentSnapshot`; element-level
 `idSelector` capture is rejected there because the HarmonyOS LynxContext
 does not expose its view or an element lookup.

@@ -1,6 +1,6 @@
 {
   "name": "@lynx-template/autolink-file-system",
-  "description": "Autolinked file system and system file picker module for Lynx hosts (Android & iOS)",
+  "description": "Autolinked file system module for Lynx hosts (Android, iOS & HarmonyOS)",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
   "files": [
     "android",
     "ios",
+    "harmony",
     "src",
     "types",
     "lynx.lib.json",

@@ -9,6 +9,6 @@ Android and iOS hosts. Bundles keep consuming the JS API through
 - **iOS** (`ios/`) — `NSURLSessionWebSocketTask` transport packaged as the
   `lynx-app-websocket` pod and registered by `cocoapods-lynx-library`.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and continue to
-register their own `WebSocket` in
+The HarmonyOS implementation owns a per-page connection controller and is
+therefore registered explicitly rather than through a global provider in
 `app/harmonyApp/entry/src/main/ets/native/`.

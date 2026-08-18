@@ -1,6 +1,6 @@
 # Lynx 三端工程模板
 
-一个以 Lynx 4.0 为基线的多端仓库：同一组 ReactLynx bundle 可以被 iOS、Android 和 HarmonyOS 原生宿主打包，也可以从本地 Rspeedy 服务开发，或通过远端发布清单热更新。
+一个以 Lynx 4.0 为基线的多端仓库（HarmonyOS 为使用官方 Autolink 暂时跟随 4.2 nightly）：同一组 ReactLynx bundle 可以被 iOS、Android 和 HarmonyOS 原生宿主打包，也可以从本地 Rspeedy 服务开发，或通过远端发布清单热更新。
 
 ## 目录
 
@@ -16,7 +16,7 @@
 │   ├── androidApp   # Kotlin / Gradle 原生工程
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
-├── autolink          # Lynx Autolink 原生库，Android/iOS 自动注册 NativeModule / Element
+├── autolink          # Lynx 原生库，三端均由官方 Autolink 注册
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
 │   ├── battery       # Battery（电量 + 充电状态）
 │   ├── clipboard     # Clipboard
@@ -55,9 +55,11 @@
 
 缓存损坏、版本不匹配或网络失败不会覆盖内置兜底资源。详细设计见 [Debug 开发配置](docs/development-settings.md)、[Native Environment 数据契约](docs/native-environment.md)、[NativeModules、原生路由与返回](docs/native-modules.md)、[Lynx 网络请求](docs/networking.md) 和 [热更新协议](docs/hot-update.md)。
 
-WebSocket、MMKV 存储、剪贴板、触感反馈、生物识别（系统指纹 / 面容弹窗，可选锁屏凭证降级）、相册工具（选图 + 存图）、文件系统（系统文件选择器 + URI 文件操作）、设备信息、电量、显示宽度与亮度/常亮、传感器（加速度计 + 罗盘）、截图（视图 / 页面 PNG、JPEG 存入缓存）与路由（应用内导航 + 系统 scheme）十三个原生模块由 `autolink/` 目录中的 Lynx 原生库提供，
-Android 与 iOS 宿主通过 Lynx Autolink 自动接入；HarmonyOS 不支持 Autolink，仍由宿主手动注册
-同名模块。iOS 的 `glass-switch` 与 `glass-dropdown` 也已作为
+原生模块与 Element 库集中维护在 `autolink/`。Android、iOS 与 HarmonyOS 三个宿主都由
+Lynx 官方 Autolink 工具扫描各自平台的库、接入依赖并生成 Registry；宿主不维护
+Autolink Provider 清单。其中十一个自包含库提供 HarmonyOS 源码 HAR，其余需要窗口、导航或
+页面实例的 HarmonyOS 宿主模块不属于 Autolink 库，仍在创建 `LynxView` 时注册。iOS 的
+`glass-switch` 与 `glass-dropdown` 也已作为
 `autolink/liquid-glass` 中的 Element 自动接入。集成细节见
 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
 
@@ -146,6 +148,9 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 ```
 
 各 bundle 的 `lynx.config.ts` 和三个宿主各自硬编码同一 `engineVersion`（原生侧无法读取 package.json）。`pnpm native:check` 会校验这些副本与 `lynx.engineVersion` 一致，修改版本时先改 `package.json`，再同步这些文件。
+HarmonyOS 当前单独固定到 `4.2.0-nightly.202608180606.150.ga573c3b8`，因为公开稳定版
+`4.0.1` 尚未包含官方 Autolink 所需的 `LynxLibraryRegistry`；Android 与 iOS 仍使用
+`4.0.0`。nightly 与对应的官方 Hvigor 插件源码提交一起固定，避免通道漂移。
 
 模板默认生成 `com.lynxapp`（Android Release）、`com.lynxapp.debug`（Android Debug）和 `com.lynxapp`（iOS）。HarmonyOS 要求 `bundleName` 至少三段，因此工程显式覆盖为 `com.lynxapp.harmony`。Android 两个变体可以同时安装；AGP 会把 `applicationIdSuffix` 作为点分隔的包名片段，Kotlin `namespace` 则保持 `com.lynxapp`，不随安装标识变化。
 

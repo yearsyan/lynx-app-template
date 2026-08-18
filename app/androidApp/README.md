@@ -2,8 +2,11 @@
 
 Kotlin host based on the official Lynx 4.0 integration reference.
 
-The build uses AGP 9.3.1, Gradle 9.5.0, and AGP's built-in Kotlin support with
-Kotlin Gradle plugin 2.4.10 supplied on the root buildscript classpath.
+The build uses AGP 8.13.2, Gradle 8.13, Android SDK 36, and the classic Kotlin
+Android plugin 2.4.10. This toolchain keeps Lynx's official
+`library-settings`/`library-build` 4.0.1 Autolink plugins enabled: Gradle scans
+`node_modules`, connects every Android Lynx library, and generates the app-wide
+registry. The host does not maintain a dependency loop or provider list.
 
 The install application ID is managed by `package.json#nativeApp`. From the
 repository root, run `pnpm native:apply` after changing it. The default Debug

@@ -17,7 +17,8 @@ Each method answers a JSON envelope `{ "value": <number> }` or
 `{ "error": <string> }`. `lynxViewWidth` rejects when no LynxView is
 attached and reports `0` while the view has not been laid out yet.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `DisplayModule` from `app/harmonyApp`; the LynxView width there is
+The HarmonyOS implementation is host-scoped rather than a global Autolink
+provider, so each page manually registers `DisplayModule` from
+`app/harmonyApp`; the LynxView width there is
 measured by the host via `onAreaChange` because the HarmonyOS LynxContext
 does not expose its view.

@@ -12,6 +12,6 @@ hosts. Bundles keep consuming the JS API through
   `LynxRouteHandler` (`LynxPageViewController` push/present), while
   `openURL` calls `UIApplication.open(_:options:completionHandler:)`.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `Navigation`-backed `Router` (with the same `openURL` contract) from
-`app/harmonyApp`.
+The HarmonyOS implementation is host-scoped rather than a global Autolink
+provider: each page manually registers its `Navigation`-backed `Router`
+(with the same `openURL` contract) from `app/harmonyApp`.

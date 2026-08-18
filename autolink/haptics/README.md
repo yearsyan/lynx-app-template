@@ -11,5 +11,5 @@ Bundles consume the JS API through `@lynx-app/native-bridge`.
 - **iOS** (`ios/`) — `UIImpactFeedbackGenerator` transport packaged as the
   `lynx-app-haptics` pod and registered by `cocoapods-lynx-library`.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their Vibrator-backed `Haptics` from `app/harmonyApp`.
+HarmonyOS ships the Vibrator-backed `Haptics` as the `harmony/` source HAR,
+registered globally by the official HarmonyOS Hvigor Autolink provider.

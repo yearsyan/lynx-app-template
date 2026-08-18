@@ -20,6 +20,8 @@ Permissions:
   module); denial surfaces as a `compass` error event. The accelerometer and
   Android sensors need nothing.
 
-HarmonyOS hosts are **not** covered by Lynx Autolink and manually register
-their `SensorsModule` (backed by `@ohos.sensor` accelerometer/orientation
-sensors, which require `ohos.permission.ACCELEROMETER`) from `app/harmonyApp`.
+The HarmonyOS implementation owns a per-page stream controller and is
+therefore registered explicitly rather than through a global provider.
+Its `SensorsModule` is backed by `@ohos.sensor` accelerometer/orientation
+sensors, requires `ohos.permission.ACCELEROMETER`, and lives in
+`app/harmonyApp`.

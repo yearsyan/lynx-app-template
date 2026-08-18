@@ -29,8 +29,9 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 
 其中 `WebSocket`、`KV`、`Clipboard`、`Haptics`、
 `AlbumUtils`、`FileSystem`、`Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner` 与 `SecureStorage` 在 Android 和 iOS 上由
-`autolink/` workspace 目录中的 Lynx 原生库提供并自动注册（见下文「Lynx Autolink 集成」）；
-HarmonyOS 不支持 Autolink，仍由宿主手动注册同名模块。其余模块三端均保持宿主手动注册。
+`autolink/` workspace 目录中的 Lynx 原生库提供并自动注册（见下文「Lynx Autolink 集成」）。
+HarmonyOS 通过 4.2 nightly 的官方 Hvigor Autolink（源码 HAR + 全局 Registry +
+AppStartup）接入其中十一个自包含库；其余宿主耦合模块仍逐 `LynxView` 手动注册。
 
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
 
@@ -58,28 +59,6 @@ bridge 都消费该聚合结果，不再各自声明 `AppModules` 或硬编码�
 名称和参数个数一致。修改已有模块时更新所属包的声明和三端实现；新增模块用
 `pnpm new:native-module <name>` 一步生成三端 stub、包骨架、契约元数据和宿主注册
 （生成的 `ping` 示例方法可直接通过检查），再替换为真实实现。该检查已接入 `pnpm check`。
-
-### 命名迁移
-
-本次统一移除了模块名中的 `Native` 前缀和 `Module` 后缀，并将 bridge 包名改为
-`@lynx-app/native-bridge`。这是一次破坏性变更，不保留旧名称的兼容别名：
-
-| 旧 NativeModules 名 / JS facade | 新 NativeModules 名 / JS facade |
-| --- | --- |
-| `NativeKVModule` / `nativeKV` | `KV` / `kv` |
-| `NativeRouterModule` / `nativeRouter` | `Router` / `router` |
-| `NativeStatusBarModule` / `nativeStatusBar` | `StatusBar` / `statusBar` |
-| `NativeBackModule` / `nativeBack` / `nativeBackStack` | `Back` / `back` / `backStack` |
-| `NativeClipboardModule` / `nativeClipboard` | `Clipboard` / `clipboard` |
-| `NativeHapticsModule` / `nativeHaptics` | `Haptics` / `haptics` |
-| `NativeImagePickerModule` / `nativeImagePicker` | `AlbumUtils` / `albumUtils`（原 `ImagePicker` / `imagePicker`，并新增存图能力） |
-| `NativeFilePickerModule` / `nativeFilePicker` | `FileSystem` / `fileSystem`（`pick` 方法，与文件操作合并） |
-| 新增 | `FileSystem` / `fileSystem` |
-| `NativeWebSocketModule` / `nativeWebSocket` | `WebSocket` / `webSocket` |
-
-返回事件也由 `nativeBack` 改为 `back`，`useNativeBackInterceptor` 改为
-`useBackInterceptor`；bridge 导出的模块相关类型遵循同一规则，例如
-`NativeRouteOptions` 改为 `RouteOptions`。
 
 ## JavaScript API
 
@@ -893,13 +872,14 @@ iOS 在 `AppDelegate` 中各调用一次 `RouterModule.setRouteHandler(AppRouteH
 `FragmentActivity` 上，本模板的两个宿主 Activity 已改为继承 `FragmentActivity`；
 iOS 使用 Face ID 需要宿主声明 `NSFaceIDUsageDescription`。
 
-**Android**：`settings.gradle.kts` 应用 `org.lynxsdk.lynx.library-settings` 插件（Maven Central），
-它会向上扫描 `node_modules`，把每个库的 `android/` 目录 include 成 Gradle 子项目；app 模块按
-`lynx_library__*` 项目名前缀动态依赖这些子项目。官方的 `library-build` 插件目前仍使用 AGP 9
-已移除的旧 Variant API，无法在本模板的 AGP 9.3.1 上应用，因此 app 侧注册胶水由手写的
-`LynxAutolinkRegistry.java` 承担：它把各库由 `lynx-processor` 注解处理器生成的
-`LynxLibraryProviderImpl` 交给 `com.lynx.tasm.library.LynxLibraryRegistry.setup(builder)`。
-Lynx 发布兼容 AGP 9 的插件后，可删除该类并换回官方生成物。
+**Android**：构建固定为 AGP 8.13.2、Gradle 8.13、compileSdk 36 与经典 Kotlin Android
+插件 2.4.10，以使用 Lynx 官方 4.0.1 Autolink。`settings.gradle.kts` 应用
+`org.lynxsdk.lynx.library-settings`，向上扫描 `node_modules`，把每个库的 `android/`
+目录 include 成 Gradle 子项目；app 模块应用配套的 `org.lynxsdk.lynx.library-build`，
+由插件接入这些项目依赖，并为每个 variant 生成
+`com.lynx.tasm.library.LynxAutolinkGenerated`。生成表汇总各库经 `lynx-processor` 产生的
+`LynxLibraryProviderImpl`，由 Lynx runtime 加载。宿主不再维护项目依赖循环、处理器参数或
+Provider Registry。
 
 **iOS**：`Podfile` 顶部声明 `plugin 'cocoapods-lynx-library'`（由 `Gemfile` + Bundler 管理，
 先 `bundle install`），target 内调用 `use_lynx_library!`。插件扫描 `node_modules` 中的
@@ -908,20 +888,39 @@ Lynx 发布兼容 AGP 9 的插件后，可删除该类并换回官方生成物�
 `LynxPageViewController.swift` 与桥接头文件）。生成目录 `app/iosApp/generated/` 已加入
 `.gitignore`。
 
-**HarmonyOS**：Lynx Autolink 尚未覆盖 HarmonyOS，宿主继续在
-`app/harmonyApp/entry/src/main/ets/native/` 手动注册同名模块，JS 契约不变。
+**HarmonyOS**：宿主使用 Lynx 官方 Hvigor Autolink。每个自包含库在
+`autolink/<库>/harmony/` 内携带完整源码 HAR（`oh-package.json5`、`hvigorfile.ts`、
+`build-profile.json5`、`src/main/module.json5` 与 `Index.ets`），并从 `Index.ets` 导出
+`LynxLibraryProviderImpl`。`lynx.lib.json#platforms.harmony.packageDir` 指向该 HAR。
+根工程的 `hvigorconfig.ts` 启用官方插件；插件扫描 `node_modules` 后在
+`.hvigor/lynx-autolink/entry` 生成 Registry HAR，并在 `entry/build/generated/lynx-autolink`
+生成 AppStartup task。它在 Lynx runtime 创建前调用一次
+`LynxLibraryRegistry.setupGlobal()`，宿主页面不再导入生成文件或逐库注册。
 
-**新增一个 autolink 库**：在 `autolink/` 下新建目录（`package.json` + `lynx.lib.json` +
-`types/platform-native-module.d.ts` + `android/` + `ios/`），在
+公开稳定版 `@lynx/lynx@4.0.1` 尚无 Registry API，因此 HarmonyOS 固定到
+`4.2.0-nightly.202608180606.150.ga573c3b8`。`@lynx/lynx-library-plugin@0.1.0` 也尚未发布，
+仓库暂时原样固定同一 Lynx 提交 `a573c3b8` 下的官方插件源码，位于
+`app/harmonyApp/vendor/lynx-library-plugin`；正式包发布后可换成 Hvigor 依赖而无需改 HAR。
+相册、文件选择器与扫码模块从自身模块实例取得 `UIAbilityContext`，Toast 从
+`LynxContext` 取得当前窗口，因此全局 Provider 不需要宿主参数。宿主耦合模块（Router、
+Sensors、Display、WebSocket、Screenshot 及 Back、StatusBar）仍在
+`app/harmonyApp/entry/src/main/ets/native/` 逐 `LynxView` 手动注册。
+
+**新增一个 autolink 库**：最简单的方式是 `pnpm new:native-module <name>`，脚手架会生成
+三端 stub（含官方 Provider 结构的 `harmony/` 源码 HAR）、契约、workspace 依赖与
+Autolink 元数据，不生成或修改宿主 Registry。手工创建时：在 `autolink/` 下新建目录（`package.json` + `lynx.lib.json` +
+`types/platform-native-module.d.ts` + `android/` + `ios/` + `harmony/`），在
 `contracts/native-modules.json` 添加声明与三端实现映射，加入根 `package.json` 和
-`lib/native-contracts/package.json` 的 workspace 依赖后执行 `pnpm install` 与
-`pnpm native:contracts:generate`；Android 侧在 `LynxAutolinkRegistry.PROVIDERS` 中加一条
-provider 类名，iOS 侧重新 `bundle exec pod install` 即可。
+`lib/native-contracts/package.json` 的 workspace 依赖后执行 `pnpm install`、
+`pnpm native:contracts:generate`；随后 Android 直接重新构建，Gradle 插件会扫描并生成
+Registry；iOS 重新执行 `bundle exec pod install`；HarmonyOS 直接重新构建，Hvigor
+插件会重新扫描并生成 Registry。
 
 ## 原生实现位置
 
 - Autolink 库（Android + iOS）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/toast`；
+- 其中 11 个库的 HarmonyOS 实现也在包内 `harmony/` 源码 HAR 中（`album-utils`、`battery`、`biometric`、`clipboard`、`device-info`、`file-system`、`haptics`、`mmkv`、`scanner`、`secure-storage`、`toast`），由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
-- Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`、`LynxAutolinkRegistry.java`；
+- Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`；Autolink Registry 只存在于 Gradle 生成目录；
 - iOS 宿主：`NativeModules/` 下的 `AppRouteHandler.swift`（Router 的宿主导航）与其他宿主模块、`LynxPageViewController.swift`；
-- HarmonyOS 宿主：`native/` 下的各模块、`pages/Index.ets`。
+- HarmonyOS 宿主（手动注册的宿主耦合模块）：`native/` 下的 `RouterModule`、`SensorsModule`、`DisplayModule`、`WebSocketModule`、`ScreenshotModule`、`BackModule`、`StatusBarModule`，以及 `pages/Index.ets`。
