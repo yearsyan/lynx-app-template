@@ -7,6 +7,9 @@
     "ios": {
       "sourceDir": "ios",
       "podspecPath": "ios/lynx-app-websocket.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
     }
   }
 }

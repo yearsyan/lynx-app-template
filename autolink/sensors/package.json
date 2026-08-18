@@ -1,6 +1,6 @@
 {
   "name": "@lynx-template/autolink-sensors",
-  "description": "Autolinked motion sensors (accelerometer/compass) module for Lynx hosts (Android & iOS)",
+  "description": "Autolinked motion sensors (accelerometer/compass) module for Lynx hosts (Android, iOS & HarmonyOS)",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
   "files": [
     "android",
     "ios",
+    "harmony",
     "src",
     "types",
     "lynx.lib.json",

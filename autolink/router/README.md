@@ -1,7 +1,7 @@
 # @lynx-template/autolink-router
 
-Autolinked Lynx native library that registers `Router` on Android and iOS
-hosts. Bundles keep consuming the JS API through
+Autolinked Lynx native library that registers `Router` on Android, iOS and
+HarmonyOS hosts. Bundles keep consuming the JS API through
 `@lynx-app/native-bridge`.
 
 - **Android** (`android/`) — `open`/`close` delegate to a host-installed
@@ -11,7 +11,9 @@ hosts. Bundles keep consuming the JS API through
 - **iOS** (`ios/`) — `open`/`close` delegate to a host-installed
   `LynxRouteHandler` (`LynxPageViewController` push/present), while
   `openURL` calls `UIApplication.open(_:options:completionHandler:)`.
+- **HarmonyOS** (`harmony/`) — the official Hvigor Autolink registry installs
+  `RouterModule`; `open`/`close` delegate through `LynxContext.contextData` to
+  the app's `Navigation` policy, while `openURL` uses `UIAbility.openLink`.
 
-The HarmonyOS implementation is host-scoped rather than a global Autolink
-provider: each page manually registers its `Navigation`-backed `Router`
-(with the same `openURL` contract) from `app/harmonyApp`.
+Only the app-specific navigation handler remains in the HarmonyOS host. The
+NativeModule class and its registration are owned by the Autolink package.

@@ -27,9 +27,14 @@
 │   ├── liquid-glass  # iOS Liquid Glass Element（switch + dropdown）
 │   ├── album-utils   # AlbumUtils（相册选图 + 存图）
 │   ├── mmkv          # KV（MMKV 字符串存储）
+│   ├── router        # Router（原生页面导航 + URL 打开）
+│   ├── scanner       # Scanner（系统扫码页 + 图片识码）
 │   ├── screenshot    # Screenshot（视图 / 页面截图存入缓存）
+│   ├── secure-storage # SecureStorage（系统密钥保护的小型机密存储）
 │   ├── sensors       # Sensors（加速度计 + 罗盘流式读数）
-│   └── websocket     # WebSocket
+│   ├── toast         # Toast（原生轻提示）
+│   ├── websocket     # WebSocket
+│   └── webview-bridge # module-webview Element 与受控 NativeModule RPC
 ├── bundle           # 可独立构建和发布的 Lynx bundles
 │   └── main         # 默认 Lynx bundle
 ├── contracts        # NativeModule 名称、声明文件与三端实现的映射元数据
@@ -57,8 +62,9 @@
 
 原生模块与 Element 库集中维护在 `autolink/`。Android、iOS 与 HarmonyOS 三个宿主都由
 Lynx 官方 Autolink 工具扫描各自平台的库、接入依赖并生成 Registry；宿主不维护
-Autolink Provider 清单。其中十一个自包含库提供 HarmonyOS 源码 HAR，其余需要窗口、导航或
-页面实例的 HarmonyOS 宿主模块不属于 Autolink 库，仍在创建 `LynxView` 时注册。iOS 的
+Autolink Provider 清单。十六个 NativeModule 库均提供 HarmonyOS 源码 HAR；其中 Router
+通过 `LynxContext.contextData` 调用宿主的 ArkUI 导航策略，但模块类和注册仍由 Autolink
+管理。HarmonyOS 仅 Back、StatusBar 因页面实例状态继续在创建 `LynxView` 时注册。iOS 的
 `glass-switch` 与 `glass-dropdown` 也已作为
 `autolink/liquid-glass` 中的 Element 自动接入。集成细节见
 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。

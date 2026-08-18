@@ -14,7 +14,6 @@ import { window } from '@kit.ArkUI';
 
 import { BundleConfig } from '../config/BundleConfig';
 import { DevelopmentSettings } from '../config/DevelopmentSettings';
-import { NativeSensorsController, SensorsModule } from '../native/SensorsModule';
 import {
   WebviewModuleBridgeHostAdapter,
   createModuleWebviewBehavior,
@@ -25,31 +24,16 @@ import {
   NativeBackRegistration,
 } from '../native/BackModule';
 import {
-  DisplayModule,
-  DisplayRegistration,
-  LynxViewSizeTracker,
-} from '../native/DisplayModule';
-import {
   NativeRoute,
   nativeRouteTransitionType,
   NativeRouterController,
-  RouterModule,
-} from '../native/RouterModule';
+  ROUTER_CONTEXT_DATA_KEY,
+} from '../host/NativeRouterHost';
 import {
   NativeStatusBarController,
   StatusBarModule,
   NativeStatusBarRegistration,
 } from '../native/StatusBarModule';
-import {
-  NativeScreenshotRegistration,
-  ScreenshotModule,
-  screenshotViewContainerId,
-  SCREENSHOT_PAGE_ROOT_ID,
-} from '../native/ScreenshotModule';
-import {
-  NativeWebSocketController,
-  WebSocketModule,
-} from '../native/WebSocketModule';
 import { LaunchpadGenericResourceFetcher } from '../provider/LaunchpadGenericResourceFetcher';
 import { LaunchpadTemplateResourceFetcher } from '../provider/LaunchpadTemplateResourceFetcher';
 import { LynxBundleRepository } from '../provider/LynxBundleRepository';
@@ -146,17 +130,13 @@ struct LynxBundlePage {
   routerController: NativeRouterController = new NativeRouterController(new NavPathStack());
   nativeBackController: NativeBackController = new NativeBackController();
   nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
-  private nativeWebSocketController: NativeWebSocketController = new NativeWebSocketController();
-  private nativeSensorsController: NativeSensorsController = new NativeSensorsController();
   private templateResourceFetcher: LynxTemplateResourceFetcher = new LaunchpadTemplateResourceFetcher();
   private genericResourceFetcher: LynxGenericResourceFetcher = new LaunchpadGenericResourceFetcher();
   private bundleRepository: LynxBundleRepository = new LynxBundleRepository();
   private safeAreaInsets: SafeAreaInsets = new SafeAreaInsets();
-  private lynxViewSizeTracker: LynxViewSizeTracker = new LynxViewSizeTracker();
-  private screenshotTargetId: string = '';
   private metaData: MetaData = new MetaData(nativeEnvironmentData(this.safeAreaInsets, NativeRoute.main()));
   private modules: Map<string, ModuleClassWrapper> = new Map();
-  // Explicit Harmony adapter reuses this page's exact module registry.
+  // Explicit Harmony adapter reuses the page-scoped host module registry.
   private webviewBehaviors: Map<string, Behavior> = new Map();
   private mainWindow: window.Window | undefined = undefined;
   private lynxContext: LynxContext | undefined = undefined;
@@ -164,8 +144,12 @@ struct LynxBundlePage {
     this.refreshSafeArea();
   };
   private lynxCreateCallback = (context: LynxContext): void => {
+    this.installHostContext(context);
     this.lynxContext = context;
     this.publishNativeEnvironment();
+  };
+  private lynxBeforeLoadTemplateCallback = (context: LynxContext): void => {
+    this.installHostContext(context);
   };
   @State private url: string = '';
 
@@ -173,7 +157,6 @@ struct LynxBundlePage {
     // ArkUI applies the object passed to a child component after field initializers
     // run. Build route-scoped objects here so they capture the injected route and
     // the Navigation host's shared controller instead of their default values.
-    this.screenshotTargetId = screenshotViewContainerId(this.route.nativeBackID);
     this.nativeBackController.activate(this.route.nativeBackID);
     this.nativeStatusBarController.activate(
       this.route.nativeBackID,
@@ -187,7 +170,7 @@ struct LynxBundlePage {
     }
     const context: common.UIAbilityContext = hostContext as common.UIAbilityContext;
     this.routerController.attachAbility(context);
-    this.modules = this.createModules(context);
+    this.modules = this.createModules();
     this.webviewBehaviors = new Map<string, Behavior>([
       [
         'module-webview',
@@ -220,8 +203,6 @@ struct LynxBundlePage {
   aboutToDisappear(): void {
     this.nativeBackController.deactivate(this.route.nativeBackID);
     this.nativeStatusBarController.deactivate(this.route.nativeBackID);
-    this.nativeWebSocketController.destroy();
-    this.nativeSensorsController.destroy();
     this.unsubscribeFromSafeArea();
   }
 
@@ -236,14 +217,10 @@ struct LynxBundlePage {
     return this.route.bundleURL();
   }
 
-  private createModules(context: common.UIAbilityContext): Map<string, ModuleClassWrapper> {
+  private createModules(): Map<string, ModuleClassWrapper> {
     const modules = new Map<string, ModuleClassWrapper>();
-    // Self-contained libraries are installed globally by the official
+    // Package-owned libraries are installed globally by the official
     // HarmonyOS Autolink AppStartup task. Only host-scoped modules live here.
-    modules.set(
-      RouterModule.NAME,
-      new NativeModuleRegistration(RouterModule, this.routerController),
-    );
     modules.set(
       BackModule.NAME,
       new NativeModuleRegistration(
@@ -261,40 +238,13 @@ struct LynxBundlePage {
         ),
       ),
     );
-    modules.set(
-      SensorsModule.NAME,
-      new NativeModuleRegistration(
-        SensorsModule,
-        this.nativeSensorsController,
-      ),
-    );
-    modules.set(
-      DisplayModule.NAME,
-      new NativeModuleRegistration(
-        DisplayModule,
-        new DisplayRegistration(context, this.lynxViewSizeTracker),
-      ),
-    );
-    modules.set(
-      WebSocketModule.NAME,
-      new NativeModuleRegistration(
-        WebSocketModule,
-        this.nativeWebSocketController,
-      ),
-    );
-    modules.set(
-      ScreenshotModule.NAME,
-      new NativeModuleRegistration(
-        ScreenshotModule,
-        new NativeScreenshotRegistration(
-          this.getUIContext(),
-          context,
-          this.screenshotTargetId,
-          SCREENSHOT_PAGE_ROOT_ID,
-        ),
-      ),
-    );
     return modules;
+  }
+
+  private installHostContext(context: LynxContext): void {
+    const contextData: Record<string, Object> = context.getContextData() ?? {};
+    contextData[ROUTER_CONTEXT_DATA_KEY] = this.routerController;
+    context.setContextData(contextData);
   }
 
   private subscribeToSafeArea(context: common.UIAbilityContext): void {
@@ -385,18 +335,13 @@ struct LynxBundlePage {
         modules: this.modules,
         behaviors: this.webviewBehaviors,
         metaData: this.metaData,
+        beforeLoadTemplate: this.lynxBeforeLoadTemplateCallback,
         onCreate: this.lynxCreateCallback,
         url: this.url,
       })
         .width('100%')
-        .height('100%')
-        .onAreaChange((_oldArea: Area, area: Area) => {
-          this.lynxViewSizeTracker.widthVp = Number(area.width);
-        });
+        .height('100%');
     }
-    // Target of the Screenshot module: capturing this container captures the
-    // LynxView area of the page.
-    .id(this.screenshotTargetId)
     .backgroundColor(Color.Transparent)
     .size({ width: '100%', height: '100%' });
   }
@@ -477,9 +422,6 @@ struct Index {
         });
       }
     }
-    // Target of the Screenshot module's page capture: this Stack composes the
-    // navigation content plus overlays, i.e. everything the page shows.
-    .id(SCREENSHOT_PAGE_ROOT_ID)
     .backgroundColor(Color.Transparent)
     .size({ width: '100%', height: '100%' });
   }

@@ -1,5 +1,5 @@
 import { sensor } from '@kit.SensorServiceKit';
-import { LynxContext, LynxModule } from '@lynx/lynx';
+import { LynxContext, LynxModule, LynxViewClient } from '@lynx/lynx';
 
 class SensorEventPayload {
   type: string;
@@ -16,7 +16,6 @@ class SensorEventPayload {
   }
 }
 
-/** Estimated azimuth uncertainty in degrees; -1 when the reading is unreliable. */
 function accuracyDegrees(accuracy: sensor.SensorAccuracy): number {
   if (accuracy === sensor.SensorAccuracy.ACCURACY_HIGH) {
     return 15;
@@ -30,12 +29,12 @@ function accuracyDegrees(accuracy: sensor.SensorAccuracy): number {
   return -1;
 }
 
-/** Page-owned sensor subscription hub exported to Lynx as Sensors. */
-export class NativeSensorsController {
-  private context: LynxContext | undefined;
+/** Owns the subscriptions created by one Lynx NativeModule instance. */
+class NativeSensorsController {
+  private context: LynxContext | undefined = undefined;
   private destroyed: boolean = false;
-  private accelerometerActive: boolean = false;
-  private compassActive: boolean = false;
+  private accelerometerCallback: ((data: sensor.AccelerometerResponse) => void) | undefined = undefined;
+  private compassCallback: ((data: sensor.OrientationResponse) => void) | undefined = undefined;
 
   isAvailable(type: string, callback: (resultJSON: string) => void): void {
     try {
@@ -54,26 +53,24 @@ export class NativeSensorsController {
   }
 
   start(type: string, callback: (error: string) => void, context: LynxContext): void {
-    if (this.destroyed) {
-      callback('Native sensors host has been destroyed');
-      return;
-    }
+    this.destroyed = false;
     this.context = context;
     if (type === 'accelerometer') {
-      if (this.accelerometerActive) {
+      if (this.accelerometerCallback !== undefined) {
         callback('');
         return;
       }
       try {
-        sensor.on(sensor.SensorId.ACCELEROMETER, (data: sensor.AccelerometerResponse) => {
-          const payload: SensorEventPayload = new SensorEventPayload('accelerometer');
+        const listener = (data: sensor.AccelerometerResponse): void => {
+          const payload = new SensorEventPayload('accelerometer');
           payload.x = data.x;
           payload.y = data.y;
           payload.z = data.z;
           payload.timestamp = Date.now();
           this.emit(payload);
-        });
-        this.accelerometerActive = true;
+        };
+        sensor.on(sensor.SensorId.ACCELEROMETER, listener);
+        this.accelerometerCallback = listener;
         callback('');
       } catch (error) {
         callback(this.messageOf(error, 'Unable to start the accelerometer'));
@@ -81,21 +78,20 @@ export class NativeSensorsController {
       return;
     }
     if (type === 'compass') {
-      if (this.compassActive) {
+      if (this.compassCallback !== undefined) {
         callback('');
         return;
       }
       try {
-        sensor.on(sensor.SensorId.ORIENTATION, (data: sensor.OrientationResponse) => {
-          const payload: SensorEventPayload = new SensorEventPayload('compass');
-          // The orientation sensor fuses the magnetometer; alpha is the
-          // azimuth relative to magnetic north in degrees.
+        const listener = (data: sensor.OrientationResponse): void => {
+          const payload = new SensorEventPayload('compass');
           payload.heading = data.alpha;
           payload.accuracy = accuracyDegrees(data.accuracy);
           payload.timestamp = Date.now();
           this.emit(payload);
-        });
-        this.compassActive = true;
+        };
+        sensor.on(sensor.SensorId.ORIENTATION, listener);
+        this.compassCallback = listener;
         callback('');
       } catch (error) {
         callback(this.messageOf(error, 'Unable to start the compass'));
@@ -107,13 +103,14 @@ export class NativeSensorsController {
 
   stop(type: string, callback: (error: string) => void): void {
     if (type === 'accelerometer') {
-      if (!this.accelerometerActive) {
+      const listener = this.accelerometerCallback;
+      if (listener === undefined) {
         callback('');
         return;
       }
       try {
-        sensor.off(sensor.SensorId.ACCELEROMETER);
-        this.accelerometerActive = false;
+        sensor.off(sensor.SensorId.ACCELEROMETER, listener);
+        this.accelerometerCallback = undefined;
         callback('');
       } catch (error) {
         callback(this.messageOf(error, 'Unable to stop the accelerometer'));
@@ -121,13 +118,14 @@ export class NativeSensorsController {
       return;
     }
     if (type === 'compass') {
-      if (!this.compassActive) {
+      const listener = this.compassCallback;
+      if (listener === undefined) {
         callback('');
         return;
       }
       try {
-        sensor.off(sensor.SensorId.ORIENTATION);
-        this.compassActive = false;
+        sensor.off(sensor.SensorId.ORIENTATION, listener);
+        this.compassCallback = undefined;
         callback('');
       } catch (error) {
         callback(this.messageOf(error, 'Unable to stop the compass'));
@@ -138,67 +136,71 @@ export class NativeSensorsController {
   }
 
   destroy(): void {
-    if (this.destroyed) {
-      return;
-    }
     this.destroyed = true;
-    try {
-      sensor.off(sensor.SensorId.ACCELEROMETER);
-    } catch (_error) {
+    const accelerometer = this.accelerometerCallback;
+    this.accelerometerCallback = undefined;
+    if (accelerometer !== undefined) {
+      try {
+        sensor.off(sensor.SensorId.ACCELEROMETER, accelerometer);
+      } catch (_error) {
+      }
     }
-    try {
-      sensor.off(sensor.SensorId.ORIENTATION);
-    } catch (_error) {
+    const compass = this.compassCallback;
+    this.compassCallback = undefined;
+    if (compass !== undefined) {
+      try {
+        sensor.off(sensor.SensorId.ORIENTATION, compass);
+      } catch (_error) {
+      }
     }
-    this.accelerometerActive = false;
-    this.compassActive = false;
+    this.context = undefined;
   }
 
   private emit(payload: SensorEventPayload): void {
-    if (this.destroyed) {
-      return;
+    if (!this.destroyed) {
+      this.context?.sendGlobalEvent(SensorsModule.EVENT_NAME, [payload]);
     }
-    this.context?.sendGlobalEvent(SensorsModule.EVENT_NAME, [payload]);
   }
 
   private messageOf(error: Object, fallback: string): string {
     return error instanceof Error && error.message.length > 0 ? error.message : fallback;
   }
+}
 
+class SensorsLifecycleClient extends LynxViewClient {
+  private readonly controller: NativeSensorsController;
+
+  constructor(controller: NativeSensorsController) {
+    super();
+    this.controller = controller;
+  }
+
+  override onDestroy(): void {
+    this.controller.destroy();
+  }
 }
 
 /** HarmonyOS motion sensors exported to Lynx as Sensors. */
 export class SensorsModule extends LynxModule {
   static readonly NAME: string = 'Sensors';
   static readonly EVENT_NAME: string = 'sensors';
-  private readonly controller: NativeSensorsController | undefined;
+  private readonly controller: NativeSensorsController;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.controller = param as NativeSensorsController | undefined;
+    this.controller = new NativeSensorsController();
+    context.getLynxViewClient()?.push(new SensorsLifecycleClient(this.controller));
   }
 
   isAvailable(type: string, callback: (resultJSON: string) => void): void {
-    if (this.controller === undefined) {
-      callback('{"value":false,"error":"Native sensors have no ArkUI page host"}');
-      return;
-    }
     this.controller.isAvailable(type, callback);
   }
 
   start(type: string, callback: (error: string) => void): void {
-    if (this.controller === undefined) {
-      callback('Native sensors have no ArkUI page host');
-      return;
-    }
     this.controller.start(type, callback, this.context);
   }
 
   stop(type: string, callback: (error: string) => void): void {
-    if (this.controller === undefined) {
-      callback('Native sensors have no ArkUI page host');
-      return;
-    }
     this.controller.stop(type, callback);
   }
 }

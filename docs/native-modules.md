@@ -27,11 +27,13 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `SecureStorage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
 - `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
 
-其中 `WebSocket`、`KV`、`Clipboard`、`Haptics`、
-`AlbumUtils`、`FileSystem`、`Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner` 与 `SecureStorage` 在 Android 和 iOS 上由
-`autolink/` workspace 目录中的 Lynx 原生库提供并自动注册（见下文「Lynx Autolink 集成」）。
-HarmonyOS 通过 4.2 nightly 的官方 Hvigor Autolink（源码 HAR + 全局 Registry +
-AppStartup）接入其中十一个自包含库；其余宿主耦合模块仍逐 `LynxView` 手动注册。
+`Router`、`WebSocket`、`KV`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
+`Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner`、
+`SecureStorage` 与 `Toast` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
+（见下文「Lynx Autolink 集成」）。HarmonyOS 使用 4.2 nightly 的官方 Hvigor Autolink
+（源码 HAR + 全局 Registry + AppStartup）；只有 Back、StatusBar 因持有页面实例状态仍逐
+`LynxView` 手动注册。Router 的 ArkUI 导航策略留在宿主，通过 `LynxContext.contextData`
+注入，不参与模块注册。
 
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
 
@@ -533,10 +535,10 @@ const page = await screenshot.capturePage(); // 当前原生页面，选项同�
 await albumUtils.saveToAlbum(page.uri);
 ```
 
-`capture` 在 Android 与 iOS 上支持通过 `idSelector` 截取页内某个元素——Lynx 元素
-设置 `idSelector` 属性后即可被原生查找。HarmonyOS 的 LynxContext 既不暴露视图、
-也没有元素查找 API，因此只能截取宿主 LynxView 容器，传入 `idSelector` 会被
-reject 而不是静默忽略。
+`capture` 三端都支持通过 `idSelector` 截取页内某个元素——Lynx 元素设置
+`idSelector` 属性后即可被原生查找。HarmonyOS 4.2 由
+`LynxContext.getComponentSnapshot(idSelector)` 直接解析 Lynx 根组件或目标元素，不再依赖
+宿主容器 ID。
 
 `capturePage` 截取的是「当前原生页面」的合成像素，等价于 Android 的窗口
 PixelCopy：包含 LynxView 之外的原生内容（原生标题栏、叠加层等），且不需要任何
@@ -544,9 +546,9 @@ PixelCopy：包含 LynxView 之外的原生内容（原生标题栏、叠加层�
 
 | 行为 | Android | iOS | HarmonyOS |
 | --- | --- | --- | --- |
-| `capture` 默认 | `LynxView.draw(Canvas)` 到 Bitmap | `drawViewHierarchyInRect`，未上屏时回退 `layer.renderInContext` | `componentSnapshot.get()` 截宿主容器 |
-| `capture` + `idSelector` | `LynxView.findViewByIdSelector()` | `LynxView viewWithIdSelector:` | 不支持，reject |
-| `capturePage` | `PixelCopy.request(window, …)`；API 24/25 回退到绘制 decor view | key window 快照 | `componentSnapshot.get()` 截页面根容器 |
+| `capture` 默认 | `LynxView.draw(Canvas)` 到 Bitmap | `drawViewHierarchyInRect`，未上屏时回退 `layer.renderInContext` | `LynxContext.getComponentSnapshot('')` 截 Lynx 根组件 |
+| `capture` + `idSelector` | `LynxView.findViewByIdSelector()` | `LynxView viewWithIdSelector:` | `LynxContext.getComponentSnapshot(idSelector)` |
+| `capturePage` | `PixelCopy.request(window, …)`；API 24/25 回退到绘制 decor view | key window 快照 | 当前 Lynx window 的 `snapshot()` |
 
 JPEG 输出先合成白色底（JPEG 没有透明通道）；视图绘制在主线程执行，编码与文件
 IO 在后台线程完成。目标未布局（宽高为 0）、`idSelector` 无匹配或 LynxView 尚未
@@ -692,9 +694,9 @@ if (await sensors.available('compass')) {
 | HarmonyOS | `sensor.on(ACCELEROMETER)` | `sensor.on(ORIENTATION)`，`alpha` 即地磁融合方位角 | `ohos.permission.ACCELEROMETER`（system_grant，已在宿主声明）；罗盘免权限 |
 
 与 `WebSocket` 相同，事件进入后台运行时（`'background only'`）；传感器回调高频触发，
-避免在监听器里做重计算，必要时自行节流。页面销毁时三端宿主都会停流（Android
-`destroy()` 反注册、iOS `-destroy`、HarmonyOS 页面 `aboutToDisappear` 销毁
-controller）。
+避免在监听器里做重计算，必要时自行节流。页面销毁时三端都会停流（Android
+`destroy()` 反注册、iOS `-destroy`、HarmonyOS 模块挂载的 `LynxViewClient.onDestroy()`
+只移除该实例的 sensor callbacks）。
 
 ### 共享 hooks
 
@@ -774,7 +776,10 @@ Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest
 
 这套行为已经封装在 `@lynx-template/activity-sheet`：`openActivityBottomSheet()` 负责以透明 sheet 路由打开目标 bundle，`useActivityBottomSheet()` 负责返回生命周期和关闭时序，`ActivityBottomSheet` 负责遮罩、全宽面板、grabber、动画与底部安全区。业务 bundle 只需要传入自己的内容；完整示例见 `lib/activity-sheet/README.md`。
 
-每个新路由页都会重新注册全部 NativeModules，并继续注入 `nativeEnvironment.safeAreaInsets`。因此第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层 bundle。
+NativeModules 由应用级 Autolink Registry 自动提供；每个新路由页只补充页面作用域的
+Back、StatusBar，并继续注入 Router handler 与 `nativeEnvironment.safeAreaInsets`。因此
+第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层
+bundle。
 
 ## 业务 WebSocket
 
@@ -888,7 +893,7 @@ Provider Registry。
 `LynxPageViewController.swift` 与桥接头文件）。生成目录 `app/iosApp/generated/` 已加入
 `.gitignore`。
 
-**HarmonyOS**：宿主使用 Lynx 官方 Hvigor Autolink。每个自包含库在
+**HarmonyOS**：宿主使用 Lynx 官方 Hvigor Autolink。每个 NativeModule 库在
 `autolink/<库>/harmony/` 内携带完整源码 HAR（`oh-package.json5`、`hvigorfile.ts`、
 `build-profile.json5`、`src/main/module.json5` 与 `Index.ets`），并从 `Index.ets` 导出
 `LynxLibraryProviderImpl`。`lynx.lib.json#platforms.harmony.packageDir` 指向该 HAR。
@@ -901,10 +906,10 @@ Provider Registry。
 `4.2.0-nightly.202608180606.150.ga573c3b8`。`@lynx/lynx-library-plugin@0.1.0` 也尚未发布，
 仓库暂时原样固定同一 Lynx 提交 `a573c3b8` 下的官方插件源码，位于
 `app/harmonyApp/vendor/lynx-library-plugin`；正式包发布后可换成 Hvigor 依赖而无需改 HAR。
-相册、文件选择器与扫码模块从自身模块实例取得 `UIAbilityContext`，Toast 从
-`LynxContext` 取得当前窗口，因此全局 Provider 不需要宿主参数。宿主耦合模块（Router、
-Sensors、Display、WebSocket、Screenshot 及 Back、StatusBar）仍在
-`app/harmonyApp/entry/src/main/ets/native/` 逐 `LynxView` 手动注册。
+相册、文件选择器、扫码、Display 与 Screenshot 从 `LynxContext` 取得窗口、组件或
+`UIAbilityContext`；Sensors、WebSocket 通过 `LynxViewClient` 清理实例资源，因此 Provider
+不需要页面参数。Router 只从 `LynxContext.contextData` 取得宿主导航 handler。只有 Back、
+StatusBar 仍在 `app/harmonyApp/entry/src/main/ets/native/` 逐 `LynxView` 手动注册。
 
 **新增一个 autolink 库**：最简单的方式是 `pnpm new:native-module <name>`，脚手架会生成
 三端 stub（含官方 Provider 结构的 `harmony/` 源码 HAR）、契约、workspace 依赖与
@@ -918,9 +923,8 @@ Registry；iOS 重新执行 `bundle exec pod install`；HarmonyOS 直接重新�
 
 ## 原生实现位置
 
-- Autolink 库（Android + iOS）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/toast`；
-- 其中 11 个库的 HarmonyOS 实现也在包内 `harmony/` 源码 HAR 中（`album-utils`、`battery`、`biometric`、`clipboard`、`device-info`、`file-system`、`haptics`、`mmkv`、`scanner`、`secure-storage`、`toast`），由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/toast`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
 - Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`；Autolink Registry 只存在于 Gradle 生成目录；
 - iOS 宿主：`NativeModules/` 下的 `AppRouteHandler.swift`（Router 的宿主导航）与其他宿主模块、`LynxPageViewController.swift`；
-- HarmonyOS 宿主（手动注册的宿主耦合模块）：`native/` 下的 `RouterModule`、`SensorsModule`、`DisplayModule`、`WebSocketModule`、`ScreenshotModule`、`BackModule`、`StatusBarModule`，以及 `pages/Index.ets`。
+- HarmonyOS 宿主：`host/NativeRouterHost.ets` 提供 Router 的 ArkUI 导航策略；`native/` 下仅 `BackModule`、`StatusBarModule` 逐页面注册，入口位于 `pages/Index.ets`。

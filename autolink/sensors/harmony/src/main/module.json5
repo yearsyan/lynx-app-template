@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_sensors",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

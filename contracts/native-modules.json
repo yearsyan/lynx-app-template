@@ -120,7 +120,7 @@
           "fileName": "DisplayModule.java"
         },
         "ios": "autolink/display/ios/src/DisplayModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/DisplayModule.ets"
+        "harmony": "autolink/display/harmony/src/main/ets/DisplayModule.ets"
       }
     },
     {
@@ -192,7 +192,7 @@
           "fileName": "RouterModule.java"
         },
         "ios": "autolink/router/ios/src/RouterModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/RouterModule.ets"
+        "harmony": "autolink/router/harmony/src/main/ets/RouterModule.ets"
       }
     },
     {
@@ -228,7 +228,7 @@
           "fileName": "ScreenshotModule.java"
         },
         "ios": "autolink/screenshot/ios/src/ScreenshotModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/ScreenshotModule.ets"
+        "harmony": "autolink/screenshot/harmony/src/main/ets/ScreenshotModule.ets"
       }
     },
     {
@@ -246,7 +246,7 @@
           "fileName": "SensorsModule.java"
         },
         "ios": "autolink/sensors/ios/src/SensorsModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/SensorsModule.ets"
+        "harmony": "autolink/sensors/harmony/src/main/ets/SensorsModule.ets"
       }
     },
     {
@@ -314,7 +314,7 @@
           "fileName": "WebSocketModule.java"
         },
         "ios": "autolink/websocket/ios/src/WebSocketModule.m",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/WebSocketModule.ets"
+        "harmony": "autolink/websocket/harmony/src/main/ets/WebSocketModule.ets"
       }
     }
   ]

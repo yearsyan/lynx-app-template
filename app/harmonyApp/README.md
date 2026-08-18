@@ -24,3 +24,9 @@ DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
 ```
 
 Use `entry@debug` together with `-p buildMode=debug` for a Debug HAP.
+
+NativeModule libraries are discovered from workspace `lynx.lib.json` files by
+the official Lynx Hvigor Autolink plugin. The generated Registry HAR installs
+all package-owned modules app-wide; `Index.ets` only registers the page-scoped
+Back and StatusBar modules and injects the Router navigation handler through
+`LynxContext.contextData`.

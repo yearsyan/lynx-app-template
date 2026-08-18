@@ -1,7 +1,7 @@
-import { BusinessError } from '@kit.BasicServicesKit';
 import { util } from '@kit.ArkTS';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { webSocket } from '@kit.NetworkKit';
-import { LynxContext, LynxModule } from '@lynx/lynx';
+import { LynxContext, LynxModule, LynxViewClient } from '@lynx/lynx';
 import BuildProfile from 'BuildProfile';
 
 export interface NativeWebSocketOptions {
@@ -42,16 +42,14 @@ class NativeWebSocketConnection {
   }
 }
 
-/** Page-owned production WebSocket transport independent of Lynx DevTool. */
-export class NativeWebSocketController {
+/** Owns the connections created by one Lynx NativeModule instance. */
+class NativeWebSocketController {
   private readonly connections: Map<string, NativeWebSocketConnection> = new Map();
   private readonly base64: util.Base64Helper = new util.Base64Helper();
   private destroyed: boolean = false;
 
   connect(options: NativeWebSocketOptions, context: LynxContext): string {
-    if (this.destroyed) {
-      return 'WebSocket host has been destroyed';
-    }
+    this.destroyed = false;
     if (!new RegExp('^[A-Za-z0-9._-]{1,128}$').test(options.id)) {
       return 'Invalid WebSocket connection ID';
     }
@@ -62,19 +60,15 @@ export class NativeWebSocketController {
       return 'WebSocket connection ID already exists';
     }
 
-    const socket: webSocket.WebSocket = webSocket.createWebSocket();
-    const connection: NativeWebSocketConnection = new NativeWebSocketConnection(
-      options.id,
-      socket,
-      context,
-    );
+    const socket = webSocket.createWebSocket();
+    const connection = new NativeWebSocketConnection(options.id, socket, context);
     this.connections.set(options.id, connection);
     this.installListeners(connection);
 
     const headers: Record<string, string> = {};
-    const headerNames: string[] = Object.keys(options.headers);
-    for (let index: number = 0; index < headerNames.length; index++) {
-      const name: string = headerNames[index];
+    const headerNames = Object.keys(options.headers);
+    for (let index = 0; index < headerNames.length; index++) {
+      const name = headerNames[index];
       headers[name] = options.headers[name];
     }
     if (options.protocols.length > 0) {
@@ -98,7 +92,7 @@ export class NativeWebSocketController {
   }
 
   sendText(id: string, data: string, callback: (error: string) => void): void {
-    const connection: NativeWebSocketConnection | undefined = this.connections.get(id);
+    const connection = this.connections.get(id);
     if (connection === undefined || !connection.open || connection.terminal) {
       callback('WebSocket is not open');
       return;
@@ -107,14 +101,14 @@ export class NativeWebSocketController {
   }
 
   sendBase64(id: string, data: string, callback: (error: string) => void): void {
-    const connection: NativeWebSocketConnection | undefined = this.connections.get(id);
+    const connection = this.connections.get(id);
     if (connection === undefined || !connection.open || connection.terminal) {
       callback('WebSocket is not open');
       return;
     }
     try {
-      const bytes: Uint8Array = this.base64.decodeSync(data);
-      const payload: ArrayBuffer = new ArrayBuffer(bytes.byteLength);
+      const bytes = this.base64.decodeSync(data);
+      const payload = new ArrayBuffer(bytes.byteLength);
       new Uint8Array(payload).set(bytes);
       this.send(connection, payload, callback);
     } catch (error) {
@@ -123,7 +117,7 @@ export class NativeWebSocketController {
   }
 
   close(id: string, code: number, reason: string, callback: (error: string) => void): void {
-    const connection: NativeWebSocketConnection | undefined = this.connections.get(id);
+    const connection = this.connections.get(id);
     if (connection === undefined || connection.terminal) {
       callback('Unknown WebSocket connection ID');
       return;
@@ -136,14 +130,11 @@ export class NativeWebSocketController {
   }
 
   destroy(): void {
-    if (this.destroyed) {
-      return;
-    }
     this.destroyed = true;
-    const connections: NativeWebSocketConnection[] = Array.from(this.connections.values());
+    const connections = Array.from(this.connections.values());
     this.connections.clear();
-    for (let index: number = 0; index < connections.length; index++) {
-      const connection: NativeWebSocketConnection = connections[index];
+    for (let index = 0; index < connections.length; index++) {
+      const connection = connections[index];
       connection.terminal = true;
       this.removeListeners(connection);
       connection.socket.close({ code: 1001, reason: 'Lynx page destroyed' }).catch(() => {});
@@ -160,36 +151,27 @@ export class NativeWebSocketController {
         return;
       }
       connection.open = true;
-      const payload: NativeWebSocketEventPayload = new NativeWebSocketEventPayload(
-        connection.id,
-        'open',
-      );
+      const payload = new NativeWebSocketEventPayload(connection.id, 'open');
       connection.context.sendGlobalEvent(WebSocketModule.EVENT_NAME, [payload]);
     });
-    connection.socket.on(
-      'message',
-      (error: BusinessError, value: string | ArrayBuffer) => {
-        if (error) {
-          this.fail(connection, error.message);
-          return;
-        }
-        if (connection.terminal || this.destroyed) {
-          return;
-        }
-        const payload: NativeWebSocketEventPayload = new NativeWebSocketEventPayload(
-          connection.id,
-          'message',
-        );
-        if (typeof value === 'string') {
-          payload.dataType = 'text';
-          payload.data = value;
-        } else {
-          payload.dataType = 'base64';
-          payload.data = this.base64.encodeToStringSync(new Uint8Array(value));
-        }
-        connection.context.sendGlobalEvent(WebSocketModule.EVENT_NAME, [payload]);
-      },
-    );
+    connection.socket.on('message', (error: BusinessError, value: string | ArrayBuffer) => {
+      if (error) {
+        this.fail(connection, error.message);
+        return;
+      }
+      if (connection.terminal || this.destroyed) {
+        return;
+      }
+      const payload = new NativeWebSocketEventPayload(connection.id, 'message');
+      if (typeof value === 'string') {
+        payload.dataType = 'text';
+        payload.data = value;
+      } else {
+        payload.dataType = 'base64';
+        payload.data = this.base64.encodeToStringSync(new Uint8Array(value));
+      }
+      connection.context.sendGlobalEvent(WebSocketModule.EVENT_NAME, [payload]);
+    });
     connection.socket.on('close', (error: BusinessError, result: webSocket.CloseResult) => {
       if (error) {
         this.fail(connection, error.message);
@@ -225,10 +207,7 @@ export class NativeWebSocketController {
     if (!this.take(connection)) {
       return;
     }
-    const errorPayload: NativeWebSocketEventPayload = new NativeWebSocketEventPayload(
-      connection.id,
-      'error',
-    );
+    const errorPayload = new NativeWebSocketEventPayload(connection.id, 'error');
     errorPayload.message = message.length > 0 ? message : 'WebSocket transport failed';
     connection.context.sendGlobalEvent(WebSocketModule.EVENT_NAME, [errorPayload]);
     this.emitClose(connection, 1006, errorPayload.message, false);
@@ -240,10 +219,9 @@ export class NativeWebSocketController {
     reason: string,
     wasClean: boolean,
   ): void {
-    if (!this.take(connection)) {
-      return;
+    if (this.take(connection)) {
+      this.emitClose(connection, code, reason, wasClean);
     }
-    this.emitClose(connection, code, reason, wasClean);
   }
 
   private take(connection: NativeWebSocketConnection): boolean {
@@ -262,10 +240,7 @@ export class NativeWebSocketController {
     reason: string,
     wasClean: boolean,
   ): void {
-    const payload: NativeWebSocketEventPayload = new NativeWebSocketEventPayload(
-      connection.id,
-      'close',
-    );
+    const payload = new NativeWebSocketEventPayload(connection.id, 'close');
     payload.code = code;
     payload.reason = reason;
     payload.wasClean = wasClean;
@@ -278,50 +253,44 @@ export class NativeWebSocketController {
   }
 }
 
-/** App-owned HarmonyOS WebSocket controller exported to Lynx as WebSocket. */
+class WebSocketLifecycleClient extends LynxViewClient {
+  private readonly controller: NativeWebSocketController;
+
+  constructor(controller: NativeWebSocketController) {
+    super();
+    this.controller = controller;
+  }
+
+  override onDestroy(): void {
+    this.controller.destroy();
+  }
+}
+
+/** Production WebSocket transport exported to Lynx as WebSocket. */
 export class WebSocketModule extends LynxModule {
   static readonly NAME: string = 'WebSocket';
   static readonly EVENT_NAME: string = 'webSocket';
-  private readonly controller: NativeWebSocketController | undefined;
+  private readonly controller: NativeWebSocketController;
 
   constructor(context: LynxContext, param?: Object) {
     super(context, param);
-    this.controller = param as NativeWebSocketController | undefined;
+    this.controller = new NativeWebSocketController();
+    context.getLynxViewClient()?.push(new WebSocketLifecycleClient(this.controller));
   }
 
   connect(options: NativeWebSocketOptions, callback: (error: string) => void): void {
-    callback(
-      this.controller?.connect(options, this.context) ??
-        'Native WebSocket has no ArkUI page host',
-    );
+    callback(this.controller.connect(options, this.context));
   }
 
   sendText(id: string, data: string, callback: (error: string) => void): void {
-    if (this.controller === undefined) {
-      callback('Native WebSocket has no ArkUI page host');
-      return;
-    }
     this.controller.sendText(id, data, callback);
   }
 
   sendBase64(id: string, data: string, callback: (error: string) => void): void {
-    if (this.controller === undefined) {
-      callback('Native WebSocket has no ArkUI page host');
-      return;
-    }
     this.controller.sendBase64(id, data, callback);
   }
 
-  close(
-    id: string,
-    code: number,
-    reason: string,
-    callback: (error: string) => void,
-  ): void {
-    if (this.controller === undefined) {
-      callback('Native WebSocket has no ArkUI page host');
-      return;
-    }
+  close(id: string, code: number, reason: string, callback: (error: string) => void): void {
     this.controller.close(id, code, reason, callback);
   }
 }
