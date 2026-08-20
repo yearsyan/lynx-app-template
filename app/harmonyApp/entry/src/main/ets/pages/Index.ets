@@ -1,10 +1,12 @@
 import {
   Behavior,
   LynxContext,
+  LynxError,
   LynxGenericResourceFetcher,
   LynxTemplateResourceFetcher,
   LynxUpdateMeta,
   LynxView,
+  LynxViewClient,
   MetaData,
   ModuleClassWrapper,
   TemplateData,
@@ -13,7 +15,7 @@ import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 
 import { BundleConfig } from '../config/BundleConfig';
-import { DevelopmentSettings } from '../config/DevelopmentSettings';
+import { DevelopmentSettings } from 'entry/ets/config/DevelopmentSettings';
 import {
   WebviewModuleBridgeHostAdapter,
   createModuleWebviewBehavior,
@@ -40,7 +42,39 @@ import { LynxBundleRepository } from '../provider/LynxBundleRepository';
 import {
   DevelopmentSettingsEntry,
   DevelopmentSettingsPage,
-} from './DevelopmentSettingsUI';
+} from 'entry/ets/pages/DevelopmentSettingsUI';
+
+// LynxSubErrorCode E_APP_BUNDLE_LOAD_BAD_RESPONSE / _PARSE_FAILED /
+// _BAD_BUNDLE: the bundle bytes could not be fetched or parsed (dev server
+// offline, broken OTA cache). JS runtime errors are deliberately excluded so
+// development mistakes stay visible.
+const BUNDLE_LOAD_FAILURE_SUBCODES: number[] = [10203, 10204, 10205];
+
+/**
+ * Re-renders from the embedded bundle when the bundle bytes fail to load, so a
+ * stopped dev server never leaves a white screen. Runs at most once: if the
+ * embedded bundle itself fails, the error keeps surfacing.
+ */
+class EmbeddedBundleFallbackClient extends LynxViewClient {
+  private hasFallenBack: boolean = false;
+  private readonly onBundleLoadFailure: () => void;
+
+  constructor(onBundleLoadFailure: () => void) {
+    super();
+    this.onBundleLoadFailure = onBundleLoadFailure;
+  }
+
+  public onReceivedError(error: LynxError): void {
+    if (this.hasFallenBack || !error.isFatal()) {
+      return;
+    }
+    if (!BUNDLE_LOAD_FAILURE_SUBCODES.includes(error.getSubCode())) {
+      return;
+    }
+    this.hasFallenBack = true;
+    this.onBundleLoadFailure();
+  }
+}
 
 class SafeAreaInsets {
   top: number;
@@ -151,6 +185,10 @@ struct LynxBundlePage {
   private lynxBeforeLoadTemplateCallback = (context: LynxContext): void => {
     this.installHostContext(context);
   };
+  private bundleLoadFallback: EmbeddedBundleFallbackClient =
+    new EmbeddedBundleFallbackClient((): void => {
+      this.fallBackToEmbeddedBundle();
+    });
   @State private url: string = '';
 
   aboutToAppear(): void {
@@ -314,6 +352,17 @@ struct LynxBundlePage {
     this.publishNativeEnvironment();
   }
 
+  private fallBackToEmbeddedBundle(): void {
+    const embedded: string = this.route.bundle === BundleConfig.BUNDLE_NAME
+      ? BundleConfig.EMBEDDED_BUNDLE_PATH
+      : this.route.bundleURL();
+    if (this.url === embedded) {
+      return;
+    }
+    console.warn(`Lynx bundle ${this.url} failed to load; falling back to ${embedded}`);
+    this.url = embedded;
+  }
+
   private logicalPx(value: number): number {
     return Math.round(this.getUIContext().px2vp(value) * 100) / 100;
   }
@@ -337,6 +386,7 @@ struct LynxBundlePage {
         metaData: this.metaData,
         beforeLoadTemplate: this.lynxBeforeLoadTemplateCallback,
         onCreate: this.lynxCreateCallback,
+        clients: [this.bundleLoadFallback],
         url: this.url,
       })
         .width('100%')

@@ -1,5 +1,35 @@
 import UIKit
 
+/// Reloads from the embedded bundle when the bundle bytes cannot be fetched or
+/// parsed (dev server offline, broken OTA cache). JS runtime errors stay
+/// visible during development. Runs at most once: if the embedded bundle
+/// itself fails, the error keeps surfacing.
+private final class EmbeddedBundleFallback: NSObject, LynxViewLifecycle {
+  private static let bundleLoadFailureSubcodes: Set<Int> = [10203, 10204, 10205]
+
+  private let onBundleLoadFailure: () -> Void
+  private var hasFallenBack = false
+
+  init(onBundleLoadFailure: @escaping () -> Void) {
+    self.onBundleLoadFailure = onBundleLoadFailure
+  }
+
+  func lynxView(_ view: LynxView, didRecieveError error: Error) {
+    guard let lynxError = error as? LynxError,
+          lynxError.isFatal,
+          Self.bundleLoadFailureSubcodes.contains(lynxError.getSubCode()) else {
+      return
+    }
+    // Template providers may complete on a background URLSession/file queue;
+    // keep the one-shot guard and LynxView reload on the main thread.
+    DispatchQueue.main.async { [weak self] in
+      guard let self, !self.hasFallenBack else { return }
+      self.hasFallenBack = true
+      self.onBundleLoadFailure()
+    }
+  }
+}
+
 /// Reusable native host for both the storyboard root and routed Lynx bundles.
 class LynxPageViewController: UIViewController {
   private let bundleRepository = LynxBundleRepository()
@@ -13,6 +43,7 @@ class LynxPageViewController: UIViewController {
   private var nativeStatusBarStyle: NativeStatusBarStyle
   private var lynxView: LynxView?
   private var nativeBackController: NativeBackController?
+  private var embeddedFallback: EmbeddedBundleFallback?
   private var hasLoadedInitialBundle = false
   private var canUpdateTemplate = false
   private var lastSafeAreaInsets: UIEdgeInsets?
@@ -77,6 +108,15 @@ class LynxPageViewController: UIViewController {
     self.lynxView = lynxView
     self.nativeBackController = nativeBackController
     nativeBackController.attach(lynxView: lynxView)
+
+    // A dev server or OTA cache that cannot serve the bundle must not leave a
+    // white screen; render the embedded bundle instead (once).
+    let fallback = EmbeddedBundleFallback { [weak self] in
+      guard let self else { return }
+      self.loadBundle(fromURL: self.bundleRepository.embeddedURL(forBundle: self.bundleName))
+    }
+    lynxView.addLifecycleClient(fallback)
+    embeddedFallback = fallback
 
     #if DEBUG
     if route == nil {

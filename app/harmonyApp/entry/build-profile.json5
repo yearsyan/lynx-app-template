@@ -31,13 +31,23 @@
   ],
   "targets": [
     {
+      // Development settings live in src/debug/ets and override the no-op
+      // defaults in src/main at the same relative paths; release builds never
+      // compile the real UI, MMKV keys or URL parsing. Consumers use
+      // module-qualified entry/ets/... imports so source-root resolution runs.
       "name": "debug",
+      "source": {
+        "sourceRoots": ["./src/debug"]
+      }
     },
     {
       "name": "release",
     },
     {
       "name": "ohosTest",
+      "source": {
+        "sourceRoots": ["./src/debug"]
+      }
     }
   ]
 }

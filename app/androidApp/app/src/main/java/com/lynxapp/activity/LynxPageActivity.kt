@@ -3,6 +3,8 @@ package com.lynxapp.activity
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.util.Log
+import android.widget.FrameLayout
 import androidx.fragment.app.FragmentActivity
 import com.google.gson.Gson
 import com.lynx.tasm.LynxView
@@ -25,6 +27,8 @@ open class LynxPageActivity : FragmentActivity() {
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
     private lateinit var bundleRepository: LynxBundleRepository
     private lateinit var nativeBackController: NativeBackController
+    private lateinit var root: FrameLayout
+    private var fellBackToEmbedded = false
 
     internal val routePresentation: String
         get() = intent.getStringExtra(EXTRA_PRESENTATION)
@@ -57,11 +61,21 @@ open class LynxPageActivity : FragmentActivity() {
             bundleRepository,
             nativeBackController,
             bundleName,
+            onBundleLoadFailure = ::fallBackToEmbeddedBundle,
         ).apply {
             setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
         }
         nativeBackController.attach(lynxView)
-        setContentView(lynxView)
+        root = FrameLayout(this).apply {
+            addView(
+                lynxView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        setContentView(root)
         nativeEnvironmentBridge = NativeEnvironmentBridge(
             lynxView = lynxView,
             additionalData = routeData(),
@@ -84,11 +98,48 @@ open class LynxPageActivity : FragmentActivity() {
     }
 
     private fun loadBundle() {
-        lynxView.renderTemplateUrl(
-            bundleRepository.urlForBundle(bundleName),
-            nativeEnvironmentBridge.initialData(),
-        )
+        renderBundle(bundleRepository.urlForBundle(bundleName))
+    }
+
+    private fun renderBundle(url: String) {
+        lynxView.renderTemplateUrl(url, nativeEnvironmentBridge.initialData())
         nativeEnvironmentBridge.onTemplateLoadStarted()
+    }
+
+    private fun fallBackToEmbeddedBundle() {
+        if (fellBackToEmbedded) return
+        fellBackToEmbedded = true
+        val embedded = bundleRepository.embeddedUrlForBundle(bundleName)
+        Log.w(TAG, "Bundle $bundleName failed to load; falling back to $embedded")
+
+        nativeEnvironmentBridge.detach()
+        nativeBackController.destroy()
+        root.removeView(lynxView)
+        lynxView.destroy()
+
+        nativeBackController = NativeBackController(this)
+        lynxView = createLynxView(
+            bundleRepository,
+            nativeBackController,
+            bundleName,
+            groupUrl = embedded,
+        ).apply {
+            setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
+        }
+        nativeBackController.attach(lynxView)
+        root.addView(
+            lynxView,
+            0,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        nativeEnvironmentBridge = NativeEnvironmentBridge(
+            lynxView = lynxView,
+            additionalData = routeData(),
+        )
+        nativeEnvironmentBridge.attach { renderBundle(embedded) }
     }
 
     private fun routeData(): Map<String, Any> {
@@ -116,6 +167,7 @@ open class LynxPageActivity : FragmentActivity() {
         const val EXTRA_TRANSPARENT = "lynx.route.transparent"
         const val EXTRA_STATUS_BAR_STYLE = "lynx.route.statusBarStyle"
         const val EXTRA_PARAMS_JSON = "lynx.route.params"
+        private const val TAG = "LynxPageActivity"
         private const val DEFAULT_BUNDLE = "main"
         private const val PAGE_BACKGROUND = 0xFFF7F7FB.toInt()
     }

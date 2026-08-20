@@ -8,14 +8,21 @@ import {
   unlink,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { enabledNativePlatforms } from './native-platforms.mjs';
+import {
+  GRADLE_LYNX_COORDINATE,
+  rewriteManagedValues,
+} from './lib/autolink-boilerplate.mjs';
+import { enabledNativePlatforms } from './lib/native-platforms.mjs';
+import {
+  errorMessage,
+  repositoryDirectory,
+  repositoryRelative,
+  requireRecord,
+} from './lib/repo.mjs';
 
-const scriptPath = fileURLToPath(import.meta.url);
-const repositoryDirectory = resolve(dirname(scriptPath), '..');
-const packageFile = join(repositoryDirectory, 'package.json');
 const managedFiles = {
   android: join(repositoryDirectory, 'app/androidApp/app/build.gradle.kts'),
   ios: join(repositoryDirectory, 'app/iosApp/iosApp.xcodeproj/project.pbxproj'),
@@ -23,28 +30,77 @@ const managedFiles = {
 };
 
 // package.json#lynx.engineVersion is the single source for the engine version
-// stamped into release manifests. Bundle builds and native hosts cannot read
-// package.json, so they each hardcode the value; these patterns locate every
-// copy so the audit below can keep them from drifting apart. The Kotlin file
-// is found by name because its package directory differs per app
-// (java/com/lynxapp here, java/<dotted bundle id segments> when scaffolded).
-const engineVersionReferences = [
+// stamped into release manifests. Bundle configs read it through
+// @lynx-template/bundle-config at build time; native hosts cannot read
+// package.json, so this script writes the value into their config sources.
+// The Kotlin file is found by name because its package directory differs per
+// app (java/com.lynxapp here, java/<dotted bundle id segments> when
+// scaffolded).
+const engineVersionTargets = [
   {
     platform: 'android',
     searchRoot: 'app/androidApp/app/src/main/java',
     searchFor: 'LynxBundleRepository.kt',
-    pattern: /const val ENGINE_VERSION = "([^"]+)"/,
+    pattern: /(const val ENGINE_VERSION = ")[^"]*(")/,
+    label: 'Android ENGINE_VERSION',
   },
   {
     platform: 'ios',
     path: 'app/iosApp/iosApp/LynxBundleRepository.swift',
-    pattern: /static let engineVersion = "([^"]+)"/,
+    pattern: /(static let engineVersion = ")[^"]*(")/,
+    label: 'iOS engineVersion',
   },
   {
     platform: 'harmony',
     path: 'app/harmonyApp/entry/src/main/ets/config/BundleConfig.ets',
-    pattern: /static readonly ENGINE_VERSION: string = '([^']+)'/,
+    pattern: /(static readonly ENGINE_VERSION: string = ')[^']*(')/,
+    label: 'HarmonyOS ENGINE_VERSION',
   },
+];
+
+// The ohpm @lynx/* packages ship together from one nightly channel, so the
+// HarmonyOS host pins them all to package.json#lynx.harmonySdkVersion.
+// @lynx/primjs follows a separate release channel and is intentionally left
+// untouched. The same version is written into every autolink HAR by
+// scripts/sync-native-modules.mjs.
+const harmonyLynxPinTargets = [
+  {
+    path: 'app/harmonyApp/oh-package.json5',
+    packages: [
+      '@lynx/gfx',
+      '@lynx/lynx',
+      '@lynx/lynx_base',
+      '@lynx/lynx_devtool',
+      '@lynx/lynx_devtool_service',
+      '@lynx/lynx_log_service',
+    ],
+  },
+  {
+    path: 'app/harmonyApp/entry/oh-package.json5',
+    packages: [
+      '@lynx/lynx',
+      '@lynx/lynx_base',
+      '@lynx/lynx_devtool',
+      '@lynx/lynx_devtool_service',
+      '@lynx/lynx_log_service',
+    ],
+  },
+];
+
+// The host apps pin the same Lynx SDK version as the autolink packages
+// (scripts/sync-native-modules.mjs manages those) via
+// package.json#lynx.sdkVersion. The Gradle plugin and the servalsvg
+// coordinate follow their own release channels and stay unmanaged; same for
+// the third-party pods (DebugRouter, SDWebImage).
+const hostGradleLynxFile = 'app/androidApp/app/build.gradle.kts';
+const iosPodfilePath = 'app/iosApp/Podfile';
+const managedPods = [
+  'Lynx',
+  'PrimJS',
+  'LynxService',
+  'LynxDevtool',
+  'BaseDevtool',
+  'XElement',
 ];
 
 const androidApplicationId =
@@ -57,17 +113,6 @@ class NativeConfigError extends Error {
     super(message);
     this.name = 'NativeConfigError';
   }
-}
-
-function errorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function requireRecord(value, location) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new NativeConfigError(`${location} must be a JSON object`);
-  }
-  return value;
 }
 
 function optionalRecord(parent, key) {
@@ -106,17 +151,19 @@ function effectiveAndroidDebugId(applicationId, suffix) {
   return `${applicationId}${suffix.startsWith('.') ? suffix : `.${suffix}`}`;
 }
 
-async function loadNativeConfig() {
-  let packageJson;
+async function readJsonFile(path) {
   try {
-    packageJson = JSON.parse(await readFile(packageFile, 'utf8'));
+    return JSON.parse(await readFile(path, 'utf8'));
   } catch (error) {
-    throw new NativeConfigError(
-      `cannot read ${packageFile}: ${errorMessage(error)}`,
-    );
+    throw new NativeConfigError(`cannot read ${path}: ${errorMessage(error)}`);
   }
+}
 
-  const packageData = requireRecord(packageJson, 'package.json');
+async function loadNativeConfig() {
+  const packageData = requireRecord(
+    await readJsonFile(join(repositoryDirectory, 'package.json')),
+    'package.json',
+  );
   const nativeApp = requireRecord(
     packageData.nativeApp,
     'package.json#nativeApp',
@@ -197,6 +244,16 @@ async function loadNativeConfig() {
     'engineVersion',
     'package.json#lynx',
   );
+  if (platforms.includes('android') || platforms.includes('ios')) {
+    config.sdkVersion = requiredString(lynx, 'sdkVersion', 'package.json#lynx');
+  }
+  if (platforms.includes('harmony')) {
+    config.harmonySdkVersion = requiredString(
+      lynx,
+      'harmonySdkVersion',
+      'package.json#lynx',
+    );
+  }
   return config;
 }
 
@@ -221,64 +278,6 @@ async function findFileByName(rootDirectory, fileName) {
   return null;
 }
 
-async function collectEngineVersionMismatches(engineVersion, platforms) {
-  const references = [];
-  const enabled = new Set(platforms);
-  const bundleDirectory = join(repositoryDirectory, 'bundle');
-  let bundleEntries;
-  try {
-    bundleEntries = await readdir(bundleDirectory, { withFileTypes: true });
-  } catch (error) {
-    throw new NativeConfigError(
-      `cannot read ${bundleDirectory}: ${errorMessage(error)}`,
-    );
-  }
-  for (const entry of bundleEntries) {
-    if (!entry.isDirectory()) continue;
-    references.push({
-      path: join(bundleDirectory, entry.name, 'lynx.config.ts'),
-      pattern: /engineVersion: '([^']+)'/,
-      optional: true,
-    });
-  }
-  for (const reference of engineVersionReferences) {
-    if (!enabled.has(reference.platform)) continue;
-    if (reference.searchFor) {
-      const root = join(repositoryDirectory, reference.searchRoot);
-      const found = await findFileByName(root, reference.searchFor);
-      if (found === null) {
-        throw new NativeConfigError(
-          `cannot find ${reference.searchFor} under ${reference.searchRoot}`,
-        );
-      }
-      references.push({ path: found, pattern: reference.pattern });
-      continue;
-    }
-    references.push({
-      pattern: reference.pattern,
-      path: join(repositoryDirectory, reference.path),
-    });
-  }
-
-  const mismatches = [];
-  for (const reference of references) {
-    let content;
-    try {
-      content = await readFile(reference.path, 'utf8');
-    } catch (error) {
-      if (reference.optional && error?.code === 'ENOENT') continue;
-      throw new NativeConfigError(
-        `cannot read ${reference.path}: ${errorMessage(error)}`,
-      );
-    }
-    const found = content.match(reference.pattern)?.[1];
-    if (found !== engineVersion) {
-      mismatches.push({ path: reference.path, found });
-    }
-  }
-  return mismatches;
-}
-
 function replaceManagedValue(text, pattern, value, expectedCount, label) {
   let count = 0;
   const updated = text.replace(pattern, (_match, prefix, suffix) => {
@@ -293,18 +292,25 @@ function replaceManagedValue(text, pattern, value, expectedCount, label) {
   return updated;
 }
 
-async function buildUpdates(config) {
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function readManagedFile(path) {
+  try {
+    return await readFile(path, 'utf8');
+  } catch (error) {
+    throw new NativeConfigError(
+      `cannot read ${repositoryRelative(path)}: ${errorMessage(error)}`,
+    );
+  }
+}
+
+async function collectIdentifierUpdates(config) {
   const updates = [];
   for (const platform of config.platforms) {
     const path = managedFiles[platform];
-    let before;
-    try {
-      before = await readFile(path, 'utf8');
-    } catch (error) {
-      throw new NativeConfigError(
-        `cannot read managed ${platform} file ${path}: ${errorMessage(error)}`,
-      );
-    }
+    const before = await readManagedFile(path);
 
     let after = before;
     if (platform === 'android') {
@@ -322,6 +328,21 @@ async function buildUpdates(config) {
         1,
         'Android Debug applicationIdSuffix',
       );
+      // The application identifiers and Lynx pins share one Gradle file, so
+      // apply both transformations to the same in-memory update. Emitting two
+      // independent updates for this path would let the second atomic write
+      // restore the first value when both settings change together.
+      const { updated, count } = rewriteManagedValues(
+        after,
+        GRADLE_LYNX_COORDINATE,
+        config.sdkVersion,
+      );
+      if (count === 0) {
+        throw new NativeConfigError(
+          `expected org.lynxsdk.lynx:* pins in ${hostGradleLynxFile}, found none`,
+        );
+      }
+      after = updated;
     } else if (platform === 'ios') {
       after = replaceManagedValue(
         after,
@@ -342,6 +363,88 @@ async function buildUpdates(config) {
     updates.push({ path, before, after });
   }
   return updates;
+}
+
+async function collectEngineVersionUpdates(config) {
+  const updates = [];
+  const enabled = new Set(config.platforms);
+  for (const target of engineVersionTargets) {
+    if (!enabled.has(target.platform)) continue;
+    let path;
+    if (target.searchFor) {
+      const root = join(repositoryDirectory, target.searchRoot);
+      const found = await findFileByName(root, target.searchFor);
+      if (found === null) {
+        throw new NativeConfigError(
+          `cannot find ${target.searchFor} under ${target.searchRoot}`,
+        );
+      }
+      path = found;
+    } else {
+      path = join(repositoryDirectory, target.path);
+    }
+    const before = await readManagedFile(path);
+    const after = replaceManagedValue(
+      before,
+      target.pattern,
+      config.engineVersion,
+      1,
+      target.label,
+    );
+    updates.push({ path, before, after });
+  }
+  return updates;
+}
+
+async function collectHarmonyLynxPinUpdates(config) {
+  if (!config.platforms.includes('harmony')) return [];
+  const updates = [];
+  for (const target of harmonyLynxPinTargets) {
+    const path = join(repositoryDirectory, target.path);
+    const before = await readManagedFile(path);
+    let after = before;
+    for (const name of target.packages) {
+      after = replaceManagedValue(
+        after,
+        new RegExp(`("${escapeRegExp(name)}"\\s*:\\s*")[^"]*(")`, 'g'),
+        config.harmonySdkVersion,
+        1,
+        `${target.path} ${name}`,
+      );
+    }
+    updates.push({ path, before, after });
+  }
+  return updates;
+}
+
+async function collectHostLynxPinUpdates(config) {
+  const enabled = new Set(config.platforms);
+  const updates = [];
+  if (enabled.has('ios')) {
+    const path = join(repositoryDirectory, iosPodfilePath);
+    const before = await readManagedFile(path);
+    let after = before;
+    for (const pod of managedPods) {
+      after = replaceManagedValue(
+        after,
+        new RegExp(`(pod '${pod}', ')[^']*(')`, 'g'),
+        config.sdkVersion,
+        1,
+        `Podfile ${pod}`,
+      );
+    }
+    updates.push({ path, before, after });
+  }
+  return updates;
+}
+
+async function buildUpdates(config) {
+  return [
+    ...(await collectIdentifierUpdates(config)),
+    ...(await collectEngineVersionUpdates(config)),
+    ...(await collectHarmonyLynxPinUpdates(config)),
+    ...(await collectHostLynxPinUpdates(config)),
+  ];
 }
 
 async function atomicWrite(update) {
@@ -366,10 +469,6 @@ async function atomicWrite(update) {
   }
 }
 
-function repositoryRelative(path) {
-  return relative(repositoryDirectory, path).split(sep).join('/');
-}
-
 function printIdentifiers(config) {
   if (config.platforms.includes('android')) {
     console.info(`Android Release: ${config.androidApplicationId}`);
@@ -384,10 +483,12 @@ function printIdentifiers(config) {
 }
 
 function printHelp() {
-  console.info(`usage: node scripts/apply_native_config.mjs [--check]
+  console.info(`usage: node scripts/apply-native-config.mjs [--check]
 
-Apply package.json#nativeApp identifiers to its enabled native hosts and verify
-that their Lynx engine version references match package.json#lynx.
+Apply package.json to the enabled native hosts: nativeApp identifiers, the
+Lynx engine version (package.json#lynx.engineVersion), the host Lynx SDK pins
+(package.json#lynx.sdkVersion) and the HarmonyOS @lynx/* ohpm pins
+(package.json#lynx.harmonySdkVersion).
 
 options:
   --check  fail when native files do not match package.json without writing
@@ -408,24 +509,6 @@ async function main(args = process.argv.slice(2)) {
   try {
     const config = await loadNativeConfig();
     const updates = await buildUpdates(config);
-    const engineMismatches = await collectEngineVersionMismatches(
-      config.engineVersion,
-      config.platforms,
-    );
-    if (engineMismatches.length > 0) {
-      console.error(
-        `Lynx engine version references do not match package.json#lynx.engineVersion (${JSON.stringify(config.engineVersion)}):`,
-      );
-      for (const mismatch of engineMismatches) {
-        console.error(
-          `  - ${repositoryRelative(mismatch.path)} declares ${JSON.stringify(mismatch.found ?? 'no value')}`,
-        );
-      }
-      console.error(
-        'Update these files to the value from package.json (native:apply cannot rewrite them).',
-      );
-      return 1;
-    }
     const changed = updates.filter((update) => update.before !== update.after);
 
     if (args.includes('--check')) {
@@ -461,6 +544,9 @@ async function main(args = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   process.exitCode = await main();
 }

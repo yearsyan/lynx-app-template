@@ -92,8 +92,10 @@ Rspeedy 默认监听 `0.0.0.0`，终端会给出 bundle URL 和二维码。修�
 pnpm check                 # TypeScript + Biome
 pnpm dev:android -s <serial> # 构建 Android Debug 包并安装、启动到指定 adb 设备
 pnpm build                 # 构建所有 workspace bundle
-pnpm native:apply          # 将 package.json 的应用标识同步到三端
-pnpm native:check          # 检查三端应用标识是否同步
+pnpm native:apply          # 将 package.json 的应用标识与 Lynx 版本写入三端原生配置
+pnpm native:check          # 检查三端原生配置是否与 package.json 一致
+pnpm native:sync           # 生成发布清单并把 bundle 产物同步进各宿主内置资源
+pnpm native:modules:sync   # 重新同步 autolink 模块的共享样板与 Lynx 版本钉
 pnpm build:lynx           # 构建、生成发布清单、同步三端内置资源
 pnpm build:androidDebug   # 构建 Lynx 产物 + Android Debug APK
 pnpm build:androidRelease # 构建 Lynx 产物 + Android Release APK（未签名）
@@ -142,19 +144,31 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 
 ## Lynx 版本
 
-根目录 `package.json` 的 `lynx` 字段是引擎与 SDK 版本的唯一来源，`pnpm build:lynx` 会把它写入发布清单：
+根目录 `package.json` 的 `lynx` 字段是引擎与 SDK 版本的唯一来源：
 
 ```json
 {
   "lynx": {
     "engineVersion": "3.9",
-    "sdkVersion": "4.0.0"
+    "sdkVersion": "4.0.0",
+    "harmonySdkVersion": "4.2.0-nightly.202608180606.150.ga573c3b8"
   }
 }
 ```
 
-各 bundle 的 `lynx.config.ts` 和三个宿主各自硬编码同一 `engineVersion`（原生侧无法读取 package.json）。`pnpm native:check` 会校验这些副本与 `lynx.engineVersion` 一致，修改版本时先改 `package.json`，再同步这些文件。
-HarmonyOS 当前单独固定到 `4.2.0-nightly.202608180606.150.ga573c3b8`，因为公开稳定版
+- `engineVersion`：各 bundle 由 `@lynx-template/bundle-config` 在构建时直接读取；三端原生
+  无法读取 package.json，对应常量（Kotlin `ENGINE_VERSION`、Swift `engineVersion`、
+  ETS `ENGINE_VERSION`）由 `pnpm native:apply` 直接写入；
+- `sdkVersion`：`pnpm native:sync` 写入发布清单，`pnpm native:apply` 写入宿主 Android
+  `build.gradle.kts` 与 iOS `Podfile` 的 Lynx 钉版，`pnpm native:modules:sync` 同步进每个
+  autolink 模块的 `android/build.gradle.kts`（`org.lynxsdk.lynx:*` 坐标，servalsvg 除外）；
+- `harmonySdkVersion`：HarmonyOS 的 ohpm `@lynx/*` 版本，`pnpm native:apply` 写入宿主
+  两个 oh-package.json5，`pnpm native:modules:sync` 写入每个 autolink HAR 的
+  oh-package.json5（`@lynx/primjs` 走独立发布通道，不受影响）。
+
+`pnpm check` 里的 `native:check` 与 `native:modules:check` 会校验所有这些副本，修改版本时
+只需改 `package.json`，再运行对应的 apply/sync 命令。
+HarmonyOS 当前单独固定到 nightly 通道，因为公开稳定版
 `4.0.1` 尚未包含官方 Autolink 所需的 `LynxLibraryRegistry`；Android 与 iOS 仍使用
 `4.0.0`。nightly 与对应的官方 Hvigor 插件源码提交一起固定，避免通道漂移。
 

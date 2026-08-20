@@ -8,18 +8,9 @@
 // project's local.properties, in that order, then from PATH.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-const repositoryDirectory = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-);
-
-function fail(message) {
-  console.error(`error: ${message}`);
-  process.exit(1);
-}
+import { fail, repositoryDirectory } from './lib/repo.mjs';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -110,7 +101,7 @@ function pickDevice(devices, serial) {
 }
 
 // Debug installs use bundleId + debugApplicationIdSuffix from
-// package.json#nativeApp, the same source apply_native_config.mjs writes into
+// package.json#nativeApp, the same source apply-native-config.mjs writes into
 // the Gradle project, so scaffolded apps work without edits.
 function debugApplicationId() {
   const pkg = JSON.parse(

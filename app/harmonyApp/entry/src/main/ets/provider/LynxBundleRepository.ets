@@ -3,7 +3,7 @@ import { fileIo as fs, hash } from '@kit.CoreFileKit';
 import http from '@ohos.net.http';
 
 import { BundleConfig } from '../config/BundleConfig';
-import { DevelopmentSettings } from '../config/DevelopmentSettings';
+import { DevelopmentSettings } from 'entry/ets/config/DevelopmentSettings';
 
 class BundleEntry {
   name: string = '';

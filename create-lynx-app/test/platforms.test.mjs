@@ -112,12 +112,17 @@ async function verifySinglePlatformScaffold(platform) {
 
     await execFileAsync(
       process.execPath,
-      ['scripts/apply_native_config.mjs', '--check'],
+      ['scripts/apply-native-config.mjs', '--check'],
       { cwd: projectDirectory },
     );
     await execFileAsync(
       process.execPath,
       ['scripts/generate-native-contracts.mjs', '--check'],
+      { cwd: projectDirectory },
+    );
+    await execFileAsync(
+      process.execPath,
+      ['scripts/sync-native-modules.mjs', '--check'],
       { cwd: projectDirectory },
     );
 
@@ -136,6 +141,34 @@ async function verifySinglePlatformScaffold(platform) {
       if (candidate !== platform) {
         await doesNotExist(join(projectDirectory, fixture.directory));
       }
+    }
+
+    if (platform === 'android') {
+      // applicationId and Lynx SDK pins live in the same Gradle file. Changing
+      // both in one apply must retain both edits rather than letting the later
+      // atomic write restore the earlier value.
+      packageJson.nativeApp.bundleId = 'com.example.changed';
+      packageJson.lynx.sdkVersion = '9.8.7';
+      await writeFile(
+        join(projectDirectory, 'package.json'),
+        `${JSON.stringify(packageJson, null, 2)}\n`,
+      );
+      await execFileAsync(
+        process.execPath,
+        ['scripts/apply-native-config.mjs'],
+        { cwd: projectDirectory },
+      );
+      await execFileAsync(
+        process.execPath,
+        ['scripts/apply-native-config.mjs', '--check'],
+        { cwd: projectDirectory },
+      );
+      const gradle = await readFile(
+        join(projectDirectory, 'app/androidApp/app/build.gradle.kts'),
+        'utf8',
+      );
+      assert.match(gradle, /applicationId = "com\.example\.changed"/);
+      assert.match(gradle, /org\.lynxsdk\.lynx:lynx:9\.8\.7/);
     }
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });

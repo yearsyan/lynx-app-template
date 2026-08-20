@@ -20,11 +20,9 @@
   },
   "devDependencies": {
     "@lynx-js/preact-devtools": "catalog:",
-    "@lynx-js/qrcode-rsbuild-plugin": "catalog:",
-    "@lynx-js/react-rsbuild-plugin": "catalog:",
     "@lynx-js/rspeedy": "catalog:",
     "@lynx-js/types": "catalog:",
-    "@rsbuild/plugin-type-check": "catalog:",
+    "@lynx-template/bundle-config": "workspace:*",
     "@types/react": "catalog:"
   }
 }

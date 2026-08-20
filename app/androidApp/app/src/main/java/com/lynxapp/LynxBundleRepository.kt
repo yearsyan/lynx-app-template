@@ -38,6 +38,10 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
 
     fun cachedUrl(): String = "$CACHE_SCHEME://$BUNDLE_NAME"
 
+    /** Embedded asset path for any bundle; the white-screen fallback target. */
+    fun embeddedUrlForBundle(bundleName: String): String =
+        "$EMBEDDED_BUNDLE_DIRECTORY/$bundleName.lynx.bundle"
+
     /** OTA policy currently applies to main; every bundle may have a debug override. */
     fun urlForBundle(bundleName: String): String {
         DevelopmentSettings.recordLoadedBundle(appContext, bundleName)
@@ -45,7 +49,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
         return if (bundleName == BUNDLE_NAME) {
             startupUrl()
         } else {
-            "$EMBEDDED_BUNDLE_DIRECTORY/$bundleName.lynx.bundle"
+            embeddedUrlForBundle(bundleName)
         }
     }
 

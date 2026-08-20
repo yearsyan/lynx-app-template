@@ -11,15 +11,15 @@ import {
 } from 'node:fs/promises';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 // The replacement rules (real identifier -> {{token}}) live next to the
 // scaffolder that substitutes them back, so the two directions cannot drift.
 import {
   templateReplacements as globalReplacements,
   scopedTemplateReplacements as scopedReplacements,
 } from '../create-lynx-app/src/template-tokens.mjs';
+import { repositoryDirectory } from './lib/repo.mjs';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repositoryRoot = repositoryDirectory;
 const templateRoot = join(repositoryRoot, 'create-lynx-app', 'template');
 const manifestPath = join(
   repositoryRoot,

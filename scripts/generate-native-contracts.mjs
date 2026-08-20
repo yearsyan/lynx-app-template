@@ -1,17 +1,26 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 import {
   enabledNativePlatforms,
   SUPPORTED_NATIVE_PLATFORMS,
-} from './native-platforms.mjs';
+} from './lib/native-platforms.mjs';
+import {
+  errorMessage,
+  repositoryDirectory,
+  repositoryRelative,
+  requireRecord,
+} from './lib/repo.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
-const repositoryDirectory = resolve(dirname(scriptPath), '..');
 const contractFile = join(repositoryDirectory, 'contracts/native-modules.json');
 const packageFile = join(repositoryDirectory, 'package.json');
+const nativeContractsPackageFile = join(
+  repositoryDirectory,
+  'lib/native-contracts/package.json',
+);
 const generatedContractFile = join(
   repositoryDirectory,
   'lib/native-contracts/src/index.ts',
@@ -26,17 +35,6 @@ class ContractError extends Error {
     super(message);
     this.name = 'ContractError';
   }
-}
-
-function errorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function requireRecord(value, location) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new ContractError(`${location} must be a JSON object`);
-  }
-  return value;
 }
 
 function requireString(value, location) {
@@ -329,6 +327,44 @@ export type { ${module.name} as ${module.interfaceName} } from '../types/platfor
 /** Name the native hosts register this module under. */
 export const ${module.autolink.exportName} = '${module.name}' as const;
 `;
+}
+
+// The generated registry imports every autolink package, so each one must be
+// a declared dependency of @lynx-app/native-contracts; pnpm's strict linker
+// does not tolerate imports that only resolve through hoisting. Rebuild the
+// dependencies here so adding a module can never leave the manifest behind.
+async function nativeContractsPackageOutput(contract) {
+  const packageJson = requireRecord(
+    await readJSON(
+      nativeContractsPackageFile,
+      'lib/native-contracts/package.json',
+    ),
+    'lib/native-contracts/package.json',
+  );
+  const existing = requireRecord(
+    packageJson.dependencies,
+    'lib/native-contracts/package.json#dependencies',
+  );
+  const dependencies = {};
+  for (const [name, version] of Object.entries(existing)) {
+    if (!name.startsWith('@lynx-template/autolink-')) {
+      dependencies[name] = version;
+    }
+  }
+  for (const module of contract.modules) {
+    if (module.autolink === undefined) continue;
+    dependencies[`@lynx-template/autolink-${module.autolink.directory}`] =
+      'workspace:*';
+  }
+  packageJson.dependencies = Object.fromEntries(
+    Object.entries(dependencies).sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    ),
+  );
+  return {
+    path: nativeContractsPackageFile,
+    content: `${JSON.stringify(packageJson, null, 2)}\n`,
+  };
 }
 
 function generateHarmonyContract(contract) {
@@ -660,10 +696,6 @@ async function validateNativeImplementations(contract, platforms) {
   }
 }
 
-function repositoryRelative(path) {
-  return relative(repositoryDirectory, path).split(sep).join('/');
-}
-
 async function readJSON(path, label) {
   try {
     return JSON.parse(await readFile(path, 'utf8'));
@@ -729,6 +761,7 @@ async function main(args = process.argv.slice(2)) {
     const platforms = enabledNativePlatforms(packageJson);
     await validateNativeImplementations(contract, platforms);
     const outputs = generatedOutputs(contract, platforms);
+    outputs.push(await nativeContractsPackageOutput(contract));
 
     if (args.includes('--check')) {
       const stale = await checkOutputs(outputs);

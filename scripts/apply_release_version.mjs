@@ -1,16 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+import { fail, repositoryDirectory } from './lib/repo.mjs';
 
 // npm 官方 semver 校验的一个宽松子集，足够覆盖 `v0.1.2` / `0.1.2-rc.1`。
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-
-function fail(message) {
-  console.error(`error: ${message}`);
-  process.exit(1);
-}
 
 async function main() {
   const version = process.argv[2];
@@ -23,13 +18,17 @@ async function main() {
 
   const packages = [
     {
-      path: resolve(repositoryRoot, 'create-lynx-app', 'package.json'),
+      path: resolve(repositoryDirectory, 'create-lynx-app', 'package.json'),
       update(pkg) {
         pkg.version = version;
       },
     },
     {
-      path: resolve(repositoryRoot, 'create-lynx-app-alias', 'package.json'),
+      path: resolve(
+        repositoryDirectory,
+        'create-lynx-app-alias',
+        'package.json',
+      ),
       update(pkg) {
         pkg.version = version;
         pkg.dependencies['@lynfe/lynx-app'] = version;

@@ -49,9 +49,9 @@ OTA 校验通过后，三个宿主把同一份 JSON 元数据与 bundle 一起�
 }
 ```
 
-启动时宿主重新计算缓存 bundle 的 SHA-256 并与 `sha256` 比对；`engineVersion` 不匹配或校验失败都会回退到安装包内资源。
+启动时宿主重新计算缓存 bundle 的 SHA-256 并与 `sha256` 比对；`engineVersion` 不匹配或校验失败都会回退到安装包内资源。运行期拉取或解析缓存 bundle 失败时同样会回退到内置 bundle 重新渲染一次，见 [development-settings.md](development-settings.md) 的「加载失败回退」。
 
-manifest 中的 `engineVersion` 与 `sdkVersion` 来源于根目录 `package.json` 的 `lynx` 字段，由 `pnpm build:lynx` 读取写入。三个宿主与各 bundle 的 `lynx.config.ts` 各自硬编码同一 `engineVersion`，`pnpm native:check` 会校验这些副本与 `package.json` 一致。
+manifest 中的 `engineVersion` 与 `sdkVersion` 来源于根目录 `package.json` 的 `lynx` 字段，由 `pnpm native:sync` 读取写入。各 bundle 通过 `@lynx-template/bundle-config` 在构建时读取同一 `engineVersion`；三个宿主的 `engineVersion` 常量由 `pnpm native:apply` 直接写入，`pnpm native:check` 校验一致性。
 
 ## 发布建议
 

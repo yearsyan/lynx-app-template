@@ -59,7 +59,7 @@ android {
 
     buildTypes {
         debug {
-            // Managed from package.json#nativeApp by scripts/apply_native_config.mjs.
+            // Managed from package.json#nativeApp by scripts/apply-native-config.mjs.
             applicationIdSuffix = ".debug"
             // Rspeedy serves HTTP by default. Release remains HTTPS-only.
             manifestPlaceholders["usesCleartextTraffic"] = "true"

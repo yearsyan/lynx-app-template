@@ -1,3 +1,5 @@
+import { requireRecord } from './repo.mjs';
+
 export const SUPPORTED_NATIVE_PLATFORMS = Object.freeze([
   'android',
   'ios',
@@ -5,13 +7,6 @@ export const SUPPORTED_NATIVE_PLATFORMS = Object.freeze([
 ]);
 
 const supportedPlatforms = new Set(SUPPORTED_NATIVE_PLATFORMS);
-
-function requireRecord(value, location) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(`${location} must be a JSON object`);
-  }
-  return value;
-}
 
 /**
  * Read the native hosts that belong to this project. The scaffold writes this

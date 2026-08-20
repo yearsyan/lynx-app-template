@@ -8,28 +8,20 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-import { enabledNativePlatforms } from './native-platforms.mjs';
+import { enabledNativePlatforms } from './lib/native-platforms.mjs';
+import {
+  readRootPackageJson,
+  repositoryDirectory,
+  requireLynxVersion,
+} from './lib/repo.mjs';
 
-const repositoryDirectory = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-);
 const workspaceDirectory = join(repositoryDirectory, 'bundle');
-const rootPackageJson = JSON.parse(
-  await readFile(join(repositoryDirectory, 'package.json'), 'utf8'),
-);
+const rootPackageJson = await readRootPackageJson();
 const enabledPlatforms = enabledNativePlatforms(rootPackageJson);
-const engineVersion = rootPackageJson.lynx?.engineVersion;
-const sdkVersion = rootPackageJson.lynx?.sdkVersion;
-if (typeof engineVersion !== 'string' || engineVersion.length === 0) {
-  throw new Error('package.json#lynx.engineVersion must be a non-empty string');
-}
-if (typeof sdkVersion !== 'string' || sdkVersion.length === 0) {
-  throw new Error('package.json#lynx.sdkVersion must be a non-empty string');
-}
+const engineVersion = requireLynxVersion(rootPackageJson, 'engineVersion');
+const sdkVersion = requireLynxVersion(rootPackageJson, 'sdkVersion');
 
 const nativePlatforms = {
   android: {

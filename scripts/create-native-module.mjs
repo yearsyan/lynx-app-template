@@ -1,11 +1,19 @@
 import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const repositoryDirectory = resolve(
-  fileURLToPath(new URL('..', import.meta.url)),
-);
+import {
+  harmonyBuildProfile,
+  harmonyHvigorfile,
+  harmonyModuleJson,
+} from './lib/autolink-boilerplate.mjs';
+import {
+  fail,
+  readRootPackageJson,
+  repositoryDirectory,
+  requireLynxVersion,
+} from './lib/repo.mjs';
+
 const contractsFile = join(
   repositoryDirectory,
   'contracts/native-modules.json',
@@ -14,7 +22,6 @@ const packageFile = join(repositoryDirectory, 'package.json');
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
 const PASCAL = /^[A-Z][A-Za-z0-9]*$/;
-const HARMONY_LYNX_VERSION = '4.2.0-nightly.202608180606.150.ga573c3b8';
 
 function usage() {
   console.info(`usage: pnpm new:native-module <kebab-case-name> [--module-name <PascalName>]
@@ -59,11 +66,6 @@ function parseArguments(argv) {
     positional.push(argument);
   }
   return { name: positional[0], moduleName };
-}
-
-function fail(message) {
-  console.error(`error: ${message}`);
-  process.exit(1);
 }
 
 async function readText(path, label) {
@@ -115,6 +117,13 @@ async function main() {
   if (!PASCAL.test(moduleName)) {
     fail(`--module-name must be PascalCase, got: ${moduleName}`);
   }
+
+  const rootPackageJson = await readRootPackageJson();
+  const sdkVersion = requireLynxVersion(rootPackageJson, 'sdkVersion');
+  const harmonySdkVersion = requireLynxVersion(
+    rootPackageJson,
+    'harmonySdkVersion',
+  );
 
   const directory = join(repositoryDirectory, 'autolink', name);
   const packageSegment = name.replace(/-/g, '');
@@ -212,8 +221,8 @@ android {
 
 dependencies {
     implementation("androidx.annotation:annotation:1.9.1")
-    implementation("org.lynxsdk.lynx:lynx:4.0.0")
-    annotationProcessor("org.lynxsdk.lynx:lynx-processor:4.0.0")
+    implementation("org.lynxsdk.lynx:lynx:${sdkVersion}")
+    annotationProcessor("org.lynxsdk.lynx:lynx-processor:${sdkVersion}")
 }
 `,
     'android/src/main/AndroidManifest.xml': `<manifest />
@@ -317,48 +326,18 @@ NS_ASSUME_NONNULL_END
         main: 'Index.ets',
         license: 'Apache-2.0',
         dependencies: {
-          '@lynx/lynx': HARMONY_LYNX_VERSION,
+          '@lynx/lynx': harmonySdkVersion,
         },
       },
       null,
       2,
     )}\n`,
-    'harmony/build-profile.json5': `{
-  "apiType": "stageMode",
-  "buildOption": {
-    "arkOptions": {
-      "byteCodeHar": false,
-    },
-  },
-  "targets": [
-    {
-      "name": "default",
-    },
-  ],
-}
-`,
-    'harmony/hvigorfile.ts': `import { harTasks } from '@ohos/hvigor-ohos-plugin';
-
-export default {
-  system: harTasks /* Built-in plugin of Hvigor. It cannot be modified. */,
-  plugins: [] /* Custom plugin to extend the functionality of Hvigor. */,
-};
-`,
+    'harmony/build-profile.json5': harmonyBuildProfile(),
+    'harmony/hvigorfile.ts': harmonyHvigorfile(),
     'harmony/Index.ets': `export { LynxLibraryProviderImpl } from './src/main/ets/LynxLibraryProviderImpl';
 export { ${interfaceName} } from './src/main/ets/${interfaceName}';
 `,
-    'harmony/src/main/module.json5': `{
-  "module": {
-    "name": "autolink_${name.replaceAll('-', '_')}",
-    "type": "har",
-    "deviceTypes": [
-      "default",
-      "tablet",
-      "2in1"
-    ]
-  }
-}
-`,
+    'harmony/src/main/module.json5': harmonyModuleJson(name),
     'harmony/src/main/ets/LynxLibraryProviderImpl.ets': `import { LynxLibraryProvider, LynxLibraryRegistry } from '@lynx/lynx';
 import { ${interfaceName} } from './${interfaceName}';
 
@@ -425,15 +404,14 @@ export class ${interfaceName} extends LynxModule {
   );
 
   // Root devDependency so pnpm install links the package for Lynx autolink.
-  const packageJson = JSON.parse(await readText(packageFile, 'package.json'));
-  packageJson.devDependencies = insertSortedKey(
-    packageJson.devDependencies,
+  rootPackageJson.devDependencies = insertSortedKey(
+    rootPackageJson.devDependencies,
     `@lynx-template/autolink-${name}`,
     'workspace:*',
   );
   await writeFile(
     packageFile,
-    `${JSON.stringify(packageJson, null, 2)}\n`,
+    `${JSON.stringify(rootPackageJson, null, 2)}\n`,
     'utf8',
   );
 

@@ -1,0 +1,19 @@
+{
+  "name": "@lynx-template/bundle-config",
+  "description": "Shared rspeedy config factory for the workspace Lynx bundles",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.mjs"
+    }
+  },
+  "dependencies": {
+    "@lynx-js/qrcode-rsbuild-plugin": "catalog:",
+    "@lynx-js/react-rsbuild-plugin": "catalog:",
+    "@lynx-js/rspeedy": "catalog:",
+    "@rsbuild/plugin-type-check": "catalog:"
+  }
+}

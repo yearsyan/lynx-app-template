@@ -1018,11 +1018,16 @@ StatusBar 仍在 `app/harmonyApp/entry/src/main/ets/native/` 逐 `LynxView` 手�
 三端 stub（含官方 Provider 结构的 `harmony/` 源码 HAR）、契约、workspace 依赖与
 Autolink 元数据，不生成或修改宿主 Registry。手工创建时：在 `autolink/` 下新建目录（`package.json` + `lynx.lib.json` +
 `types/platform-native-module.d.ts` + `android/` + `ios/` + `harmony/`），在
-`contracts/native-modules.json` 添加声明与三端实现映射，加入根 `package.json` 和
-`lib/native-contracts/package.json` 的 workspace 依赖后执行 `pnpm install`、
-`pnpm native:contracts:generate`；随后 Android 直接重新构建，Gradle 插件会扫描并生成
+`contracts/native-modules.json` 添加声明与三端实现映射，加入根 `package.json` 的
+workspace 依赖后执行 `pnpm install`、`pnpm native:contracts:generate`
+（`lib/native-contracts/package.json` 的依赖由生成器同步，无需手工维护）；随后 Android 直接重新构建，Gradle 插件会扫描并生成
 Registry；iOS 重新执行 `bundle exec pod install`；HarmonyOS 直接重新构建，Hvigor
 插件会重新扫描并生成 Registry。
+
+已有模块的共享样板（`harmony/hvigorfile.ts`、`build-profile.json5`、`module.json5`，以及
+ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm native:modules:sync`
+统一再同步，与 `pnpm new:native-module` 的脚手架输出保持同源；`pnpm check` 会先执行
+`native:modules:check` 防止漂移。
 
 ## 原生实现位置
 

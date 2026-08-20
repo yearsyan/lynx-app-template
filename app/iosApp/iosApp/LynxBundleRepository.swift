@@ -42,6 +42,11 @@ final class LynxBundleRepository: NSObject, LynxTemplateProvider {
     "\(Constants.cacheScheme)://\(Constants.bundleName)"
   }
 
+  /// Embedded bundle URL form; the white-screen fallback target.
+  func embeddedURL(forBundle bundleName: String) -> String {
+    bundleName == Constants.bundleName ? "main.lynx" : "\(bundleName).lynx"
+  }
+
   /// OTA policy currently applies to main; every bundle may have a debug override.
   func url(forBundle bundleName: String) -> String {
     DevelopmentSettings.recordLoadedBundle(bundleName)
