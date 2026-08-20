@@ -944,6 +944,13 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 `autolink/` 是 monorepo 的一个 workspace 目录列表（`pnpm-workspace.yaml` 中的 `autolink/*`），
 其中每个子目录都是一个独立的 Lynx 原生库 npm 包，通过 `lynx.lib.json` 清单描述平台源码：
 
+根目录 `package.json#nativeApp.autolinkModules` 是应用实际启用的库清单。脚手架默认全选，
+交互创建时可在多选 TUI 中取消可选库；只有启用库会作为根直接依赖出现在
+`node_modules`，从而被 Android、iOS 与 HarmonyOS 的官方扫描器发现。未启用库仍保留
+源码、原始声明与生成契约，修改清单并依次运行 `pnpm native:autolink:apply`、
+`pnpm install` 即可重新启用。`router` 是三端宿主必需项；Android/iOS 还会强制保留
+`webview-bridge`，这两个宿主直接引用了它的适配器类型。
+
 ```text
 autolink/
 ├── album-utils/   # AlbumUtils（相册选图 + 存图）

@@ -94,6 +94,8 @@ pnpm dev:android -s <serial> # 构建 Android Debug 包并安装、启动到指�
 pnpm build                 # 构建所有 workspace bundle
 pnpm native:apply          # 将 package.json 的应用标识与 Lynx 版本写入三端原生配置
 pnpm native:check          # 检查三端原生配置是否与 package.json 一致
+pnpm native:autolink:apply # 按 nativeApp.autolinkModules 更新根依赖（随后运行 pnpm install）
+pnpm native:autolink:check # 检查原生 Autolink 启用项与根依赖一致
 pnpm native:sync           # 生成发布清单并把 bundle 产物同步进各宿主内置资源
 pnpm native:modules:sync   # 重新同步 autolink 模块的共享样板与 Lynx 版本钉
 pnpm build:lynx           # 构建、生成发布清单、同步三端内置资源
@@ -116,11 +118,13 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 ## 原生应用标识
 
 根目录 `package.json` 的 `nativeApp` 是三端安装标识的唯一配置入口：
+下面示例展示只额外启用 MMKV 的三端项目（Router 与 WebView bridge 为宿主必需项）：
 
 ```json
 {
   "nativeApp": {
     "platforms": ["android", "ios", "harmony"],
+    "autolinkModules": ["mmkv", "router", "webview-bridge"],
     "bundleId": "com.lynxapp",
     "android": {
       "debugApplicationIdSuffix": ".debug"
@@ -134,7 +138,15 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 
 `platforms` 是当前项目实际保留的宿主，也是所有原生脚本的共同输入。脚手架的
 `--platforms` 会写入该字段、删除未选宿主目录与对应构建命令；配置检查、契约检查和
-资源同步只访问启用的平台。修改标识后运行 `pnpm native:apply`，脚本会同步以下原生配置：
+资源同步只访问启用的平台。`autolinkModules` 决定哪些 `autolink/*` 包作为根直接依赖
+暴露给三端官方 Autolink 扫描器；未启用模块的源码和 TypeScript 契约仍会保留，方便
+稍后重新开启。修改该数组后运行 `pnpm native:autolink:apply` 和 `pnpm install`。
+
+交互式创建项目时会显示默认全选的多选 TUI；也可以用
+`--autolink mmkv,toast` 非交互指定。Router 是所有宿主的导航基础设施，Android/iOS 的
+WebView bridge 也是宿主编译依赖，因此这些项目必需项会自动加入且在 TUI 中锁定。
+
+修改标识后运行 `pnpm native:apply`，脚本会同步以下原生配置：
 
 - Android `applicationId`，Debug 额外应用 `debugApplicationIdSuffix`；
 - iOS Debug/Release 的 `PRODUCT_BUNDLE_IDENTIFIER`；

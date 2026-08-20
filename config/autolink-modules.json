@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "name": "album-utils"
+    },
+    {
+      "name": "audio-player"
+    },
+    {
+      "name": "battery"
+    },
+    {
+      "name": "biometric"
+    },
+    {
+      "name": "clipboard"
+    },
+    {
+      "name": "device-info"
+    },
+    {
+      "name": "display"
+    },
+    {
+      "name": "file-system"
+    },
+    {
+      "name": "haptics"
+    },
+    {
+      "name": "liquid-glass"
+    },
+    {
+      "name": "mmkv",
+      "label": "MMKV"
+    },
+    {
+      "name": "pressable-view"
+    },
+    {
+      "name": "router",
+      "requiredFor": [
+        "android",
+        "ios",
+        "harmony"
+      ]
+    },
+    {
+      "name": "scanner"
+    },
+    {
+      "name": "screenshot"
+    },
+    {
+      "name": "secure-storage"
+    },
+    {
+      "name": "sensors"
+    },
+    {
+      "name": "toast"
+    },
+    {
+      "name": "websocket",
+      "label": "WebSocket"
+    },
+    {
+      "name": "webview-bridge",
+      "label": "WebView Bridge",
+      "requiredFor": [
+        "android",
+        "ios"
+      ]
+    }
+  ]
+}

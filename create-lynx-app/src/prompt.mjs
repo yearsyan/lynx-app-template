@@ -1,6 +1,8 @@
 import { stdin as input, stdout as output } from 'node:process';
 import readline from 'node:readline/promises';
 
+import { promptAutolinkModules } from './autolink.mjs';
+
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
 // Android applicationId rules are the strictest of the three hosts: every
 // dot-separated segment starts with a letter and contains only letters,
@@ -8,6 +10,13 @@ const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
 const BUNDLE_ID = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/;
 const SCOPE = /^[a-z0-9][a-z0-9-]*$/;
 const PLATFORMS = new Set(['android', 'ios', 'harmony']);
+const VALUE_FLAGS = new Set([
+  'scope',
+  'bundle-id',
+  'display-name',
+  'platforms',
+  'autolink',
+]);
 
 // Kebab-case names cannot become package segments as-is (no hyphens allowed).
 function defaultBundleId(name) {
@@ -45,6 +54,20 @@ function hasFlag(argv, name) {
   return argv.includes(`--${name}`);
 }
 
+function positionalArguments(argv) {
+  const positional = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (!argument.startsWith('--')) {
+      positional.push(argument);
+      continue;
+    }
+    const name = argument.slice(2);
+    if (VALUE_FLAGS.has(name)) index += 1;
+  }
+  return positional;
+}
+
 function commaList(argv, name) {
   const raw = flagValue(argv, name);
   if (!raw) return undefined;
@@ -72,8 +95,21 @@ async function prompt(rl, question, { validate, fallback } = {}) {
   return value || fallback || '';
 }
 
-export async function resolveOptions(argv) {
-  const positional = argv.filter((arg) => !arg.startsWith('--'));
+function validatePlatforms(platforms) {
+  for (const platform of platforms) {
+    if (!PLATFORMS.has(platform)) fail(`unknown platform: ${platform}`);
+  }
+  if (platforms.length === 0) {
+    fail('at least one platform must be selected');
+  }
+  return [...new Set(platforms)];
+}
+
+export async function resolveOptions(
+  argv,
+  { autolinkModules = [], resolveAutolinkSelection } = {},
+) {
+  const positional = positionalArguments(argv);
   const name = positional[0];
 
   if (!name || !KEBAB.test(name)) {
@@ -82,12 +118,17 @@ export async function resolveOptions(argv) {
     );
   }
 
-  const interactive = !hasFlag(argv, 'yes') && process.stdin.isTTY;
+  const interactive =
+    !hasFlag(argv, 'yes') && process.stdin.isTTY && process.stdout.isTTY;
 
   let scope = flagValue(argv, 'scope') ?? 'lynfe';
   let bundleId = flagValue(argv, 'bundle-id');
   let displayName = flagValue(argv, 'display-name');
   let platforms = commaList(argv, 'platforms');
+  const requestedAutolink = commaList(argv, 'autolink');
+  if (hasFlag(argv, 'autolink') && requestedAutolink === undefined) {
+    fail('--autolink requires a comma-separated list, `all`, or `none`');
+  }
 
   if (interactive) {
     const rl = readline.createInterface({ input, output });
@@ -105,7 +146,7 @@ export async function resolveOptions(argv) {
         `display name [${kebabToTitleCase(name)}]: `,
         { fallback: displayName ?? kebabToTitleCase(name) },
       );
-      const platformDefault = 'android,ios,harmony';
+      const platformDefault = platforms?.join(',') ?? 'android,ios,harmony';
       platforms = await prompt(
         rl,
         `platforms (comma-separated) [${platformDefault}]: `,
@@ -126,6 +167,7 @@ export async function resolveOptions(argv) {
   bundleId ??= defaultBundleId(name);
   displayName ??= kebabToTitleCase(name);
   platforms ??= ['android', 'ios', 'harmony'];
+  platforms = validatePlatforms(platforms);
 
   if (!SCOPE.test(scope)) fail(`invalid npm scope: ${scope}`);
   if (!BUNDLE_ID.test(bundleId)) {
@@ -134,11 +176,29 @@ export async function resolveOptions(argv) {
         'contain only letters, digits, and underscores)',
     );
   }
-  for (const platform of platforms) {
-    if (!PLATFORMS.has(platform)) fail(`unknown platform: ${platform}`);
-  }
-  if (platforms.length === 0) {
-    fail('at least one platform must be selected');
+  let selectedAutolink;
+  if (autolinkModules.length > 0) {
+    if (typeof resolveAutolinkSelection !== 'function') {
+      throw new Error('Autolink selection resolver is unavailable');
+    }
+    if (requestedAutolink !== undefined) {
+      selectedAutolink = resolveAutolinkSelection(
+        autolinkModules,
+        platforms,
+        requestedAutolink,
+      );
+    } else if (interactive) {
+      selectedAutolink = await promptAutolinkModules(
+        autolinkModules,
+        platforms,
+      );
+    } else {
+      selectedAutolink = resolveAutolinkSelection(
+        autolinkModules,
+        platforms,
+        undefined,
+      );
+    }
   }
 
   return {
@@ -149,7 +209,10 @@ export async function resolveOptions(argv) {
     vendor: lastSegment(bundleId),
     appName: kebabToPascalCase(name),
     displayName,
-    platforms: [...new Set(platforms)],
+    platforms,
+    ...(selectedAutolink === undefined
+      ? {}
+      : { autolinkModules: selectedAutolink }),
   };
 }
 

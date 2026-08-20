@@ -18,6 +18,10 @@ const contractsFile = join(
   repositoryDirectory,
   'contracts/native-modules.json',
 );
+const autolinkCatalogFile = join(
+  repositoryDirectory,
+  'config/autolink-modules.json',
+);
 const packageFile = join(repositoryDirectory, 'package.json');
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
@@ -28,7 +32,8 @@ function usage() {
 
 Scaffolds a Lynx Autolink NativeModule workspace package with matching
 Android, iOS and HarmonyOS stubs, a raw TypeScript contract, a
-contracts/native-modules.json entry, and official Autolink metadata.
+contracts/native-modules.json entry, official Autolink metadata, and a
+default-enabled entry in config/autolink-modules.json.
 The stubs export a single ping(message, callback) method so
 pnpm native:contracts:check passes immediately; replace it on all three
 hosts, keeping the contract in sync.
@@ -131,11 +136,17 @@ async function main() {
   const exportName = `${pascalToScreamingSnake(moduleName)}_MODULE_NAME`;
 
   const contracts = JSON.parse(await readText(contractsFile, 'contracts'));
+  const autolinkCatalog = JSON.parse(
+    await readText(autolinkCatalogFile, 'Autolink module catalog'),
+  );
   if (contracts.modules.some((module) => module.name === moduleName)) {
     fail(`a NativeModule named ${moduleName} already exists in contracts`);
   }
   if (contracts.modules.some((module) => module.autolink?.directory === name)) {
     fail(`autolink/${name} is already registered in contracts`);
+  }
+  if (autolinkCatalog.modules.some((module) => module.name === name)) {
+    fail(`autolink/${name} is already registered in the module catalog`);
   }
   const files = {
     'package.json': `${JSON.stringify(
@@ -403,12 +414,29 @@ export class ${interfaceName} extends LynxModule {
     'utf8',
   );
 
+  autolinkCatalog.modules.push({ name });
+  autolinkCatalog.modules.sort((left, right) =>
+    left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+  );
+  await writeFile(
+    autolinkCatalogFile,
+    `${JSON.stringify(autolinkCatalog, null, 2)}\n`,
+    'utf8',
+  );
+
   // Root devDependency so pnpm install links the package for Lynx autolink.
   rootPackageJson.devDependencies = insertSortedKey(
     rootPackageJson.devDependencies,
     `@lynx-template/autolink-${name}`,
     'workspace:*',
   );
+  if (!Array.isArray(rootPackageJson.nativeApp?.autolinkModules)) {
+    fail('package.json#nativeApp.autolinkModules must be an array');
+  }
+  if (!rootPackageJson.nativeApp.autolinkModules.includes(name)) {
+    rootPackageJson.nativeApp.autolinkModules.push(name);
+  }
+  rootPackageJson.nativeApp.autolinkModules.sort();
   await writeFile(
     packageFile,
     `${JSON.stringify(rootPackageJson, null, 2)}\n`,

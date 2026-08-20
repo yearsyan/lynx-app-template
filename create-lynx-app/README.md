@@ -18,14 +18,25 @@ Flags:
 --scope acme                  # npm scope, no leading @ (default lynfe)
 --display-name "My App"       # user-visible name (default derived from name)
 --platforms android,ios       # comma-separated subset (default all three)
+--autolink mmkv,toast         # native modules to enable (default all applicable)
 --yes                         # skip prompts, use defaults/flags
 ```
 
+Interactive runs show a checkbox TUI after the platform questions. Every
+applicable Autolink module starts selected; use the arrow keys (or `j`/`k`),
+space, `a`, and enter to adjust and confirm the list. `--autolink all` and
+`--autolink none` are also accepted for non-interactive runs. Host-required
+integrations are always added: Router on every host, and WebView bridge when
+Android or iOS is selected.
+
 The generated project keeps the same layout as this template: `bundle/*` and
 `lib/*` are pnpm workspaces, and the selected native hosts live under `app/`.
-The selection is recorded in `package.json#nativeApp.platforms`; scripts such
-as `native:check`, `native:contracts:check`, and `native:sync` only touch those
-hosts, and build commands for omitted platforms are removed.
+Platform and module selections are recorded in
+`package.json#nativeApp.platforms` and `nativeApp.autolinkModules`. Only
+selected Autolink packages remain root dependencies, so the official native
+scanners link only those packages. Module sources and TypeScript contracts stay
+in the generated repository so the selection can be changed later with
+`pnpm native:autolink:apply` followed by `pnpm install`.
 
 ## npm create
 

@@ -1,5 +1,6 @@
 import { access, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { assertTokensSupplied } from './template-tokens.mjs';
 import { materializeTree } from './transform.mjs';
 
@@ -27,7 +28,7 @@ export async function copyTemplate(templateDir, targetDir, tokens) {
   assertTokensSupplied(tokens);
   const selected = selectedPlatforms(tokens.platforms);
   await materializeTree(templateDir, targetDir, tokens);
-  await configureSelectedPlatforms(targetDir, selected);
+  await configureSelections(targetDir, selected, tokens.autolinkModules);
 
   for (const [platform, relativeDir] of Object.entries(PLATFORM_DIRS)) {
     if (selected.has(platform)) continue;
@@ -49,9 +50,13 @@ function selectedPlatforms(platforms) {
   return selected;
 }
 
-async function configureSelectedPlatforms(targetDir, selected) {
+async function configureSelections(
+  targetDir,
+  selectedPlatforms,
+  requestedAutolink,
+) {
   const packageFile = join(targetDir, 'package.json');
-  const packageJson = JSON.parse(await readFile(packageFile, 'utf8'));
+  let packageJson = JSON.parse(await readFile(packageFile, 'utf8'));
   if (
     typeof packageJson.nativeApp !== 'object' ||
     packageJson.nativeApp === null ||
@@ -67,16 +72,37 @@ async function configureSelectedPlatforms(targetDir, selected) {
     throw new Error('template package.json#scripts must be a JSON object');
   }
 
-  packageJson.nativeApp.platforms = Object.keys(PLATFORM_DIRS).filter(
-    (platform) => selected.has(platform),
+  const platforms = Object.keys(PLATFORM_DIRS).filter((platform) =>
+    selectedPlatforms.has(platform),
   );
+  packageJson.nativeApp.platforms = platforms;
   for (const platform of Object.keys(PLATFORM_DIRS)) {
-    if (selected.has(platform)) continue;
+    if (selectedPlatforms.has(platform)) continue;
     delete packageJson.nativeApp[platform];
     for (const script of PLATFORM_SCRIPTS[platform]) {
       delete packageJson.scripts[script];
     }
   }
+
+  const helperPath = join(
+    targetDir,
+    'scripts',
+    'lib',
+    'autolink-selection.mjs',
+  );
+  const autolink = await import(pathToFileURL(helperPath).href);
+  const modules = await autolink.loadAutolinkModules(targetDir);
+  const selectedAutolink = autolink.resolveAutolinkSelection(
+    modules,
+    platforms,
+    requestedAutolink,
+  );
+  packageJson.nativeApp.autolinkModules = selectedAutolink;
+  packageJson = autolink.packageWithAutolinkSelection(
+    packageJson,
+    modules,
+    selectedAutolink,
+  );
   await writeFile(packageFile, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 

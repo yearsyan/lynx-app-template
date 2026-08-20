@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
+import { loadAutolinkSupport } from '../src/autolink.mjs';
 import { copyTemplate } from '../src/copy.mjs';
 import { resolveOptions } from '../src/prompt.mjs';
 
@@ -9,7 +9,12 @@ const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const templateDir = resolve(packageRoot, 'template');
 
 async function main() {
-  const options = await resolveOptions(process.argv.slice(2));
+  const autolink = await loadAutolinkSupport(templateDir);
+  const autolinkModules = await autolink.loadAutolinkModules(templateDir);
+  const options = await resolveOptions(process.argv.slice(2), {
+    autolinkModules,
+    resolveAutolinkSelection: autolink.resolveAutolinkSelection,
+  });
   const targetDir = resolve(process.cwd(), options.name);
 
   await copyTemplate(templateDir, targetDir, options);
@@ -19,6 +24,9 @@ async function main() {
   console.info(`  bundle ID:  ${options.package}`);
   console.info(`  HarmonyOS:  ${options.harmonyBundle}`);
   console.info(`  platforms:  ${options.platforms.join(', ')}`);
+  console.info(
+    `  autolink:   ${options.autolinkModules.length} module(s) (${options.autolinkModules.join(', ')})`,
+  );
 
   console.info('\nNext steps:');
   console.info(`  cd ${options.name}`);

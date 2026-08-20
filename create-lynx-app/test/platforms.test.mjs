@@ -15,7 +15,10 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-
+import {
+  applicableAutolinkModules,
+  loadAutolinkModules,
+} from '../../scripts/lib/autolink-selection.mjs';
 import { copyTemplate } from '../src/copy.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -40,11 +43,37 @@ const platformFixtures = {
       'app/harmonyApp/entry/src/main/resources/rawfile/lynxbundle/lynx-bundles.json',
   },
 };
+let autolinkModules;
+
+function fixtureTokens(overrides = {}) {
+  return {
+    name: 'autolink-fixture',
+    scope: 'fixture',
+    package: 'com.example.autolinkfixture',
+    harmonyBundle: 'com.example.autolinkfixture.harmony',
+    vendor: 'autolinkfixture',
+    appName: 'AutolinkFixture',
+    displayName: 'Autolink Fixture',
+    platforms: ['android', 'ios', 'harmony'],
+    ...overrides,
+  };
+}
+
+function directAutolinkDependencies(packageJson) {
+  return Object.keys(packageJson.devDependencies)
+    .filter((name) => name.includes('/autolink-'))
+    .sort();
+}
+
+function expectedPackageNames(names) {
+  return names.map((name) => `@fixture/autolink-${name}`).sort();
+}
 
 test.before(async () => {
   await execFileAsync(process.execPath, ['scripts/export-template.mjs'], {
     cwd: repositoryDirectory,
   });
+  autolinkModules = await loadAutolinkModules(repositoryDirectory);
 });
 
 async function doesNotExist(path) {
@@ -92,6 +121,16 @@ async function verifySinglePlatformScaffold(platform) {
       await readFile(join(projectDirectory, 'package.json'), 'utf8'),
     );
     assert.deepEqual(packageJson.nativeApp.platforms, [platform]);
+    const expectedAutolink = applicableAutolinkModules(autolinkModules, [
+      platform,
+    ]).map((module) => module.name);
+    assert.deepEqual(packageJson.nativeApp.autolinkModules, expectedAutolink);
+    assert.deepEqual(
+      Object.keys(packageJson.devDependencies)
+        .filter((name) => name.includes('/autolink-'))
+        .sort(),
+      expectedAutolink.map((name) => `@fixture/autolink-${name}`).sort(),
+    );
     for (const [candidate, fixture] of Object.entries(platformFixtures)) {
       if (candidate === platform) {
         assert.equal(typeof packageJson.scripts[fixture.buildScript], 'string');
@@ -113,6 +152,11 @@ async function verifySinglePlatformScaffold(platform) {
     await execFileAsync(
       process.execPath,
       ['scripts/apply-native-config.mjs', '--check'],
+      { cwd: projectDirectory },
+    );
+    await execFileAsync(
+      process.execPath,
+      ['scripts/apply-autolink-selection.mjs', '--check'],
       { cwd: projectDirectory },
     );
     await execFileAsync(
@@ -141,6 +185,15 @@ async function verifySinglePlatformScaffold(platform) {
       if (candidate !== platform) {
         await doesNotExist(join(projectDirectory, fixture.directory));
       }
+    }
+
+    if (platform === 'harmony') {
+      await doesNotExist(
+        join(projectDirectory, 'app/harmonyApp/oh-package-lock.json5'),
+      );
+      await doesNotExist(
+        join(projectDirectory, 'app/harmonyApp/entry/oh-package-lock.json5'),
+      );
     }
 
     if (platform === 'android') {
@@ -179,3 +232,66 @@ for (const platform of Object.keys(platformFixtures)) {
   test(`${platform}-only scaffolds keep later native scripts platform-aware`, () =>
     verifySinglePlatformScaffold(platform));
 }
+
+test('scaffold writes only selected Autolink packages as direct dependencies', async () => {
+  const temporaryDirectory = await mkdtemp(
+    join(tmpdir(), 'lynx-template-autolink-'),
+  );
+  const projectDirectory = join(temporaryDirectory, 'fixture');
+  try {
+    await copyTemplate(
+      templateDirectory,
+      projectDirectory,
+      fixtureTokens({ autolinkModules: ['mmkv'] }),
+    );
+    const packageJson = JSON.parse(
+      await readFile(join(projectDirectory, 'package.json'), 'utf8'),
+    );
+    const expected = ['mmkv', 'router', 'webview-bridge'];
+    assert.deepEqual(packageJson.nativeApp.autolinkModules, expected);
+    assert.deepEqual(
+      directAutolinkDependencies(packageJson),
+      expectedPackageNames(expected),
+    );
+
+    // Selection controls native discovery, not source retention: a generated
+    // project can enable another module later without re-scaffolding.
+    await readFile(
+      join(projectDirectory, 'autolink', 'scanner', 'lynx.lib.json'),
+      'utf8',
+    );
+    await execFileAsync(
+      process.execPath,
+      ['scripts/apply-autolink-selection.mjs', '--check'],
+      { cwd: projectDirectory },
+    );
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test('Harmony-only none selection retains Router but not WebView bridge', async () => {
+  const temporaryDirectory = await mkdtemp(
+    join(tmpdir(), 'lynx-template-autolink-harmony-'),
+  );
+  const projectDirectory = join(temporaryDirectory, 'fixture');
+  try {
+    await copyTemplate(
+      templateDirectory,
+      projectDirectory,
+      fixtureTokens({
+        platforms: ['harmony'],
+        autolinkModules: ['none'],
+      }),
+    );
+    const packageJson = JSON.parse(
+      await readFile(join(projectDirectory, 'package.json'), 'utf8'),
+    );
+    assert.deepEqual(packageJson.nativeApp.autolinkModules, ['router']);
+    assert.deepEqual(directAutolinkDependencies(packageJson), [
+      '@fixture/autolink-router',
+    ]);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
