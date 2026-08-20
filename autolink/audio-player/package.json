@@ -1,0 +1,19 @@
+{
+  "name": "@lynx-template/autolink-audio-player",
+  "description": "Autolinked audio-player module for Lynx hosts (Android, iOS & HarmonyOS)",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "harmony",
+    "src",
+    "types",
+    "lynx.lib.json",
+    "README.md"
+  ]
+}

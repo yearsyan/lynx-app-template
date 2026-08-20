@@ -1,3 +1,4 @@
+import { BusinessError } from '@kit.BasicServicesKit';
 import { vibrator } from '@kit.SensorServiceKit';
 import { LynxContext, LynxModule } from '@lynx/lynx';
 
@@ -33,28 +34,45 @@ export class HapticsModule extends LynxModule {
       callback(`Invalid haptic impact style: ${style}`);
       return;
     }
-    vibrator.isSupportEffect(impact.effectId).then((supported: boolean) => {
-      if (supported) {
-        return vibrator.startVibration(
-          {
-            type: 'preset',
-            effectId: impact.effectId,
-          },
-          { usage: 'touch' },
-        );
-      }
-      return vibrator.startVibration(
-        {
-          type: 'time',
-          duration: impact.fallbackDuration,
-        },
-        { usage: 'touch' },
-      );
-    }).then(() => {
+    this.playImpact(impact).then(() => {
       callback('');
-    }).catch((error: Error) => {
+    }).catch((error: BusinessError) => {
+      // Harmony folds a disabled touch-feedback policy into the generic
+      // device-operation error. Haptic feedback is best effort on Android/iOS
+      // as well, so this platform-level no-op still completes.
+      if (error.code === 14600101) {
+        callback('');
+        return;
+      }
       callback(this.errorMessage(error, 'Unable to play haptic feedback'));
     });
+  }
+
+  private playImpact(impact: NativeHapticImpact): Promise<void> {
+    return vibrator.isSupportEffect(impact.effectId).then((supported: boolean) => {
+      if (!supported) {
+        return this.playFallback(impact.fallbackDuration);
+      }
+      // Some Harmony devices report a preset as supported but reject it when
+      // playback starts. Fall back to a short time vibration in that case.
+      return vibrator.startVibration(
+        {
+          type: 'preset',
+          effectId: impact.effectId,
+        },
+        { usage: 'touch' },
+      ).catch((_error: Error) => this.playFallback(impact.fallbackDuration));
+    });
+  }
+
+  private playFallback(duration: number): Promise<void> {
+    return vibrator.startVibration(
+      {
+        type: 'time',
+        duration: duration,
+      },
+      { usage: 'touch' },
+    );
   }
 
   private impactForStyle(style: string): NativeHapticImpact | undefined {

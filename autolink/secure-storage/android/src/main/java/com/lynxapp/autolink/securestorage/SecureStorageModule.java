@@ -16,7 +16,6 @@ import com.lynx.tasm.behavior.LynxContext;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
-import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,11 +67,15 @@ public final class SecureStorageModule extends LynxContextModule {
         final byte[] plain = value.getBytes(StandardCharsets.UTF_8);
         executor.execute(() -> {
             try {
-                byte[] iv = new byte[GCM_IV_BYTES];
-                new SecureRandom().nextBytes(iv);
                 Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-                cipher.init(Cipher.ENCRYPT_MODE, aesKey(),
-                        new GCMParameterSpec(GCM_TAG_BITS, iv));
+                // AndroidKeyStore keys require randomized encryption, so the
+                // Keystore generates the per-write IV itself; a caller-provided
+                // IV would throw "Caller-provided IV not permitted".
+                cipher.init(Cipher.ENCRYPT_MODE, aesKey());
+                byte[] iv = cipher.getIV();
+                if (iv == null || iv.length != GCM_IV_BYTES) {
+                    throw new IllegalStateException("Keystore returned no GCM IV");
+                }
                 byte[] sealed = cipher.doFinal(plain);
                 byte[] blob = new byte[iv.length + sealed.length];
                 System.arraycopy(iv, 0, blob, 0, iv.length);

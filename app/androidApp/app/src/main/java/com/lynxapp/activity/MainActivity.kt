@@ -69,7 +69,12 @@ class MainActivity : FragmentActivity() {
         bundleRepository.checkForUpdate { updated ->
             if (updated) {
                 runOnUiThread {
-                    renderBundle(bundleRepository.cachedUrl())
+                    // The current view's group caches its parsed TemplateBundle
+                    // for the group's lifetime, so re-rendering in place would
+                    // reuse the pre-update bundle. Recreate the activity: the
+                    // fresh view resolves the cache URL, joins a fresh group,
+                    // and loads the verified update.
+                    recreate()
                 }
             }
         }

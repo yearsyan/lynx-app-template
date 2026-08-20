@@ -9,6 +9,7 @@ import {
 } from '../components/Demo.js';
 
 const KV_KEY = 'demo.kv';
+const SANDBOX_DIR = 'demo';
 
 export function KvPage() {
   const [result, setResult] = useState<string | null>(null);
@@ -109,6 +110,7 @@ export function SecureStoragePage() {
 
 export function FileSystemPage() {
   const [result, setResult] = useState<string | null>(null);
+  const [sandboxResult, setSandboxResult] = useState<string | null>(null);
 
   const pickAndRead = useCallback(() => {
     'background only';
@@ -139,6 +141,75 @@ export function FileSystemPage() {
       .catch((error: Error) => setResult(error.message));
   }, []);
 
+  const writeSandboxText = useCallback(() => {
+    'background only';
+    const contents = `lynx-demo-${Date.now()}`;
+    fileSystem
+      .writeText(`${SANDBOX_DIR}/hello.txt`, contents, { append: true })
+      .then(async (uri) => {
+        const text = await fileSystem.readText(uri);
+        setSandboxResult(`已写入并回读：${text}`);
+      })
+      .catch((error: Error) => setSandboxResult(error.message));
+  }, []);
+
+  const writeSandboxBinary = useCallback(() => {
+    'background only';
+    const bytes = new Uint8Array(256);
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = index;
+    }
+    fileSystem
+      .writeArrayBuffer(`${SANDBOX_DIR}/blob.bin`, bytes.buffer)
+      .then(async () => {
+        const readBack = await fileSystem.readArrayBuffer(
+          `${SANDBOX_DIR}/blob.bin`,
+        );
+        const roundtrip = new Uint8Array(readBack);
+        setSandboxResult(
+          roundtrip.length === bytes.length && roundtrip[15] === 15
+            ? `二进制回写一致（${roundtrip.length} 字节）`
+            : '二进制回写不一致',
+        );
+      })
+      .catch((error: Error) => setSandboxResult(error.message));
+  }, []);
+
+  const listSandboxDir = useCallback(() => {
+    'background only';
+    fileSystem
+      .listDir(SANDBOX_DIR)
+      .then((entries) => {
+        const lines = entries.map((entry) =>
+          entry.isDirectory
+            ? `[目录] ${entry.name}`
+            : `[文件] ${entry.name} · ${entry.size ?? '?'} B`,
+        );
+        setSandboxResult(
+          lines.length > 0
+            ? lines.join('\n')
+            : `${SANDBOX_DIR} 目录为空，先写入一个文件试试`,
+        );
+      })
+      .catch((error: Error) => setSandboxResult(error.message));
+  }, []);
+
+  const removeSandboxDir = useCallback(() => {
+    'background only';
+    fileSystem
+      .delete(SANDBOX_DIR)
+      .then(() => setSandboxResult(`已删除沙箱目录 ${SANDBOX_DIR}`))
+      .catch((error: Error) => setSandboxResult(error.message));
+  }, []);
+
+  const showCacheDir = useCallback(() => {
+    'background only';
+    fileSystem
+      .cacheDir()
+      .then((uri) => setSandboxResult(`缓存沙箱根目录：${uri}`))
+      .catch((error: Error) => setSandboxResult(error.message));
+  }, []);
+
   return (
     <view>
       <ApiName name="fileSystem.pick" />
@@ -148,6 +219,21 @@ export function FileSystemPage() {
       >
         <DemoButton label="选择文件并读取" primary onTap={pickAndRead} />
         <ResultLine text={result} placeholder="选中文件的元数据与文本预览" />
+      </DemoCard>
+      <ApiName name="fileSystem.writeText / writeArrayBuffer / listDir / delete" />
+      <DemoCard
+        title="缓存沙箱读写"
+        desc="在应用缓存沙箱内写入文本与二进制文件、列目录、删除目录；路径只能落在沙箱内。"
+      >
+        <DemoButton label="写入文本" primary onTap={writeSandboxText} />
+        <DemoButton label="写入二进制并回读" onTap={writeSandboxBinary} />
+        <DemoButton label="列目录" onTap={listSandboxDir} />
+        <DemoButton label="删除目录" onTap={removeSandboxDir} />
+        <DemoButton label="查看沙箱根目录" onTap={showCacheDir} />
+        <ResultLine
+          text={sandboxResult}
+          placeholder="写入 / 列出 / 删除缓存沙箱文件"
+        />
       </DemoCard>
     </view>
   );

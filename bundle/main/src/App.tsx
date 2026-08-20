@@ -11,6 +11,7 @@ import { useInitData } from '@lynx-js/react';
 import { readSafeAreaInsets } from '@lynx-app/native-bridge';
 
 import './App.css';
+import './components/native-elements.js';
 import { PageFrame } from './components/PageFrame.js';
 import { PAGES, TABS } from './pages/registry.js';
 import type { DemoTabMeta } from './pages/registry.js';
@@ -48,18 +49,27 @@ function GroupSection(props: {
             {open ? (
               <view className="Group__items">
                 {category.items.map((item, index) => (
-                  <view
+                  <pressable-view
                     key={item.key}
-                    className={`GroupItem ${
-                      index === category.items.length - 1
-                        ? 'GroupItem--last'
-                        : ''
-                    }`}
-                    bindtap={() => onOpen(item.key)}
+                    className="GroupItemPressable"
+                    active-opacity={1}
+                    pressed-overlay-color="rgba(0, 0, 0, 0.1)"
+                    accessibility-element
+                    accessibility-label={item.title}
+                    accessibility-traits="button"
+                    bindpress={() => onOpen(item.key)}
                   >
-                    <text className="GroupItem__title">{item.title}</text>
-                    <text className="GroupItem__chevron">›</text>
-                  </view>
+                    <view
+                      className={`GroupItem ${
+                        index === category.items.length - 1
+                          ? 'GroupItem--last'
+                          : ''
+                      }`}
+                    >
+                      <text className="GroupItem__title">{item.title}</text>
+                      <text className="GroupItem__chevron">›</text>
+                    </view>
+                  </pressable-view>
                 ))}
               </view>
             ) : null}
@@ -120,7 +130,7 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
 
   const [tabKey, setTabKey] = useState<'api' | 'ui'>('api');
   // Every category starts expanded, so the home list is long enough to
-  // exercise scroll-view fling / edge effects; headers still toggle freely.
+  // exercise scroll-view fling; headers still toggle freely.
   const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(
     () => new Set(TABS[0].categories.map((category) => category.key)),
   );
@@ -146,7 +156,7 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
     'background only';
     setOpenKeys((current) => {
       const next = new Set(current);
-      if (next.has(key)) {
+      if (current.has(key)) {
         next.delete(key);
       } else {
         next.add(key);

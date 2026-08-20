@@ -6,6 +6,7 @@ import android.content.ContextWrapper;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -23,6 +24,7 @@ import com.lynx.react.bridge.Callback;
 import com.lynx.react.bridge.ReadableMap;
 import com.lynx.tasm.LynxView;
 import com.lynx.tasm.behavior.LynxContext;
+import com.lynx.tasm.behavior.ui.LynxBaseUI;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -76,24 +78,52 @@ public final class ScreenshotModule extends LynxContextModule {
                     throw new IllegalStateException("LynxView is not attached yet");
                 }
                 View target = lynxView;
+                Rect cropRect = null;
                 if (request.idSelector != null) {
-                    target = lynxView.findViewByIdSelector(request.idSelector);
-                    if (target == null) {
-                        throw new IllegalArgumentException(
-                                "No view matches idSelector: " + request.idSelector);
+                    View found = lynxView.findViewByIdSelector(request.idSelector);
+                    if (found != null) {
+                        target = found;
+                    } else {
+                        // Lynx flattens layout-only elements into virtual
+                        // LynxFlattenUI nodes with no platform View, so
+                        // findViewByIdSelector misses them. Resolve the UI,
+                        // capture the whole LynxView, and crop to its rect.
+                        LynxBaseUI ui = lynxView.findUIByIdSelector(request.idSelector);
+                        if (ui == null) {
+                            throw new IllegalArgumentException(
+                                    "No view matches idSelector: " + request.idSelector);
+                        }
+                        Rect rect = new Rect(ui.getBoundingClientRect());
+                        if (!rect.intersect(0, 0, lynxView.getWidth(), lynxView.getHeight())
+                                || rect.isEmpty()) {
+                            throw new IllegalStateException(
+                                    "Screenshot target has not been laid out yet");
+                        }
+                        cropRect = rect;
+                        target = lynxView;
                     }
                 }
-                if (target.getWidth() <= 0 || target.getHeight() <= 0) {
+                int width = cropRect != null ? cropRect.width() : target.getWidth();
+                int height = cropRect != null ? cropRect.height() : target.getHeight();
+                if (width <= 0 || height <= 0) {
                     throw new IllegalStateException("Screenshot target has not been laid out yet");
                 }
-                Bitmap bitmap = Bitmap.createBitmap(
-                        target.getWidth(), target.getHeight(), Bitmap.Config.ARGB_8888);
-                Canvas canvas = new Canvas(bitmap);
+                // Draw into an oversized bitmap shifted by one pixel, then crop
+                // the shift away. With an exactly identity canvas transform some
+                // Lynx scroll containers replay content from another LynxView
+                // of the same bundle group; any non-zero translate avoids it.
+                Bitmap shifted = Bitmap.createBitmap(width + 1, height + 1, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(shifted);
                 if (request.jpeg) {
                     // JPEG has no alpha channel; transparent pixels would turn black.
                     canvas.drawColor(Color.WHITE);
                 }
+                int offsetLeft = cropRect != null ? cropRect.left : 0;
+                int offsetTop = cropRect != null ? cropRect.top : 0;
+                canvas.translate(1 - offsetLeft, 1 - offsetTop);
                 target.draw(canvas);
+                Bitmap bitmap = Bitmap.createBitmap(shifted, 1, 1, width, height);
+                shifted.recycle();
                 encode(bitmap, request, callback);
             } catch (Throwable error) {
                 callback.invoke(errorJSON(messageOf(error)));

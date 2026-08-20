@@ -12,6 +12,7 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "appStartup": "$profile:app_startup",
     "abilities": [
       {
         "name": "EntryAbility",

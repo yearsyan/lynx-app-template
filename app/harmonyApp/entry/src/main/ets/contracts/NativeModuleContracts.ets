@@ -16,6 +16,29 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
+    case 'AudioPlayer':
+      switch (methodName) {
+        case 'create':
+          return 2;
+        case 'play':
+          return 2;
+        case 'pause':
+          return 2;
+        case 'seek':
+          return 3;
+        case 'stop':
+          return 2;
+        case 'release':
+          return 2;
+        case 'setRate':
+          return 3;
+        case 'setVolume':
+          return 3;
+        case 'getProps':
+          return 2;
+        default:
+          return -1;
+      }
     case 'Back':
       switch (methodName) {
         case 'setEnabled':
@@ -88,6 +111,16 @@ export function nativeModuleMethodArity(
           return 3;
         case 'readBase64':
           return 3;
+        case 'writeText':
+          return 4;
+        case 'writeBase64':
+          return 4;
+        case 'delete':
+          return 2;
+        case 'listDir':
+          return 2;
+        case 'cacheDir':
+          return 1;
         default:
           return -1;
       }

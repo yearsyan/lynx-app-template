@@ -1,6 +1,7 @@
 /** High-level, Promise-based APIs over the generated raw native contracts. */
 export * from '@lynx-app/native-contracts';
 export * from './albumUtils.js';
+export * from './audioPlayer.js';
 export * from './back.js';
 export * from './battery.js';
 export * from './biometric.js';

@@ -18,6 +18,7 @@
     "@lynx-js/react": "catalog:",
     "@lynx-template/activity-sheet": "workspace:*",
     "@lynx-template/autolink-liquid-glass": "workspace:*",
+    "@lynx-template/autolink-pressable-view": "workspace:*",
     "@lynx-template/autolink-webview-bridge": "workspace:*"
   },
   "devDependencies": {

@@ -10,7 +10,12 @@ import {
   SensorsPage,
 } from './api-device.js';
 import { BrightnessPage, StatusBarPage, ToastPage } from './api-interface.js';
-import { AlbumPage, ScreenshotPage, WebViewPage } from './api-media.js';
+import {
+  AlbumPage,
+  AudioPlayerPage,
+  ScreenshotPage,
+  WebViewPage,
+} from './api-media.js';
 import { FetchPage, OpenUrlPage, WebSocketPage } from './api-network.js';
 import { ActivitySheetPage } from './api-open.js';
 import { FileSystemPage, KvPage, SecureStoragePage } from './api-storage.js';
@@ -22,6 +27,7 @@ import {
   SwitchPage,
 } from './ui-choice.js';
 import { DialogPage, SheetPage } from './ui-feedback.js';
+import { PressableViewPage } from './ui-pressable.js';
 import { SwiperPage } from './ui-view.js';
 
 export interface DemoItemMeta {
@@ -107,6 +113,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileColor: '#f57c00',
         items: [
           { key: 'screenshot', title: '截图' },
+          { key: 'audio', title: '音频播放' },
           { key: 'album', title: '相册' },
           { key: 'webview', title: 'WebView 桥' },
         ],
@@ -149,6 +156,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileColor: '#1e88e5',
         items: [
           { key: 'button', title: '按钮 Button' },
+          { key: 'pressable', title: '原生 Pressable' },
           { key: 'input', title: '输入框 Input' },
           { key: 'slider', title: '滑块 Slider' },
         ],
@@ -210,12 +218,14 @@ export const PAGES: Record<string, DemoPageEntry> = {
   openurl: { title: '打开链接', render: () => <OpenUrlPage /> },
   screenshot: { title: '截图', render: () => <ScreenshotPage /> },
   album: { title: '相册', render: () => <AlbumPage /> },
+  audio: { title: '音频播放', render: () => <AudioPlayerPage /> },
   webview: { title: 'WebView 桥', render: () => <WebViewPage /> },
   kv: { title: 'MMKV 存储', render: () => <KvPage /> },
   secure: { title: '安全存储', render: () => <SecureStoragePage /> },
   fs: { title: '文件系统', render: () => <FileSystemPage /> },
   sheet: { title: '半透明堆叠页', render: () => <ActivitySheetPage /> },
   button: { title: '按钮', render: () => <ButtonPage /> },
+  pressable: { title: '原生 Pressable', render: () => <PressableViewPage /> },
   input: { title: '输入框', render: () => <InputPage /> },
   slider: { title: '滑块', render: () => <SliderPage /> },
   switch: { title: '开关', render: () => <SwitchPage /> },

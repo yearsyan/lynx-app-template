@@ -12,11 +12,13 @@ import type {
   GlassDropdownProps,
   GlassSwitchProps,
 } from '@lynx-template/autolink-liquid-glass';
+import type { PressableViewProps } from '@lynx-template/autolink-pressable-view';
 
 declare module '@lynx-js/types' {
   interface IntrinsicElements {
     'glass-switch': GlassSwitchProps;
     'glass-dropdown': GlassDropdownProps;
+    'pressable-view': PressableViewProps;
   }
 }
 
@@ -28,3 +30,7 @@ export type {
   GlassSwitchEvent,
   GlassSwitchProps,
 } from '@lynx-template/autolink-liquid-glass';
+export type {
+  PressableViewPressEvent,
+  PressableViewProps,
+} from '@lynx-template/autolink-pressable-view';

@@ -15,7 +15,7 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `Haptics`：单击式震动反馈，分 light / medium / heavy 三档；
 - `Biometric`：静默查询生物识别（指纹 / 面容）可用性，并拉起系统认证弹窗，可选降级到锁屏凭证；
 - `AlbumUtils`：从系统相册选择一张或多张图片，或把图片 URI 保存回系统相册；
-- `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64；
+- `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64，并在缓存沙箱内写入 / 删除 / 列举文件；
 - `DeviceInfo`：按需读取机型、OS 版本、App 版本/构建号、屏幕密度、locale 以及平板/折叠屏判断；
 - `Battery`：按需读取电量（0..1，读不到时为 null）与充电状态；
 - `Toast`：一次性原生轻提示（info / success / error），替代 bundle 内自绘的 `<ToastHost />` 组件；
@@ -24,12 +24,13 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `WebSocket`：提供不依赖 DevTool 的长连接、文本/二进制收发和生命周期事件；
 - `Screenshot`：把整个 LynxView、某个元素或当前原生页面截为 PNG/JPEG 写入应用缓存目录；
 - `Scanner`：拉起全屏扫码页识别 QR / 条形码，并支持对相册图片本地识码；
+- `AudioPlayer`：播放本地音频文件（`file://` / Android `content://`），按 `media` / `ambient` / `alarm` / `notification` 四种流路由音量键与音频焦点，进度与状态经 `audioPlayer` 事件回传；
 - `SecureStorage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
 - `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
 
 `Router`、`WebSocket`、`KV`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
 `Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner`、
-`SecureStorage` 与 `Toast` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
+`AudioPlayer`、`SecureStorage` 与 `Toast` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
 （见下文「Lynx Autolink 集成」）。HarmonyOS 使用 4.2 nightly 的官方 Hvigor Autolink
 （源码 HAR + 全局 Registry + AppStartup）；只有 Back、StatusBar 因持有页面实例状态仍逐
 `LynxView` 手动注册。Router 的 ArkUI 导航策略留在宿主，通过 `LynxContext.contextData`
@@ -405,7 +406,7 @@ resolve，失败时 reject；平台可能在保存前向用户确认：
   传入 Picker URI 或应用沙箱内的 `file://` URI 均可。
 
 返回的是平台 URI，不应把它当成跨平台真实路径：Android 返回 `content://` URI，并在内容提供方
-支持时取得持久读授权；iOS 会把结果复制到 `Library/Caches/LynxPicker` 后返回 `file://` URI；
+支持时取得持久读授权；iOS 会把结果复制到 `Library/Caches/LynxFiles` 后返回 `file://` URI；
 HarmonyOS 返回系统 Picker URI，其授权可能随应用进入后台而失效。需要上传或长期保存时，应在
 选择完成后尽快读取或复制；iOS 缓存文件也可能被系统清理。
 
@@ -446,6 +447,27 @@ if (uri) {
 }
 ```
 
+写入、删除与列目录只作用于应用缓存沙箱（`<cache>/LynxFiles`），`uri` 传相对沙箱根的
+路径即可，写入会自动创建父目录：
+
+```ts
+interface WriteFileOptions {
+  append?: boolean; // 追加写，默认覆盖
+}
+interface CacheEntry {
+  name: string;
+  uri: string;
+  isDirectory: boolean;
+  size: number | null; // 目录为 null
+}
+
+const root = await fileSystem.cacheDir(); // 沙箱根目录 file:// URI
+const logURI = await fileSystem.writeText('demo/hello.txt', 'hello lynx\n', { append: true });
+const blobURI = await fileSystem.writeArrayBuffer('demo/blob.bin', bytes.buffer);
+const entries = await fileSystem.listDir('demo'); // 平铺列举，按名称排序
+await fileSystem.delete('demo'); // 目录递归删除
+```
+
 | 方法 | 返回值 | 说明 |
 | --- | --- | --- |
 | `fileSystem.pick(options?)` | `Promise<string[]>` | 打开系统文件选择器；取消时解析为空数组 |
@@ -454,12 +476,23 @@ if (uri) {
 | `fileSystem.readText(uri, options?)` | `Promise<string>` | 严格按 UTF-8 解码；默认上限 1 MiB |
 | `fileSystem.readBase64(uri, options?)` | `Promise<string>` | 返回标准 Base64；默认源文件上限 5 MiB |
 | `fileSystem.readArrayBuffer(uri, options?)` | `Promise<ArrayBuffer>` | 在 JS 侧解码 Base64 得到 ArrayBuffer；默认源文件上限 5 MiB |
+| `fileSystem.writeText(uri, contents, options?)` | `Promise<string>` | 把 UTF-8 文本写入缓存沙箱，返回 `file://` URI；`append` 为真时追加 |
+| `fileSystem.writeBase64(uri, base64, options?)` | `Promise<string>` | 解码 Base64 后写入缓存沙箱，返回 `file://` URI |
+| `fileSystem.writeArrayBuffer(uri, data, options?)` | `Promise<string>` | 在 JS 侧编码 Base64 后写入，与 `writeBase64` 同上限 |
+| `fileSystem.delete(uri)` | `Promise<void>` | 删除沙箱内文件或目录（目录递归）；删除沙箱根即清空缓存 |
+| `fileSystem.listDir(uri)` | `Promise<CacheEntry[]>` | 平铺列出沙箱内目录，按名称排序 |
+| `fileSystem.cacheDir()` | `Promise<string>` | 返回缓存沙箱根目录的 `file://` URI |
 
 `maxBytes` 必须是 `1..20 MiB` 的整数，限制的是编码前源文件大小。Base64 会额外膨胀约三分之一，
 `readArrayBuffer` 复用同一条 Base64 通道再在 JS 侧解码，因此开销与 `readBase64` 相同；
 大文件上传不应经过 JS/Base64 bridge，应由网络层直接流式读取 URI。Android 支持 Picker 的
 `content://` 和缓存 `file://` URI；iOS Picker 已先复制到缓存，因此 `FileSystem` 接受 `file://`；
 HarmonyOS 直接使用 Picker URI。该模块沿用 Picker 授予的访问范围，不新增媒体或存储权限。
+
+写入 / 删除 / 列目录的寻址同样简单：`uri` 既可以是相对沙箱根的路径（`''` 或 `'.'` 即根目录），
+也可以是 `copyToCache` / `writeText` / `cacheDir()` 返回的 `file://` URI。规范化后落在沙箱外
+（`..` 逃逸、沙箱外绝对路径、`content://` 等）会直接 reject；单次写入上限 20 MiB（与读取一致），
+iOS Picker 的副本也落在 `LynxFiles`，因此三端 `pick` 的结果都能统一列举与清理。
 
 `readBase64` / `readArrayBuffer` 同样适用于 `albumUtils.pick()` 返回的图片 URI——三端选图
 URI 都能被 `FileSystem` 直接读取，因此“选图 → 转 Base64 / ArrayBuffer”是现成能力：
@@ -515,6 +548,74 @@ HarmonyOS 额外报告系统特有的 `multifunctional`，iOS 按系统行为把
 HarmonyOS 的用户取消以 Scan Kit 错误码 `1000500002`
 （`scanCore.ScanErrorCode.SCAN_SERVICE_CANCELED`）识别并映射为 `userCancel`。
 
+### 音频播放
+
+`AudioPlayer` 播放本地音频文件，「选择 → 播放」的标准管线是 `fileSystem.pick()`
+（或 `albumUtils.pick()`）返回的 URI 直接交给 `audioPlayer.create()`；Android 接受
+`file://` 与 `content://`，iOS / HarmonyOS 接受 `file://`（Harmony 模块内部 open 转 fd，
+fd 在整个播放期间保持打开）。共享层拒绝 `http(s)://` 并提示仅支持本地文件。
+
+```ts
+import { audioPlayer } from '@lynx-app/native-bridge';
+
+const player = audioPlayer.create({
+  uri: pickedURI,
+  usage: 'media',        // 'media' | 'ambient' | 'alarm' | 'notification'
+  autoPlay: true,
+});
+await player.created;    // 原生 prepare 完成后 resolve；失败 reject
+player.addEventListener('state', (event) => {
+  // event.state: 'loading' | 'paused' | 'playing' | 'stopped'
+  // event.interruption?: 'pause' | 'duck' | 'resume' | 'unduck'（音频焦点）
+});
+player.addEventListener('progress', (event) => {
+  // event.positionMs / event.durationMs，默认 250ms 节流
+});
+await player.play();
+await player.seek(30_000);
+const props = await player.getProps();
+player.destroy();        // release + 移除监听，幂等
+```
+
+`create()` 失败按前缀分类：`file-not-found`（文件不存在或无授权）、
+`unsupported-format`（解码 / 编码器不支持，prepare 失败）、`read-failed`（IO 错误）。
+播放中错误以 `error` 事件回传后进入 `paused`；播完发一个 `end` 事件并回到
+`paused`（位置停在末尾，再次 `play` 从头开始）。`setVolume` 只是单实例增益（0..1，
+用于混音 / 淡入淡出），不触碰系统音量——三端系统流音量均不在模块能力内。
+
+四种 `usage` 在创建时声明且不可中途切换（换流 = 换音量曲线与焦点策略，
+Harmony 还要求回到 initialized 状态重设，业务应 release 后重建）：
+
+| `usage` | Android | iOS | HarmonyOS |
+| --- | --- | --- | --- |
+| `media`（默认） | `USAGE_MEDIA`（媒体音量），请求永久焦点 | `.playback`：无视静音开关，激活即打断其他播放 | `STREAM_USAGE_MUSIC` |
+| `ambient` | 媒体音量，不请求焦点、不打断别人 | `.ambient`：**跟随静音开关**，与其他音频混音 | `STREAM_USAGE_MUSIC`，不注册焦点 |
+| `alarm` | `USAGE_ALARM`（闹钟音量），transient 焦点 | `.playback` | `STREAM_USAGE_ALARM` |
+| `notification` | `USAGE_NOTIFICATION`（通知音量），may-duck 焦点，受 DND 约束 | `.ambient` | `STREAM_USAGE_NOTIFICATION_RINGTONE` |
+
+`ringtone` / `voiceCall` 两个流刻意不支持：iOS 来电铃声属于 CallKit、通话音轨涉及
+EARPIECE / SCO 路由，播放器模块无法给出三端一致语义，共享层直接拒绝。
+
+打断语义：焦点丢失时原生自动暂停并上报 `interruption: 'pause'`；transient 打断结束
+自动恢复播放并上报 `resume`；导航播报类 may-duck 打断由原生自动压低 / 恢复音量
+（`duck` / `unduck`，仅 Android 会出现）。HarmonyOS 的焦点由 AVPlayer 按 StreamUsage
+自动管理（系统已自动暂停 / 压低），`media` / `alarm` / `notification` 实例注册
+`audioInterrupt` 回调把同样的语义上报为 `interruption`（BEGIN → `pause` /
+duck hint → `duck`，END + resume hint → `resume`）。`ambient` 实例不参与焦点，
+永远收不到打断事件。
+
+| 平台 | 播放器 | 速率 | 说明 |
+| --- | --- | --- | --- |
+| Android | `MediaPlayer`（无三方依赖），全部操作序列化到主线程 Handler | `PlaybackParams.setSpeed`，0.25–4 连续 | 焦点手动管理：`AudioFocusRequest` 按流构造 attributes，LOSS 暂停、CAN_DUCK 降至 20% |
+| iOS | `AVAudioPlayer`（同步初始化，时长即得） | `enableRate` + `rate`，0.25–4 连续 | 打断经 `AVAudioSession` 中断通知；`shouldResume` 时自动恢复；播放计数归零后 deactivate 通知其他 App |
+| HarmonyOS | `media.AVPlayer`，`audioRendererInfo` 在 initialized 态设置 | 离散档位 0.5–3.0（0.5/0.75/1.0/1.25/1.5/1.75/2.0/3.0），就近取档 | `timeUpdate` 回调按 `progressIntervalMs` 节流；`endOfStream` 映射为 `end` 事件 + `paused`；seek/setSpeed/setVolume 为 void 调用（结果经 seekDone/speedDone/volumeChange 事件） |
+
+页面销毁时三端统一 stop + release 全部实例（Android `destroy()`、iOS `-destroy`、
+Harmony `LynxViewClient.onDestroy()`），Harmony 连带关闭 fd。边界：不播放网络源、
+不做后台播放（Android 前台服务 / iOS `UIBackgroundModes` / Harmony continuous task
+属宿主配置）、不提供应用内置资源播放（`res/raw` / bundle resource / rawfile）与
+系统音量控制。
+
 ### 截图
 
 `Screenshot` 把视图快照编码为 PNG/JPEG 写入应用缓存目录（`<cache>/LynxImages/`），
@@ -536,7 +637,8 @@ await albumUtils.saveToAlbum(page.uri);
 ```
 
 `capture` 三端都支持通过 `idSelector` 截取页内某个元素——Lynx 元素设置
-`idSelector` 属性后即可被原生查找。HarmonyOS 4.2 由
+`idSelector` 属性后即可被原生查找。Android 上被视图扁平化（LynxFlattenUI、无平台
+View）的元素会回退为整视图绘制后按元素 `getBoundingClientRect()` 裁剪。HarmonyOS 4.2 由
 `LynxContext.getComponentSnapshot(idSelector)` 直接解析 Lynx 根组件或目标元素，不再依赖
 宿主容器 ID。
 
@@ -547,7 +649,7 @@ PixelCopy：包含 LynxView 之外的原生内容（原生标题栏、叠加层�
 | 行为 | Android | iOS | HarmonyOS |
 | --- | --- | --- | --- |
 | `capture` 默认 | `LynxView.draw(Canvas)` 到 Bitmap | `drawViewHierarchyInRect`，未上屏时回退 `layer.renderInContext` | `LynxContext.getComponentSnapshot('')` 截 Lynx 根组件 |
-| `capture` + `idSelector` | `LynxView.findViewByIdSelector()` | `LynxView viewWithIdSelector:` | `LynxContext.getComponentSnapshot(idSelector)` |
+| `capture` + `idSelector` | `LynxView.findViewByIdSelector()`，扁平化元素回退整视图绘制 + `getBoundingClientRect()` 裁剪 | `LynxView viewWithIdSelector:` | `LynxContext.getComponentSnapshot(idSelector)` |
 | `capturePage` | `PixelCopy.request(window, …)`；API 24/25 回退到绘制 decor view | key window 快照 | 当前 Lynx window 的 `snapshot()` |
 
 JPEG 输出先合成白色底（JPEG 没有透明通道）；视图绘制在主线程执行，编码与文件
@@ -851,13 +953,14 @@ autolink/
 ├── display/       # Display（屏幕宽 / 窗口宽 / LynxView 宽 / 亮度 / 常亮）
 ├── sensors/       # Sensors（加速度计 + 罗盘流式读数）
 ├── toast/         # Toast（原生轻提示；iOS 为模块自绘气泡）
-├── file-system/   # FileSystem（系统文件选择器 + URI 元数据、缓存复制与受限读取）
+├── file-system/   # FileSystem（系统文件选择器 + URI 元数据、缓存复制、受限读取与缓存沙箱写入/删除/列举）
 ├── websocket/     # WebSocket（Android OkHttp / iOS NSURLSession）
 ├── mmkv/          # KV（MMKV 字符串存储）
 ├── secure-storage/ # SecureStorage（小机密数据：Keystore 加密 / Keychain）
 ├── clipboard/     # Clipboard（系统剪贴板纯文本）
 ├── haptics/       # Haptics（单击式触感反馈）
 ├── scanner/       # Scanner（全屏扫码 + 相册图片识码）
+├── audio-player/  # AudioPlayer（本地文件音频播放 + 四种音频流）
 └── router/        # Router（应用内导航 + 系统 scheme 打开）
 ```
 
@@ -923,7 +1026,7 @@ Registry；iOS 重新执行 `bundle exec pod install`；HarmonyOS 直接重新�
 
 ## 原生实现位置
 
-- Autolink NativeModule 库（三端）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/toast`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
 - Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`；Autolink Registry 只存在于 Gradle 生成目录；
 - iOS 宿主：`NativeModules/` 下的 `AppRouteHandler.swift`（Router 的宿主导航）与其他宿主模块、`LynxPageViewController.swift`；

@@ -50,6 +50,9 @@ importers:
       '@lynx-template/autolink-album-utils':
         specifier: workspace:*
         version: link:autolink/album-utils
+      '@lynx-template/autolink-audio-player':
+        specifier: workspace:*
+        version: link:autolink/audio-player
       '@lynx-template/autolink-battery':
         specifier: workspace:*
         version: link:autolink/battery
@@ -77,6 +80,9 @@ importers:
       '@lynx-template/autolink-mmkv':
         specifier: workspace:*
         version: link:autolink/mmkv
+      '@lynx-template/autolink-pressable-view':
+        specifier: workspace:*
+        version: link:autolink/pressable-view
       '@lynx-template/autolink-router':
         specifier: workspace:*
         version: link:autolink/router
@@ -110,6 +116,8 @@ importers:
 
   autolink/album-utils: {}
 
+  autolink/audio-player: {}
+
   autolink/battery: {}
 
   autolink/biometric: {}
@@ -131,6 +139,15 @@ importers:
         version: 4.0.0
 
   autolink/mmkv: {}
+
+  autolink/pressable-view:
+    dependencies:
+      '@lynx-js/react':
+        specifier: ^0.123.0
+        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
+      '@lynx-js/types':
+        specifier: ^4.0.0
+        version: 4.0.0
 
   autolink/router: {}
 
@@ -169,6 +186,9 @@ importers:
       '@lynx-template/autolink-liquid-glass':
         specifier: workspace:*
         version: link:../../autolink/liquid-glass
+      '@lynx-template/autolink-pressable-view':
+        specifier: workspace:*
+        version: link:../../autolink/pressable-view
       '@lynx-template/autolink-webview-bridge':
         specifier: workspace:*
         version: link:../../autolink/webview-bridge

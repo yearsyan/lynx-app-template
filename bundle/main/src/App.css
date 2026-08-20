@@ -127,10 +127,6 @@
   box-sizing: border-box;
 }
 
-.Group__header:active {
-  background-color: #f2f2f2;
-}
-
 .Group__title {
   font-size: 16px;
   font-weight: 500;
@@ -158,23 +154,26 @@
   border-top: 1px solid #f0f0f0;
 }
 
+.GroupItemPressable {
+  display: flex;
+  width: 100%;
+  height: 48px;
+}
+
 .GroupItem {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 13px 16px;
+  height: 100%;
+  padding: 0 16px;
   border-bottom: 1px solid #f0f0f0;
   box-sizing: border-box;
 }
 
 .GroupItem--last {
   border-bottom-width: 0;
-}
-
-.GroupItem:active {
-  background-color: #f2f2f2;
 }
 
 .GroupItem__title {
@@ -372,6 +371,97 @@
   font-weight: 500;
 }
 
+/* Native press feedback is owned by <pressable-view>; no :active selector. */
+.NativePressable {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.NativePressable__surface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.NativePressable__surface--primary {
+  background-color: #07c160;
+}
+
+.NativePressable__primaryLabel {
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.NativePressable--disabled {
+  opacity: 0.45;
+}
+
+.NativePressable__surface--disabled {
+  border: 1px solid #dcdcdc;
+  background-color: #f8f8f8;
+}
+
+.NativePressable__disabledLabel {
+  font-size: 15px;
+  color: #888888;
+}
+
+.PressableBanner {
+  display: flex;
+  width: 100%;
+  height: 76px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.PressableBanner__surface {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f4fbf7, #f6f8fc);
+  box-sizing: border-box;
+}
+
+.PressableBanner__copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.PressableBanner__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.PressableBanner__subtitle {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #888888;
+}
+
+.PressableBanner__chevron {
+  margin-left: 10px;
+  font-size: 24px;
+  color: #a5acb5;
+}
+
 .ResultLine {
   display: flex;
   width: 100%;
@@ -424,6 +514,105 @@
 .ShotTarget__text {
   font-size: 14px;
   color: #ffffff;
+}
+
+.ShotEntry {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.ShotEntry__thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  background-color: #f4f4f4;
+}
+
+.ShotEntry__meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  margin-left: 12px;
+}
+
+.ShotEntry__title {
+  font-size: 13px;
+  line-height: 20px;
+  color: #333333;
+}
+
+.ShotEntry__hint {
+  font-size: 11px;
+  line-height: 16px;
+  color: #999999;
+}
+
+.ShotEntry__chevron {
+  margin-left: 8px;
+  font-size: 18px;
+  color: #bbbbbb;
+}
+
+.ShotViewer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 999;
+  background-color: #000000;
+}
+
+.ShotViewer__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.ShotViewer__figure {
+  overflow: visible;
+}
+
+.ShotViewer__image {
+  width: 100%;
+  height: 100%;
+}
+
+.ShotViewer__close {
+  position: absolute;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.ShotViewer__closeIcon {
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.ShotViewer__hint {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .WebviewBridgeDemo {

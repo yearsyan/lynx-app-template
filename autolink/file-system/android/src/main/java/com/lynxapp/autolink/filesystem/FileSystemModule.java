@@ -17,6 +17,7 @@ import com.lynx.jsbridge.LynxNativeModule;
 import com.lynx.react.bridge.Callback;
 import com.lynx.tasm.behavior.LynxContext;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -30,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +43,7 @@ public final class FileSystemModule extends LynxContextModule {
     public static final String NAME = "FileSystem";
 
     private static final int MAX_READ_BYTES = 20 * 1024 * 1024;
+    private static final int MAX_WRITE_BYTES = 20 * 1024 * 1024;
     private static final int BUFFER_SIZE = 16 * 1024;
 
     private final Context applicationContext;
@@ -108,6 +111,54 @@ public final class FileSystemModule extends LynxContextModule {
         execute(callback, () -> Base64.encodeToString(
                 readBytes(parseURI(uriString), validatedMaxBytes(maxBytes)),
                 Base64.NO_WRAP));
+    }
+
+    @LynxMethod
+    public void writeText(
+            String uriString,
+            String contents,
+            boolean append,
+            Callback callback) {
+        execute(callback, () -> writeBytes(
+                sandboxFile(uriString),
+                contents.getBytes(StandardCharsets.UTF_8),
+                append));
+    }
+
+    @LynxMethod
+    public void writeBase64(
+            String uriString,
+            String base64,
+            boolean append,
+            Callback callback) {
+        execute(callback, () -> writeBytes(
+                sandboxFile(uriString),
+                Base64.decode(base64, Base64.DEFAULT),
+                append));
+    }
+
+    @LynxMethod
+    public void delete(String uriString, Callback callback) {
+        execute(callback, () -> {
+            File target = sandboxFile(uriString);
+            if (!target.exists()) {
+                throw new IOException("File does not exist");
+            }
+            if (!deleteRecursively(target)) {
+                throw new IOException("Unable to delete " + target.getName());
+            }
+            return JSONObject.NULL;
+        });
+    }
+
+    @LynxMethod
+    public void listDir(String uriString, Callback callback) {
+        execute(callback, () -> listSandboxDir(sandboxFile(uriString)));
+    }
+
+    @LynxMethod
+    public void cacheDir(Callback callback) {
+        execute(callback, () -> Uri.fromFile(sandboxRoot()).toString());
     }
 
     @Override
@@ -202,11 +253,7 @@ public final class FileSystemModule extends LynxContextModule {
     private String copyToCache(Uri uri) throws Exception {
         JSONObject info = fileInfo(uri);
         String name = sanitizeName(info.optString("name", "file"));
-        File directory = new File(applicationContext.getCacheDir(), "LynxFiles");
-        if (!directory.isDirectory() && !directory.mkdirs()) {
-            throw new IOException("Unable to create the Lynx file cache");
-        }
-        File destination = new File(directory, UUID.randomUUID() + "-" + name);
+        File destination = new File(sandboxRoot(), UUID.randomUUID() + "-" + name);
         boolean complete = false;
         try (InputStream input = openInput(uri);
              OutputStream output = new FileOutputStream(destination)) {
@@ -226,6 +273,102 @@ public final class FileSystemModule extends LynxContextModule {
             }
         }
         return Uri.fromFile(destination).toString();
+    }
+
+    /** Returns the app-private cache sandbox, creating it on demand. */
+    private File sandboxRoot() throws IOException {
+        File directory = new File(applicationContext.getCacheDir(), "LynxFiles");
+        if (!directory.isDirectory() && !directory.mkdirs()) {
+            throw new IOException("Unable to create the Lynx file cache");
+        }
+        return directory;
+    }
+
+    /**
+     * Resolves a sandbox-relative path or an in-sandbox {@code file://} URI,
+     * rejecting anything that canonicalizes outside the sandbox.
+     */
+    private File sandboxFile(String uriString) throws IOException {
+        if (uriString == null || uriString.trim().isEmpty()) {
+            throw new IllegalArgumentException("File URI must not be empty");
+        }
+        String input = uriString.trim();
+        File root = sandboxRoot();
+        String rootCanonical = root.getCanonicalPath();
+
+        File candidate;
+        if (input.indexOf("://") < 0) {
+            candidate = new File(root, input);
+        } else {
+            Uri uri = Uri.parse(input);
+            if (!ContentResolver.SCHEME_FILE.equals(uri.getScheme())) {
+                throw new IllegalArgumentException(
+                        "Cache sandbox supports file:// URIs and relative paths");
+            }
+            String path = uri.getPath();
+            if (path == null || path.isEmpty()) {
+                throw new IOException("Invalid file URI");
+            }
+            candidate = new File(path);
+        }
+
+        String canonical = candidate.getCanonicalPath();
+        if (!canonical.equals(rootCanonical)
+                && !canonical.startsWith(rootCanonical + File.separator)) {
+            throw new IllegalArgumentException("Path escapes the cache sandbox");
+        }
+        return new File(canonical);
+    }
+
+    private String writeBytes(File target, byte[] bytes, boolean append)
+            throws IOException {
+        if (bytes.length > MAX_WRITE_BYTES) {
+            throw new IllegalArgumentException(
+                    "File contents must not exceed " + MAX_WRITE_BYTES + " bytes");
+        }
+        File parent = target.getParentFile();
+        if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
+            throw new IOException("Unable to create the target directory");
+        }
+        try (OutputStream output = new FileOutputStream(target, append)) {
+            output.write(bytes);
+            output.flush();
+        }
+        return Uri.fromFile(target).toString();
+    }
+
+    private static boolean deleteRecursively(File file) {
+        File[] children = file.isDirectory() ? file.listFiles() : null;
+        if (children != null) {
+            for (File child : children) {
+                if (!deleteRecursively(child)) {
+                    return false;
+                }
+            }
+        }
+        return file.delete();
+    }
+
+    private JSONArray listSandboxDir(File directory) throws Exception {
+        if (!directory.isDirectory()) {
+            throw new IOException("Path is not a directory");
+        }
+        File[] children = directory.listFiles();
+        if (children == null) {
+            throw new IOException("Unable to list the directory");
+        }
+        Arrays.sort(children, (left, right) ->
+                left.getName().compareToIgnoreCase(right.getName()));
+        JSONArray entries = new JSONArray();
+        for (File child : children) {
+            JSONObject entry = new JSONObject();
+            entry.put("name", child.getName());
+            entry.put("uri", Uri.fromFile(child).toString());
+            entry.put("isDirectory", child.isDirectory());
+            entry.put("size", child.isDirectory() ? JSONObject.NULL : child.length());
+            entries.put(entry);
+        }
+        return entries;
     }
 
     private byte[] readBytes(Uri uri, int maxBytes) throws IOException {

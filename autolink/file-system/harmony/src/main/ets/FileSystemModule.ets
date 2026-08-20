@@ -47,10 +47,35 @@ class PickerResult {
   }
 }
 
+class DirEntry {
+  name: string;
+  uri: string;
+  isDirectory: boolean;
+  size: number | null;
+
+  constructor(name: string, uri: string, isDirectory: boolean, size: number | null) {
+    this.name = name;
+    this.uri = uri;
+    this.isDirectory = isDirectory;
+    this.size = size;
+  }
+}
+
+class DirEntryListResult {
+  value: Array<DirEntry>;
+  error: string;
+
+  constructor(value: Array<DirEntry>, error: string = '') {
+    this.value = value;
+    this.error = error;
+  }
+}
+
 /** System file picker and URI-aware file operations exported to Lynx as FileSystem. */
 export class FileSystemModule extends LynxModule {
   static readonly NAME: string = 'FileSystem';
   private static readonly MAX_READ_BYTES: number = 20 * 1024 * 1024;
+  private static readonly MAX_WRITE_BYTES: number = 20 * 1024 * 1024;
   private static nextCacheID: number = 0;
 
   private readonly abilityContext: common.UIAbilityContext;
@@ -116,10 +141,7 @@ export class FileSystemModule extends LynxModule {
   copyToCache(uri: string, callback: (resultJSON: string) => void): void {
     let source: fs.File | undefined;
     try {
-      const directory: string = `${this.abilityContext.cacheDir}/LynxFiles`;
-      if (!fs.accessSync(directory)) {
-        fs.mkdirSync(directory, true);
-      }
+      const directory: string = this.sandboxRoot();
       FileSystemModule.nextCacheID += 1;
       const destination: string = `${directory}/${Date.now()}-${FileSystemModule.nextCacheID}-${
         this.sanitizeName(this.fileName(uri))}`;
@@ -152,6 +174,173 @@ export class FileSystemModule extends LynxModule {
     } catch (error) {
       callback(this.stringError(this.errorMessage(error)));
     }
+  }
+
+  writeText(uri: string, contents: string, append: boolean, callback: (resultJSON: string) => void): void {
+    try {
+      const bytes: Uint8Array = new util.TextEncoder().encodeInto(contents);
+      const path: string = this.resolveSandboxPath(uri);
+      this.writeFileBytes(path, bytes, append);
+      callback(JSON.stringify(new FileStringResult(`file://${path}`)));
+    } catch (error) {
+      callback(this.stringError(this.errorMessage(error, 'Unable to write the file')));
+    }
+  }
+
+  writeBase64(uri: string, base64: string, append: boolean, callback: (resultJSON: string) => void): void {
+    try {
+      const bytes: Uint8Array = this.base64.decodeSync(base64) as Uint8Array;
+      const path: string = this.resolveSandboxPath(uri);
+      this.writeFileBytes(path, bytes, append);
+      callback(JSON.stringify(new FileStringResult(`file://${path}`)));
+    } catch (error) {
+      callback(this.stringError(this.errorMessage(error, 'Unable to write the file')));
+    }
+  }
+
+  delete(uri: string, callback: (resultJSON: string) => void): void {
+    try {
+      const path: string = this.resolveSandboxPath(uri);
+      if (!fs.accessSync(path)) {
+        throw new Error('File does not exist');
+      }
+      if (fs.statSync(path).isDirectory()) {
+        this.removeDirectoryRecursively(path);
+        fs.rmdirSync(path);
+      } else {
+        fs.unlinkSync(path);
+      }
+      callback(JSON.stringify(new FileStringResult('')));
+    } catch (error) {
+      callback(this.stringError(this.errorMessage(error)));
+    }
+  }
+
+  listDir(uri: string, callback: (resultJSON: string) => void): void {
+    try {
+      const path: string = this.resolveSandboxPath(uri);
+      if (!fs.statSync(path).isDirectory()) {
+        throw new Error('Path is not a directory');
+      }
+      const names: Array<string> = fs.listFileSync(path).sort();
+      const entries: Array<DirEntry> = [];
+      for (const name of names) {
+        const childPath: string = `${path}/${name}`;
+        const childStats: fs.Stat = fs.statSync(childPath);
+        const isDirectory: boolean = childStats.isDirectory();
+        entries.push(new DirEntry(
+          name,
+          `file://${childPath}`,
+          isDirectory,
+          isDirectory ? null : childStats.size,
+        ));
+      }
+      callback(JSON.stringify(new DirEntryListResult(entries)));
+    } catch (error) {
+      callback(this.entriesError(this.errorMessage(error)));
+    }
+  }
+
+  cacheDir(callback: (resultJSON: string) => void): void {
+    try {
+      callback(JSON.stringify(new FileStringResult(`file://${this.sandboxRoot()}`)));
+    } catch (error) {
+      callback(this.stringError(this.errorMessage(error)));
+    }
+  }
+
+  /** Returns the app-private cache sandbox, creating it on demand. */
+  private sandboxRoot(): string {
+    const directory: string = `${this.abilityContext.cacheDir}/LynxFiles`;
+    if (!fs.accessSync(directory)) {
+      fs.mkdirSync(directory, true);
+    }
+    return directory;
+  }
+
+  /**
+   * Resolves a sandbox-relative path or an in-sandbox file:// URI, rejecting
+   * anything that normalizes outside the sandbox.
+   */
+  private resolveSandboxPath(uri: string): string {
+    const normalized: string = uri.trim();
+    if (normalized.length === 0) {
+      throw new Error('File URI must not be empty');
+    }
+    const root: string = this.sandboxRoot();
+    let raw: string = normalized;
+    if (raw.startsWith('file://')) {
+      raw = raw.substring('file://'.length);
+    } else if (raw.includes('://')) {
+      throw new Error('Cache sandbox supports file:// URIs and relative paths');
+    }
+    const isAbsolute: boolean = raw.startsWith('/');
+    const resolved: Array<string> = [];
+    const segments: Array<string> = raw.split('/');
+    for (const segment of segments) {
+      if (segment.length === 0 || segment === '.') {
+        continue;
+      }
+      if (segment === '..') {
+        if (resolved.length === 0) {
+          throw new Error('Path escapes the cache sandbox');
+        }
+        resolved.pop();
+        continue;
+      }
+      resolved.push(segment);
+    }
+    const joined: string = `/${resolved.join('/')}`;
+    let path: string;
+    if (isAbsolute) {
+      path = joined;
+    } else if (resolved.length === 0) {
+      path = root;
+    } else {
+      path = `${root}${joined}`;
+    }
+    if (path !== root && !path.startsWith(`${root}/`)) {
+      throw new Error('Path escapes the cache sandbox');
+    }
+    return path;
+  }
+
+  private writeFileBytes(path: string, bytes: Uint8Array, append: boolean): void {
+    if (bytes.byteLength > FileSystemModule.MAX_WRITE_BYTES) {
+      throw new Error(
+        `File contents must not exceed ${FileSystemModule.MAX_WRITE_BYTES} bytes`,
+      );
+    }
+    const parentIndex: number = path.lastIndexOf('/');
+    const parent: string = parentIndex <= 0 ? '/' : path.substring(0, parentIndex);
+    if (!fs.accessSync(parent)) {
+      fs.mkdirSync(parent, true);
+    }
+    const flags: number = fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE
+      | (append ? fs.OpenMode.APPEND : fs.OpenMode.TRUNC);
+    const file: fs.File = fs.openSync(path, flags);
+    try {
+      fs.writeSync(file.fd, bytes.buffer as ArrayBuffer);
+    } finally {
+      fs.closeSync(file);
+    }
+  }
+
+  private removeDirectoryRecursively(path: string): void {
+    const names: Array<string> = fs.listFileSync(path);
+    for (const name of names) {
+      const childPath: string = `${path}/${name}`;
+      if (fs.statSync(childPath).isDirectory()) {
+        this.removeDirectoryRecursively(childPath);
+        fs.rmdirSync(childPath);
+      } else {
+        fs.unlinkSync(childPath);
+      }
+    }
+  }
+
+  private entriesError(message: string): string {
+    return JSON.stringify(new DirEntryListResult([], message));
   }
 
   private readBytes(uri: string, maxBytes: number): Uint8Array {

@@ -1,0 +1,22 @@
+{
+  "name": "@lynx-template/autolink-pressable-view",
+  "description": "Autolinked native pressable container element for Lynx hosts (Android, iOS & HarmonyOS)",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "harmony",
+    "src",
+    "lynx.lib.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@lynx-js/react": "^0.123.0",
+    "@lynx-js/types": "^4.0.0"
+  }
+}

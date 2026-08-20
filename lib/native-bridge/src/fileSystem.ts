@@ -18,6 +18,19 @@ export interface ReadFileOptions {
   maxBytes?: number;
 }
 
+export interface WriteFileOptions {
+  /** Appends to an existing file instead of truncating it. */
+  append?: boolean;
+}
+
+/** Directory entry resolved from the cache sandbox by `listDir`. */
+export interface CacheEntry {
+  name: string;
+  uri: string;
+  isDirectory: boolean;
+  size: number | null;
+}
+
 export interface PickerOptions {
   /** Maximum number of items the user may select. Defaults to 1. */
   maxSelection?: number;
@@ -39,6 +52,7 @@ interface PickerResult {
 const DEFAULT_TEXT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_BASE64_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_READ_BYTES = 20 * 1024 * 1024;
+const MAX_WRITE_BYTES = 20 * 1024 * 1024;
 const MAX_PICKER_SELECTION = 50;
 
 function requireFileSystem(): FileSystemModule {
@@ -82,6 +96,15 @@ export function normalizePickerOptions(options: PickerOptions): number {
     );
   }
   return maxSelection;
+}
+
+function normalizeWriteOptions(options: WriteFileOptions): boolean {
+  'background only';
+  const append = options.append ?? false;
+  if (typeof append !== 'boolean') {
+    throw new Error('File append must be a boolean');
+  }
+  return append;
 }
 
 export function completePicker(
@@ -246,6 +269,103 @@ function decodeArrayBuffer(value: unknown): ArrayBuffer {
   return decodeBase64(value);
 }
 
+const BASE64_ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const BASE64_CHUNK_TRIPLETS = 5460;
+
+function encodeBase64(bytes: Uint8Array): string {
+  'background only';
+  const chunkBytes = BASE64_CHUNK_TRIPLETS * 3;
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += chunkBytes) {
+    const limit = Math.min(offset + chunkBytes, bytes.length);
+    let chunk = '';
+    let index = offset;
+    for (; index + 3 <= limit; index += 3) {
+      const byte0 = bytes[index];
+      const byte1 = bytes[index + 1];
+      const byte2 = bytes[index + 2];
+      if (byte0 === undefined || byte1 === undefined || byte2 === undefined) {
+        break;
+      }
+      const triplet = (byte0 << 16) | (byte1 << 8) | byte2;
+      chunk +=
+        BASE64_ALPHABET.charAt((triplet >> 18) & 0x3f) +
+        BASE64_ALPHABET.charAt((triplet >> 12) & 0x3f) +
+        BASE64_ALPHABET.charAt((triplet >> 6) & 0x3f) +
+        BASE64_ALPHABET.charAt(triplet & 0x3f);
+    }
+    const remainderByte0 = bytes[index];
+    const remainderByte1 = bytes[index + 1];
+    if (index < limit && remainderByte0 !== undefined) {
+      if (remainderByte1 === undefined) {
+        chunk +=
+          BASE64_ALPHABET.charAt(remainderByte0 >> 2) +
+          BASE64_ALPHABET.charAt((remainderByte0 & 0x3) << 4) +
+          '==';
+      } else {
+        const pair = (remainderByte0 << 8) | remainderByte1;
+        chunk +=
+          BASE64_ALPHABET.charAt(pair >> 10) +
+          BASE64_ALPHABET.charAt((pair >> 4) & 0x3f) +
+          BASE64_ALPHABET.charAt((pair & 0xf) << 2) +
+          '=';
+      }
+    }
+    chunks.push(chunk);
+  }
+  return chunks.join('');
+}
+
+function validateBase64(value: string): void {
+  'background only';
+  let length = value.length;
+  while (length > 0 && value.charCodeAt(length - 1) === 61) {
+    length -= 1;
+  }
+  if (length % 4 === 1) {
+    throw new Error('File contents are truncated Base64');
+  }
+  for (let index = 0; index < length; index += 1) {
+    if (base64CharValue(value.charAt(index)) < 0) {
+      throw new Error('File contents are invalid Base64');
+    }
+  }
+}
+
+function decodeVoid(): undefined {
+  'background only';
+  return undefined;
+}
+
+function decodeCacheEntry(value: unknown): CacheEntry {
+  'background only';
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('FileSystem returned an invalid directory entry');
+  }
+  const entry = value as Partial<CacheEntry>;
+  if (
+    typeof entry.name !== 'string' ||
+    typeof entry.uri !== 'string' ||
+    typeof entry.isDirectory !== 'boolean' ||
+    (entry.size !== null &&
+      (typeof entry.size !== 'number' ||
+        !Number.isSafeInteger(entry.size) ||
+        entry.size < 0))
+  ) {
+    throw new Error('FileSystem returned an invalid directory entry');
+  }
+  return entry as CacheEntry;
+}
+
+function decodeCacheEntries(value: unknown): CacheEntry[] {
+  'background only';
+  if (!Array.isArray(value)) {
+    throw new Error('FileSystem returned an invalid directory listing');
+  }
+  return value.map((entry) => decodeCacheEntry(entry));
+}
+
 /** URI-aware file access shared by Android, iOS and HarmonyOS hosts. */
 export const fileSystem = {
   /** Selects arbitrary files through the platform's user-visible system picker. */
@@ -314,6 +434,102 @@ export const fileSystem = {
       (callback) =>
         requireFileSystem().readBase64(normalized, maxBytes, callback),
       decodeArrayBuffer,
+    );
+  },
+
+  /** Writes UTF-8 text into the cache sandbox and returns the file URI. */
+  writeText(
+    uri: string,
+    contents: string,
+    options: WriteFileOptions = {},
+  ): Promise<string> {
+    'background only';
+    const normalized = normalizeURI(uri);
+    if (contents.length > MAX_WRITE_BYTES) {
+      throw new Error(`File contents must not exceed ${MAX_WRITE_BYTES} bytes`);
+    }
+    const append = normalizeWriteOptions(options);
+    return invoke(
+      (callback) =>
+        requireFileSystem().writeText(normalized, contents, append, callback),
+      decodeString,
+    );
+  },
+
+  /**
+   * Writes Base64-decoded bytes into the cache sandbox and returns the file
+   * URI. Accepts standard Base64 with optional trailing padding.
+   */
+  writeBase64(
+    uri: string,
+    base64: string,
+    options: WriteFileOptions = {},
+  ): Promise<string> {
+    'background only';
+    const normalized = normalizeURI(uri);
+    validateBase64(base64);
+    const append = normalizeWriteOptions(options);
+    return invoke(
+      (callback) =>
+        requireFileSystem().writeBase64(normalized, base64, append, callback),
+      decodeString,
+    );
+  },
+
+  /**
+   * Writes binary data into the cache sandbox. Encodes to Base64 in
+   * JavaScript before crossing the bridge, so the same `MAX_WRITE_BYTES`
+   * limit and inflation overhead as `writeBase64` apply.
+   */
+  writeArrayBuffer(
+    uri: string,
+    data: ArrayBuffer | Uint8Array,
+    options: WriteFileOptions = {},
+  ): Promise<string> {
+    'background only';
+    const normalized = normalizeURI(uri);
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    if (bytes.byteLength > MAX_WRITE_BYTES) {
+      throw new Error(`File contents must not exceed ${MAX_WRITE_BYTES} bytes`);
+    }
+    const append = normalizeWriteOptions(options);
+    const encoded = encodeBase64(bytes);
+    return invoke(
+      (callback) =>
+        requireFileSystem().writeBase64(normalized, encoded, append, callback),
+      decodeString,
+    );
+  },
+
+  /**
+   * Deletes a file or directory (recursively) inside the cache sandbox.
+   * Deleting the sandbox root itself clears the whole cache.
+   */
+  delete(uri: string): Promise<void> {
+    'background only';
+    const normalized = normalizeURI(uri);
+    return invoke(
+      (callback) => requireFileSystem().delete(normalized, callback),
+      decodeVoid,
+    );
+  },
+
+  /** Lists a sandbox directory's entries, sorted by name. */
+  listDir(uri: string): Promise<CacheEntry[]> {
+    'background only';
+    const normalized = normalizeURI(uri);
+    return invoke(
+      (callback) => requireFileSystem().listDir(normalized, callback),
+      decodeCacheEntries,
+    );
+  },
+
+  /** Returns the cache sandbox root directory as a `file://` URI. */
+  cacheDir(): Promise<string> {
+    'background only';
+    return invoke(
+      (callback) => requireFileSystem().cacheDir(callback),
+      decodeString,
     );
   },
 };

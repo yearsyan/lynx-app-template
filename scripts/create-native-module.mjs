@@ -268,12 +268,14 @@ public final class ${interfaceName} extends LynxContextModule {
 end
 `,
     [`ios/src/${interfaceName}.h`]: `#import <Foundation/Foundation.h>
-#import <Lynx/LynxModule.h>
+#import <Lynx/LynxContextModule.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 /// Autolinked Lynx bridge exported to JavaScript as \`${moduleName}\`.
-@interface ${interfaceName} : NSObject <LynxModule>
+/// Declares LynxContextModule so the runtime instantiates it through
+/// initWithLynxContext:, the designated initializer in the .m stub.
+@interface ${interfaceName} : NSObject <LynxContextModule>
 
 @end
 

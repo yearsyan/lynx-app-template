@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.audioplayer",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-audio-player.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

@@ -26,8 +26,9 @@ export class SecureStorageModule extends LynxModule {
   /** Fixed HUKS alias of the app's symmetric storage key. */
   private static readonly KEY_ALIAS: string = 'lynx.secure.storage.key';
   private static readonly IV_BYTES: number = 12;
+  private static readonly TAG_BYTES: number = 16;
   /** Keeps the store to small secrets; mirrored by the shared TS facade. */
-  private static readonly MAX_VALUE_LENGTH: number = 64 * 1024;
+  private static readonly MAX_VALUE_BYTES: number = 64 * 1024;
 
   private readonly storage: MMKV;
   private readonly base64: util.Base64Helper = new util.Base64Helper();
@@ -42,13 +43,17 @@ export class SecureStorageModule extends LynxModule {
       callback('Secure storage key must not be empty');
       return;
     }
-    if (value === undefined || value === null
-      || value.length > SecureStorageModule.MAX_VALUE_LENGTH) {
+    if (value === undefined || value === null) {
+      callback('Secure storage value is missing or too large');
+      return;
+    }
+    const plain: Uint8Array = new util.TextEncoder().encodeInto(value);
+    if (plain.length > SecureStorageModule.MAX_VALUE_BYTES) {
       callback('Secure storage value is missing or too large');
       return;
     }
     this.ensureKey()
-      .then(() => this.encrypt(new util.TextEncoder().encodeInto(value)))
+      .then(() => this.encrypt(plain))
       .then((sealed: SealedValue) => {
         const entry: string =
           `${this.base64.encodeToStringSync(sealed.nonce)}:${this.base64.encodeToStringSync(sealed.cipher)}`;
@@ -77,7 +82,14 @@ export class SecureStorageModule extends LynxModule {
       callback(defaultValue);
       return;
     }
-    this.decrypt(this.parseEntry(entry))
+    let sealed: SealedValue;
+    try {
+      sealed = this.parseEntry(entry);
+    } catch (_error) {
+      callback(defaultValue);
+      return;
+    }
+    this.decrypt(sealed)
       .then((plain: Uint8Array) => {
         callback(util.TextDecoder.create('utf-8').decodeToString(plain));
       })
@@ -115,16 +127,23 @@ export class SecureStorageModule extends LynxModule {
     return this.randomBytes(SecureStorageModule.IV_BYTES)
       .then((nonce: Uint8Array) => {
         const properties: Array<huks.HuksParam> = [
+          { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_AES },
+          { tag: huks.HuksTag.HUKS_TAG_KEY_SIZE, value: 256 },
           { tag: huks.HuksTag.HUKS_TAG_PURPOSE, value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_ENCRYPT },
           { tag: huks.HuksTag.HUKS_TAG_BLOCK_MODE, value: huks.HuksCipherMode.HUKS_MODE_GCM },
           { tag: huks.HuksTag.HUKS_TAG_PADDING, value: huks.HuksKeyPadding.HUKS_PADDING_NONE },
           { tag: huks.HuksTag.HUKS_TAG_NONCE, value: nonce },
         ];
-        return huks.initSession(SecureStorageModule.KEY_ALIAS, { properties: properties })
+        const options: huks.HuksOptions = {
+          properties: properties,
+          inData: plain,
+        };
+        return huks.initSession(SecureStorageModule.KEY_ALIAS, options)
           .then((session: huks.HuksSessionHandle) =>
-            huks.finishSession(session.handle, { properties: properties }, plain))
+            huks.finishSession(session.handle, options))
           .then((result: huks.HuksReturnResult) => {
-            if (result.outData === undefined || result.outData.length === 0) {
+            if (result.outData === undefined
+              || result.outData.length < SecureStorageModule.TAG_BYTES) {
               throw new Error('HUKS encryption produced no data');
             }
             return new SealedValue(nonce, result.outData);
@@ -133,15 +152,28 @@ export class SecureStorageModule extends LynxModule {
   }
 
   private decrypt(sealed: SealedValue): Promise<Uint8Array> {
+    if (sealed.cipher.length < SecureStorageModule.TAG_BYTES) {
+      return Promise.reject(new Error('Malformed secure entry'));
+    }
+    const cipherLength = sealed.cipher.length - SecureStorageModule.TAG_BYTES;
+    const cipher = sealed.cipher.slice(0, cipherLength);
+    const authTag = sealed.cipher.slice(cipherLength);
     const properties: Array<huks.HuksParam> = [
+      { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_AES },
+      { tag: huks.HuksTag.HUKS_TAG_KEY_SIZE, value: 256 },
       { tag: huks.HuksTag.HUKS_TAG_PURPOSE, value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_DECRYPT },
       { tag: huks.HuksTag.HUKS_TAG_BLOCK_MODE, value: huks.HuksCipherMode.HUKS_MODE_GCM },
       { tag: huks.HuksTag.HUKS_TAG_PADDING, value: huks.HuksKeyPadding.HUKS_PADDING_NONE },
       { tag: huks.HuksTag.HUKS_TAG_NONCE, value: sealed.nonce },
+      { tag: huks.HuksTag.HUKS_TAG_AE_TAG, value: authTag },
     ];
-    return huks.initSession(SecureStorageModule.KEY_ALIAS, { properties: properties })
+    const options: huks.HuksOptions = {
+      properties: properties,
+      inData: cipher,
+    };
+    return huks.initSession(SecureStorageModule.KEY_ALIAS, options)
       .then((session: huks.HuksSessionHandle) =>
-        huks.finishSession(session.handle, { properties: properties }, sealed.cipher))
+        huks.finishSession(session.handle, options))
       .then((result: huks.HuksReturnResult) => {
         if (result.outData === undefined) {
           throw new Error('HUKS decryption produced no data');
@@ -166,7 +198,8 @@ export class SecureStorageModule extends LynxModule {
     }
     const nonce: Uint8Array = this.base64.decodeSync(entry.substring(0, separator));
     const cipher: Uint8Array = this.base64.decodeSync(entry.substring(separator + 1));
-    if (nonce.length !== SecureStorageModule.IV_BYTES || cipher.length === 0) {
+    if (nonce.length !== SecureStorageModule.IV_BYTES
+      || cipher.length < SecureStorageModule.TAG_BYTES) {
       throw new Error('Malformed secure entry');
     }
     return new SealedValue(nonce, cipher);

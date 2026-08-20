@@ -20,4 +20,19 @@ export declare class FileSystem {
     maxBytes: number,
     callback: (resultJSON: string) => void,
   ): void;
+  writeText(
+    uri: string,
+    contents: string,
+    append: boolean,
+    callback: (resultJSON: string) => void,
+  ): void;
+  writeBase64(
+    uri: string,
+    base64: string,
+    append: boolean,
+    callback: (resultJSON: string) => void,
+  ): void;
+  delete(uri: string, callback: (resultJSON: string) => void): void;
+  listDir(uri: string, callback: (resultJSON: string) => void): void;
+  cacheDir(callback: (resultJSON: string) => void): void;
 }

@@ -1,0 +1,4 @@
+{
+  "startupTasks": [],
+  "configEntry": "./ets/startup/AppStartupConfig.ets"
+}

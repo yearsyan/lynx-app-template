@@ -2,6 +2,7 @@
 // Run `pnpm native:contracts:generate` after changing a declaration.
 
 import type { AlbumUtilsModule } from '@lynx-template/autolink-album-utils';
+import type { AudioPlayerModule } from '@lynx-template/autolink-audio-player';
 import type { BatteryModule } from '@lynx-template/autolink-battery';
 import type { BiometricModule } from '@lynx-template/autolink-biometric';
 import type { ClipboardModule } from '@lynx-template/autolink-clipboard';
@@ -21,6 +22,7 @@ import type { BackModule, StatusBarModule } from './host.js';
 
 export type {
   AlbumUtilsModule,
+  AudioPlayerModule,
   BackModule,
   BatteryModule,
   BiometricModule,
@@ -46,6 +48,20 @@ export const NATIVE_MODULE_CONTRACT = {
     methods: {
       pick: { name: 'pick', arity: 2 },
       saveToAlbum: { name: 'saveToAlbum', arity: 2 },
+    },
+  },
+  AudioPlayer: {
+    name: 'AudioPlayer',
+    methods: {
+      create: { name: 'create', arity: 2 },
+      play: { name: 'play', arity: 2 },
+      pause: { name: 'pause', arity: 2 },
+      seek: { name: 'seek', arity: 3 },
+      stop: { name: 'stop', arity: 2 },
+      release: { name: 'release', arity: 2 },
+      setRate: { name: 'setRate', arity: 3 },
+      setVolume: { name: 'setVolume', arity: 3 },
+      getProps: { name: 'getProps', arity: 2 },
     },
   },
   Back: {
@@ -101,6 +117,11 @@ export const NATIVE_MODULE_CONTRACT = {
       copyToCache: { name: 'copyToCache', arity: 2 },
       readText: { name: 'readText', arity: 3 },
       readBase64: { name: 'readBase64', arity: 3 },
+      writeText: { name: 'writeText', arity: 4 },
+      writeBase64: { name: 'writeBase64', arity: 4 },
+      delete: { name: 'delete', arity: 2 },
+      listDir: { name: 'listDir', arity: 2 },
+      cacheDir: { name: 'cacheDir', arity: 1 },
     },
   },
   Haptics: {
@@ -182,6 +203,7 @@ export const NATIVE_MODULE_CONTRACT = {
 
 export const NATIVE_MODULE_NAMES = {
   AlbumUtils: NATIVE_MODULE_CONTRACT.AlbumUtils.name,
+  AudioPlayer: NATIVE_MODULE_CONTRACT.AudioPlayer.name,
   Back: NATIVE_MODULE_CONTRACT.Back.name,
   Battery: NATIVE_MODULE_CONTRACT.Battery.name,
   Biometric: NATIVE_MODULE_CONTRACT.Biometric.name,
@@ -205,6 +227,17 @@ export const NATIVE_MODULE_METHODS = {
   AlbumUtils: {
     pick: NATIVE_MODULE_CONTRACT.AlbumUtils.methods.pick.name,
     saveToAlbum: NATIVE_MODULE_CONTRACT.AlbumUtils.methods.saveToAlbum.name,
+  },
+  AudioPlayer: {
+    create: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.create.name,
+    play: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.play.name,
+    pause: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.pause.name,
+    seek: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.seek.name,
+    stop: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.stop.name,
+    release: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.release.name,
+    setRate: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.setRate.name,
+    setVolume: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.setVolume.name,
+    getProps: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.getProps.name,
   },
   Back: {
     setEnabled: NATIVE_MODULE_CONTRACT.Back.methods.setEnabled.name,
@@ -241,6 +274,11 @@ export const NATIVE_MODULE_METHODS = {
     copyToCache: NATIVE_MODULE_CONTRACT.FileSystem.methods.copyToCache.name,
     readText: NATIVE_MODULE_CONTRACT.FileSystem.methods.readText.name,
     readBase64: NATIVE_MODULE_CONTRACT.FileSystem.methods.readBase64.name,
+    writeText: NATIVE_MODULE_CONTRACT.FileSystem.methods.writeText.name,
+    writeBase64: NATIVE_MODULE_CONTRACT.FileSystem.methods.writeBase64.name,
+    delete: NATIVE_MODULE_CONTRACT.FileSystem.methods.delete.name,
+    listDir: NATIVE_MODULE_CONTRACT.FileSystem.methods.listDir.name,
+    cacheDir: NATIVE_MODULE_CONTRACT.FileSystem.methods.cacheDir.name,
   },
   Haptics: {
     impact: NATIVE_MODULE_CONTRACT.Haptics.methods.impact.name,
@@ -295,6 +333,7 @@ export type NativeMethodName<Name extends NativeModuleName> =
 
 export interface NativeModuleRegistry {
   AlbumUtils?: AlbumUtilsModule;
+  AudioPlayer?: AudioPlayerModule;
   Back?: BackModule;
   Battery?: BatteryModule;
   Biometric?: BiometricModule;

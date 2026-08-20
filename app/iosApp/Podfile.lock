@@ -33,6 +33,8 @@ PODS:
     - Lynx/Framework (= 4.0.0)
   - lynx-app-album-utils (1.0.0):
     - Lynx
+  - lynx-app-audio-player (1.0.0):
+    - Lynx
   - lynx-app-battery (1.0.0):
     - Lynx
   - lynx-app-biometric (1.0.0):
@@ -52,6 +54,8 @@ PODS:
   - lynx-app-mmkv (1.0.0):
     - Lynx
     - MMKV (= 2.4.1)
+  - lynx-app-pressable-view (1.0.0):
+    - Lynx
   - lynx-app-router (1.0.0):
     - Lynx
   - lynx-app-scanner (1.0.0):
@@ -221,6 +225,7 @@ DEPENDENCIES:
   - DebugRouter (= 5.0.15)
   - DebugRouter/MessageTransceiverEnable (= 5.0.15)
   - lynx-app-album-utils (from `/Users/u/workspace/lynx-template/autolink/album-utils/ios`)
+  - lynx-app-audio-player (from `/Users/u/workspace/lynx-template/autolink/audio-player/ios`)
   - lynx-app-battery (from `/Users/u/workspace/lynx-template/autolink/battery/ios`)
   - lynx-app-biometric (from `/Users/u/workspace/lynx-template/autolink/biometric/ios`)
   - lynx-app-clipboard (from `/Users/u/workspace/lynx-template/autolink/clipboard/ios`)
@@ -230,6 +235,7 @@ DEPENDENCIES:
   - lynx-app-haptics (from `/Users/u/workspace/lynx-template/autolink/haptics/ios`)
   - lynx-app-liquid-glass (from `/Users/u/workspace/lynx-template/autolink/liquid-glass/ios`)
   - lynx-app-mmkv (from `/Users/u/workspace/lynx-template/autolink/mmkv/ios`)
+  - lynx-app-pressable-view (from `/Users/u/workspace/lynx-template/autolink/pressable-view/ios`)
   - lynx-app-router (from `/Users/u/workspace/lynx-template/autolink/router/ios`)
   - lynx-app-scanner (from `/Users/u/workspace/lynx-template/autolink/scanner/ios`)
   - lynx-app-screenshot (from `/Users/u/workspace/lynx-template/autolink/screenshot/ios`)
@@ -275,6 +281,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   lynx-app-album-utils:
     :path: "/Users/u/workspace/lynx-template/autolink/album-utils/ios"
+  lynx-app-audio-player:
+    :path: "/Users/u/workspace/lynx-template/autolink/audio-player/ios"
   lynx-app-battery:
     :path: "/Users/u/workspace/lynx-template/autolink/battery/ios"
   lynx-app-biometric:
@@ -293,6 +301,8 @@ EXTERNAL SOURCES:
     :path: "/Users/u/workspace/lynx-template/autolink/liquid-glass/ios"
   lynx-app-mmkv:
     :path: "/Users/u/workspace/lynx-template/autolink/mmkv/ios"
+  lynx-app-pressable-view:
+    :path: "/Users/u/workspace/lynx-template/autolink/pressable-view/ios"
   lynx-app-router:
     :path: "/Users/u/workspace/lynx-template/autolink/router/ios"
   lynx-app-scanner:
@@ -318,6 +328,7 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   Lynx: 34c94a5ca239b8c282519ccbb598da390c3d7741
   lynx-app-album-utils: 945e846361c8b9a3f51f2afed5a2363f3c3efcde
+  lynx-app-audio-player: 78bd28ca624df990405aff1bbeb1f2a44c775f9e
   lynx-app-battery: 545ed37e26586b90d45054415486d69d49100fa0
   lynx-app-biometric: 2422797a73addbe29137aed33c284d36c387a553
   lynx-app-clipboard: 4fa5b6d19bbf978336d5c8b09e303bee5ae35821
@@ -327,6 +338,7 @@ SPEC CHECKSUMS:
   lynx-app-haptics: 837ff778e906de9ac37005abd56e16f6c4defd8d
   lynx-app-liquid-glass: a1ac49d30156ec1090d75e8f659b4967aea5a92a
   lynx-app-mmkv: 7860d1659d1f824fdfa88825b8bcf21e42b4f96d
+  lynx-app-pressable-view: ac456194dfd4269ad11a5b5694d14d363a2c2f6b
   lynx-app-router: c0be761ca8cac8e62ce35f85a66996bdd755c831
   lynx-app-scanner: f0bfb08d9c677a52176b74a9fe9d78328f6bbf7c
   lynx-app-screenshot: 08441a9cbc39beb4aa76b2dc31346f04f920dcf2

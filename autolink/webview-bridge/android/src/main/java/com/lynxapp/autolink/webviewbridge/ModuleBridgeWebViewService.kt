@@ -150,35 +150,31 @@ class ModuleBridgeWebViewService(
             respond(session, id, ok = false, "module '$moduleName' is not exposed to this webview")
             return
         }
-        // LynxModuleFactory uses the last registration for duplicate names.
-        val entry = entries.lastOrNull { it.name == moduleName }
-        if (entry == null) {
-            respond(session, id, ok = false, "unknown module '$moduleName'")
-            return
-        }
 
         lynxContext.runOnTasmThread {
             try {
-                invokeEntry(session, id, entry, methodName, args)
+                invokeModule(session, id, moduleName, methodName, args)
             } catch (error: Throwable) {
                 respond(session, id, ok = false, errorMessage(error, "invoke failed"))
             }
         }
     }
 
-    private fun invokeEntry(
+    private fun invokeModule(
         session: String,
         id: Long,
-        entry: ModuleBridgeEntry,
+        moduleName: String,
         methodName: String,
         args: JSONArray,
     ) {
-        // Use Lynx's own CommonModuleCreator so constructor selection, wrapper
-        // setup and module lifecycle match normal Lynx native-module calls.
-        val wrapper = moduleFactory.getModule(entry.name)
-            ?: throw IllegalStateException("unable to create module '${entry.name}'")
+        // CommonModuleCreator resolves the per-view entries registered below
+        // first and falls back to LynxEnv's app-wide registry, which is where
+        // autolinked libraries register; constructor selection, wrapper setup
+        // and module lifecycle therefore match normal Lynx native-module calls.
+        val wrapper = moduleFactory.getModule(moduleName)
+            ?: throw IllegalStateException("unknown module '$moduleName'")
         val descriptor = wrapper.methodDescriptors.firstOrNull { it.name == methodName }
-            ?: throw NoSuchMethodException("module '${entry.name}' has no @LynxMethod '$methodName'")
+            ?: throw NoSuchMethodException("module '$moduleName' has no @LynxMethod '$methodName'")
         val method = descriptor.method
         val types = method.parameterTypes
         val callbackIndexes = types.indices.filter { types[it] == Callback::class.java }
@@ -191,7 +187,7 @@ class ModuleBridgeWebViewService(
         val valueCount = if (hasCallback) types.size - 1 else types.size
         if (valueCount != args.length()) {
             throw IllegalArgumentException(
-                "expected $valueCount arguments for '${entry.name}.$methodName', got ${args.length()}",
+                "expected $valueCount arguments for '$moduleName.$methodName', got ${args.length()}",
             )
         }
 

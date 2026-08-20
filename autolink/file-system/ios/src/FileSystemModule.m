@@ -6,6 +6,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
+static const NSUInteger kMaximumWriteBytes = 20 * 1024 * 1024;
 
 @interface FileSystemModule () <UIDocumentPickerDelegate>
 @end
@@ -30,6 +31,11 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
     @"copyToCache" : NSStringFromSelector(@selector(copyToCache:callback:)),
     @"readText" : NSStringFromSelector(@selector(readText:maxBytes:callback:)),
     @"readBase64" : NSStringFromSelector(@selector(readBase64:maxBytes:callback:)),
+    @"writeText" : NSStringFromSelector(@selector(writeText:contents:append:callback:)),
+    @"writeBase64" : NSStringFromSelector(@selector(writeBase64:base64:append:callback:)),
+    @"delete" : NSStringFromSelector(@selector(delete:callback:)),
+    @"listDir" : NSStringFromSelector(@selector(listDir:callback:)),
+    @"cacheDir" : NSStringFromSelector(@selector(cacheDir:)),
   };
 }
 
@@ -153,7 +159,7 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
                                       options:0
                                         error:&copyError
                                    byAccessor:^(NSURL *coordinatedURL) {
-        destination = [self copyPickedURLToCache:coordinatedURL error:&copyError];
+        destination = [self copyURLToCache:coordinatedURL error:&copyError];
       }];
       if (accessing) {
         [sourceURL stopAccessingSecurityScopedResource];
@@ -178,36 +184,6 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
   [controller dismissViewControllerAnimated:YES completion:nil];
   _pickerController = nil;
   [self finishPickerWithURIs:@[]];
-}
-
-- (nullable NSURL *)copyPickedURLToCache:(NSURL *)sourceURL error:(NSError **)error {
-  NSURL *base = [[NSFileManager defaultManager]
-      URLForDirectory:NSCachesDirectory
-             inDomain:NSUserDomainMask
-    appropriateForURL:nil
-               create:YES
-                error:error];
-  if (base == nil) {
-    return nil;
-  }
-  NSURL *directory = [[base URLByAppendingPathComponent:@"LynxPicker"]
-      URLByAppendingPathComponent:@"files"];
-  if (![[NSFileManager defaultManager] createDirectoryAtURL:directory
-                                withIntermediateDirectories:YES
-                                                 attributes:nil
-                                                      error:error]) {
-    return nil;
-  }
-  NSString *name = sourceURL.lastPathComponent.length > 0
-      ? sourceURL.lastPathComponent
-      : @"file";
-  NSURL *destination = [directory URLByAppendingPathComponent:
-      [NSString stringWithFormat:@"%@-%@", NSUUID.UUID.UUIDString, name]];
-  return [[NSFileManager defaultManager] copyItemAtURL:sourceURL
-                                                toURL:destination
-                                                error:error]
-      ? destination
-      : nil;
 }
 
 - (void)finishPickerWithURIs:(NSArray<NSString *> *)uris {
@@ -288,6 +264,87 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
   });
 }
 
+- (void)writeText:(NSString *)uri
+         contents:(NSString *)contents
+           append:(BOOL)append
+         callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    NSError *error = nil;
+    NSURL *target = [self sandboxURLForURI:uri error:&error];
+    NSString *value = nil;
+    if (target != nil) {
+      NSData *data = [contents dataUsingEncoding:NSUTF8StringEncoding];
+      if (data == nil) {
+        error = [self errorWithMessage:@"File contents are not valid UTF-8"];
+      } else {
+        value = [self writeData:data toURL:target append:append error:&error];
+      }
+    }
+    [self complete:callback value:value error:error];
+  });
+}
+
+- (void)writeBase64:(NSString *)uri
+             base64:(NSString *)base64
+             append:(BOOL)append
+           callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    NSError *error = nil;
+    NSURL *target = [self sandboxURLForURI:uri error:&error];
+    NSString *value = nil;
+    if (target != nil) {
+      NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+      if (data == nil) {
+        error = [self errorWithMessage:@"File contents are invalid Base64"];
+      } else {
+        value = [self writeData:data toURL:target append:append error:&error];
+      }
+    }
+    [self complete:callback value:value error:error];
+  });
+}
+
+- (void)delete:(NSString *)uri callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    NSError *error = nil;
+    NSURL *target = [self sandboxURLForURI:uri error:&error];
+    if (target != nil) {
+      NSString *path = target.path;
+      BOOL isDirectory = NO;
+      if (path.length == 0
+          || ![NSFileManager.defaultManager fileExistsAtPath:path
+                                                   isDirectory:&isDirectory]) {
+        error = [self errorWithMessage:@"File does not exist"];
+      } else if (![NSFileManager.defaultManager removeItemAtPath:path error:&error]) {
+        if (error == nil) {
+          error = [self errorWithMessage:@"Unable to delete the file"];
+        }
+      }
+    }
+    [self complete:callback value:nil error:error];
+  });
+}
+
+- (void)listDir:(NSString *)uri callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    NSError *error = nil;
+    NSURL *target = [self sandboxURLForURI:uri error:&error];
+    NSArray<NSDictionary<NSString *, id> *> *entries = nil;
+    if (target != nil) {
+      entries = [self listSandboxDirAtURL:target error:&error];
+    }
+    [self complete:callback value:entries error:error];
+  });
+}
+
+- (void)cacheDir:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    NSError *error = nil;
+    NSURL *root = [self sandboxRootURL:&error];
+    [self complete:callback value:root.absoluteString error:error];
+  });
+}
+
 - (nullable NSURL *)fileURL:(NSString *)uri error:(NSError **)error {
   NSURL *url = [NSURL URLWithString:[uri stringByTrimmingCharactersInSet:
       NSCharacterSet.whitespaceAndNewlineCharacterSet]];
@@ -337,8 +394,7 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
   };
 }
 
-- (nullable NSURL *)copyURLToCache:(NSURL *)source error:(NSError **)error {
-  BOOL accessing = [source startAccessingSecurityScopedResource];
+- (nullable NSURL *)sandboxRootURL:(NSError **)error {
   NSURL *base = [[NSFileManager defaultManager]
       URLForDirectory:NSCachesDirectory
              inDomain:NSUserDomainMask
@@ -346,7 +402,6 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
                create:YES
                 error:error];
   if (base == nil) {
-    if (accessing) [source stopAccessingSecurityScopedResource];
     return nil;
   }
   NSURL *directory = [base URLByAppendingPathComponent:@"LynxFiles" isDirectory:YES];
@@ -354,6 +409,145 @@ static const NSUInteger kMaximumReadBytes = 20 * 1024 * 1024;
                                 withIntermediateDirectories:YES
                                                  attributes:nil
                                                       error:error]) {
+    return nil;
+  }
+  return directory;
+}
+
+/**
+ * Resolves a sandbox-relative path or an in-sandbox file:// URI, rejecting
+ * anything that normalizes outside the sandbox.
+ */
+- (nullable NSURL *)sandboxURLForURI:(NSString *)uri error:(NSError **)error {
+  NSString *trimmed = [uri stringByTrimmingCharactersInSet:
+      NSCharacterSet.whitespaceAndNewlineCharacterSet];
+  if (trimmed.length == 0) {
+    if (error != NULL) {
+      *error = [self errorWithMessage:@"File URI must not be empty"];
+    }
+    return nil;
+  }
+  NSURL *root = [self sandboxRootURL:error];
+  if (root == nil) {
+    return nil;
+  }
+  NSString *rootPath = [self normalizedPathForPath:root.path];
+
+  NSURL *url = [NSURL URLWithString:trimmed];
+  NSString *scheme = url.scheme.lowercaseString;
+  NSURL *candidate = nil;
+  if (scheme.length == 0) {
+    candidate = [root URLByAppendingPathComponent:trimmed isDirectory:NO];
+  } else if (![scheme isEqualToString:@"file"]) {
+    if (error != NULL) {
+      *error = [self errorWithMessage:@"Cache sandbox supports file:// URIs and relative paths"];
+    }
+    return nil;
+  } else {
+    candidate = url;
+  }
+  NSString *candidatePath = [self normalizedPathForPath:candidate.path];
+  BOOL inside = [candidatePath isEqualToString:rootPath]
+      || [candidatePath hasPrefix:[rootPath stringByAppendingString:@"/"]];
+  if (candidatePath.length == 0 || !inside) {
+    if (error != NULL) {
+      *error = [self errorWithMessage:@"Path escapes the cache sandbox"];
+    }
+    return nil;
+  }
+  return [NSURL fileURLWithPath:candidatePath isDirectory:NO];
+}
+
+- (NSString *)normalizedPathForPath:(NSString *)path {
+  return [[path stringByResolvingSymlinksInPath] stringByStandardizingPath];
+}
+
+- (nullable NSString *)writeData:(NSData *)data
+                           toURL:(NSURL *)target
+                          append:(BOOL)append
+                          error:(NSError **)error {
+  if (data.length > kMaximumWriteBytes) {
+    if (error != NULL) {
+      *error = [self errorWithMessage:[NSString stringWithFormat:
+          @"File contents must not exceed %lu bytes",
+          (unsigned long)kMaximumWriteBytes]];
+    }
+    return nil;
+  }
+  NSFileManager *fileManager = NSFileManager.defaultManager;
+  NSURL *parent = target.URLByDeletingLastPathComponent;
+  if (parent == nil
+      || ![fileManager createDirectoryAtURL:parent
+                  withIntermediateDirectories:YES
+                                   attributes:nil
+                                        error:error]) {
+    if (error != NULL && *error == nil) {
+      *error = [self errorWithMessage:@"Unable to create the target directory"];
+    }
+    return nil;
+  }
+
+  NSString *path = target.path;
+  if (append) {
+    if (![fileManager fileExistsAtPath:path]) {
+      [fileManager createFileAtPath:path contents:nil attributes:nil];
+    }
+    NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (handle == nil) {
+      if (error != NULL) {
+        *error = [self errorWithMessage:@"Unable to open the target file"];
+      }
+      return nil;
+    }
+    [handle seekToEndOfFile];
+    [handle writeData:data];
+    [handle closeFile];
+    return target.absoluteString;
+  }
+  if (![data writeToFile:path options:NSDataWritingAtomic error:error]) {
+    return nil;
+  }
+  return target.absoluteString;
+}
+
+- (nullable NSArray<NSDictionary<NSString *, id> *> *)listSandboxDirAtURL:(NSURL *)directory
+                                                                    error:(NSError **)error {
+  NSFileManager *fileManager = NSFileManager.defaultManager;
+  NSString *path = directory.path;
+  BOOL isDirectory = NO;
+  if (path.length == 0
+      || ![fileManager fileExistsAtPath:path isDirectory:&isDirectory]
+      || !isDirectory) {
+    if (error != NULL) {
+      *error = [self errorWithMessage:@"Path is not a directory"];
+    }
+    return nil;
+  }
+  NSArray<NSString *> *children = [fileManager contentsOfDirectoryAtPath:path error:error];
+  if (children == nil) {
+    return nil;
+  }
+  children = [children sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+  NSMutableArray<NSDictionary<NSString *, id> *> *entries = [NSMutableArray array];
+  for (NSString *name in children) {
+    NSString *childPath = [path stringByAppendingPathComponent:name];
+    NSDictionary<NSFileAttributeKey, id> *attributes =
+        [fileManager attributesOfItemAtPath:childPath error:nil];
+    BOOL childIsDirectory = [attributes[NSFileType] isEqual:NSFileTypeDirectory];
+    [entries addObject:@{
+      @"name" : name,
+      @"uri" : [NSURL fileURLWithPath:childPath].absoluteString,
+      @"isDirectory" : @(childIsDirectory),
+      @"size" : childIsDirectory ? NSNull.null : (attributes[NSFileSize] ?: NSNull.null),
+    }];
+  }
+  return entries;
+}
+
+- (nullable NSURL *)copyURLToCache:(NSURL *)source error:(NSError **)error {
+  BOOL accessing = [source startAccessingSecurityScopedResource];
+  NSURL *directory = [self sandboxRootURL:error];
+  if (directory == nil) {
     if (accessing) [source stopAccessingSecurityScopedResource];
     return nil;
   }

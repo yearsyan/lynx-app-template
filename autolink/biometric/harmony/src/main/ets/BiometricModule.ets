@@ -126,12 +126,31 @@ export class BiometricModule extends LynxModule {
     }
 
     try {
-      const authTypes: userAuth.UserAuthType[] = [
-        userAuth.UserAuthType.FINGERPRINT,
-        userAuth.UserAuthType.FACE,
-      ];
-      if (options.allowDeviceCredential) {
+      const fingerprint = this.probeType(userAuth.UserAuthType.FINGERPRINT);
+      const face = this.probeType(userAuth.UserAuthType.FACE);
+      const pin = options.allowDeviceCredential
+        ? this.probeType(userAuth.UserAuthType.PIN, userAuth.AuthTrustLevel.ATL2)
+        : 'unavailable';
+      const authTypes: userAuth.UserAuthType[] = [];
+      if (fingerprint === 'ok') {
+        authTypes.push(userAuth.UserAuthType.FINGERPRINT);
+      }
+      if (face === 'ok') {
+        authTypes.push(userAuth.UserAuthType.FACE);
+      }
+      if (options.allowDeviceCredential && pin === 'ok') {
         authTypes.push(userAuth.UserAuthType.PIN);
+      }
+      if (authTypes.length === 0) {
+        const code = fingerprint === 'notEnrolled'
+          || face === 'notEnrolled'
+          || (options.allowDeviceCredential && pin === 'notEnrolled')
+          ? 'notEnrolled'
+          : 'unavailable';
+        callback(JSON.stringify(new NativeBiometricResult(
+          new NativeBiometricOutcome(code, ''),
+        )));
+        return;
       }
       const authParam: userAuth.AuthParam = {
         // The challenge only drives the system session; it is not verified
@@ -267,6 +286,22 @@ export class BiometricModule extends LynxModule {
         value: huks.HuksUserAuthType.HUKS_USER_AUTH_TYPE_FINGERPRINT
           | huks.HuksUserAuthType.HUKS_USER_AUTH_TYPE_FACE,
       },
+      {
+        tag: huks.HuksTag.HUKS_TAG_KEY_AUTH_ACCESS_TYPE,
+        value: huks.HuksAuthAccessType.HUKS_AUTH_ACCESS_INVALID_NEW_BIO_ENROLL,
+      },
+      {
+        tag: huks.HuksTag.HUKS_TAG_CHALLENGE_TYPE,
+        value: huks.HuksChallengeType.HUKS_CHALLENGE_TYPE_NORMAL,
+      },
+      {
+        tag: huks.HuksTag.HUKS_TAG_KEY_AUTH_PURPOSE,
+        value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_SIGN,
+      },
+      {
+        tag: huks.HuksTag.HUKS_TAG_USER_AUTH_MODE,
+        value: huks.HuksUserAuthMode.HUKS_USER_AUTH_MODE_LOCAL,
+      },
     ];
     // createSigningKey replaces any previous key on purpose: the server
     // rebinds to the returned public key anyway.
@@ -316,6 +351,13 @@ export class BiometricModule extends LynxModule {
       ))));
       return;
     }
+    const gate = this.cryptoGateCode();
+    if (gate !== null) {
+      callback(JSON.stringify(new NativeBiometricResult(new NativeBiometricCrypto(
+        gate, '', 'signature', null,
+      ))));
+      return;
+    }
     const base64 = new util.Base64Helper();
     const challengeBytes: Uint8Array = base64.decodeSync(options.challenge);
     if (challengeBytes.length === 0) {
@@ -324,10 +366,16 @@ export class BiometricModule extends LynxModule {
     }
 
     const signProperties: Array<huks.HuksParam> = [
+      { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_ECC },
       { tag: huks.HuksTag.HUKS_TAG_PURPOSE, value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_SIGN },
+      { tag: huks.HuksTag.HUKS_TAG_KEY_SIZE, value: 256 },
       { tag: huks.HuksTag.HUKS_TAG_DIGEST, value: huks.HuksKeyDigest.HUKS_DIGEST_SHA256 },
     ];
-    huks.initSession(BiometricModule.KEY_ALIAS, { properties: signProperties })
+    const signOptions: huks.HuksOptions = {
+      properties: signProperties,
+      inData: challengeBytes,
+    };
+    huks.initSession(BiometricModule.KEY_ALIAS, signOptions)
       .then((session: huks.HuksSessionHandle) => {
         const sessionChallenge = session.challenge;
         if (sessionChallenge === undefined) {
@@ -371,12 +419,8 @@ export class BiometricModule extends LynxModule {
           }
           huks.finishSession(
             session.handle,
-            {
-              properties: [
-                { tag: huks.HuksTag.HUKS_TAG_AUTH_TOKEN, value: token },
-              ],
-            },
-            challengeBytes,
+            signOptions,
+            token,
           ).then((finished: huks.HuksReturnResult) => {
             this.promptActive = false;
             const signature = finished.outData;
@@ -497,14 +541,14 @@ export class BiometricModule extends LynxModule {
 
 /** IAuthCallback implementation that relays the terminal result only. */
 class NativeAuthCallback implements userAuth.IAuthCallback {
-  private onAuthResult: (result: userAuth.UserAuthResult) => void;
+  onResult: (result: userAuth.UserAuthResult) => void;
 
   constructor(onAuthResult: (result: userAuth.UserAuthResult) => void) {
-    this.onAuthResult = onAuthResult;
-  }
-
-  onResult(result: userAuth.UserAuthResult): void {
-    this.onAuthResult(result);
+    // Native userAuth invokes the callback function without preserving the
+    // callback object's `this`, so keep the relay as an arrow closure.
+    this.onResult = (result: userAuth.UserAuthResult): void => {
+      onAuthResult(result);
+    };
   }
 }
 
