@@ -18,10 +18,7 @@ const contractsFile = join(
   repositoryDirectory,
   'contracts/native-modules.json',
 );
-const autolinkCatalogFile = join(
-  repositoryDirectory,
-  'config/autolink-modules.json',
-);
+const autolinkCatalogFile = join(repositoryDirectory, 'autolink.config.json');
 const packageFile = join(repositoryDirectory, 'package.json');
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
@@ -34,7 +31,7 @@ Scaffolds a Lynx Autolink NativeModule workspace package with matching
 Android, iOS and HarmonyOS stubs, a raw TypeScript contract, a handwritten
 Promise facade entry, a
 contracts/native-modules.json entry, official Autolink metadata, and a
-default-enabled entry in config/autolink-modules.json.
+default-enabled entry in autolink.config.json.
 The stubs export a single ping(message, callback) method so
 pnpm native:contracts:check passes immediately; replace it on all three
 hosts, keeping the contract in sync.

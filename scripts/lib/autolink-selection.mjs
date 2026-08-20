@@ -172,25 +172,23 @@ export function configuredAutolinkModules(packageJson, modules) {
  * single-sourced in the official Lynx manifest.
  */
 export async function loadAutolinkModules(rootDirectory = repositoryDirectory) {
-  const catalogFile = join(rootDirectory, 'config', 'autolink-modules.json');
+  const catalogFile = join(rootDirectory, 'autolink.config.json');
   const catalog = requireRecord(
     await readJson(catalogFile, 'Autolink module catalog'),
-    'config/autolink-modules.json',
+    'autolink.config.json',
   );
   if (catalog.schemaVersion !== 1) {
-    throw new Error(
-      'config/autolink-modules.json#schemaVersion must currently be 1',
-    );
+    throw new Error('autolink.config.json#schemaVersion must currently be 1');
   }
   if (!Array.isArray(catalog.modules)) {
-    throw new Error('config/autolink-modules.json#modules must be an array');
+    throw new Error('autolink.config.json#modules must be an array');
   }
 
   const supportedPlatforms = new Set(SUPPORTED_NATIVE_PLATFORMS);
   const seen = new Set();
   const modules = [];
   for (const [index, rawEntry] of catalog.modules.entries()) {
-    const location = `config/autolink-modules.json#modules[${index}]`;
+    const location = `autolink.config.json#modules[${index}]`;
     const entry = requireRecord(rawEntry, location);
     const { name } = entry;
     if (typeof name !== 'string' || !MODULE_NAME.test(name)) {
@@ -255,7 +253,7 @@ export async function loadAutolinkModules(rootDirectory = repositoryDirectory) {
 
   const sortedNames = [...seen].sort(compareNames);
   if (JSON.stringify([...seen]) !== JSON.stringify(sortedNames)) {
-    throw new Error('config/autolink-modules.json#modules must be name-sorted');
+    throw new Error('autolink.config.json#modules must be name-sorted');
   }
 
   const libraryDirectories = [];
@@ -276,7 +274,7 @@ export async function loadAutolinkModules(rootDirectory = repositoryDirectory) {
   const missing = libraryDirectories.filter((name) => !seen.has(name));
   if (missing.length > 0) {
     throw new Error(
-      `config/autolink-modules.json is missing library directory/directories: ${missing.join(', ')}`,
+      `autolink.config.json is missing library directory/directories: ${missing.join(', ')}`,
     );
   }
   return modules;

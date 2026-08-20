@@ -8,6 +8,7 @@
 .
 ├── .agent/skills       # 项目级 Agent skills 的统一入口
 ├── package.json        # 仓库级 pnpm 命令与工具依赖
+├── autolink.config.json # Autolink TUI 目录与宿主必选策略
 ├── pnpm-workspace.yaml # autolink/*、bundle/*、lib/* 工作区与统一依赖 catalog
 ├── biome.json          # 统一 lint、formatter 和 import 整理
 ├── tsconfig.base.json  # 严格 TypeScript 基线

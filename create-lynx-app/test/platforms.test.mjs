@@ -253,6 +253,8 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
       directAutolinkDependencies(packageJson),
       expectedPackageNames(expected),
     );
+    await readFile(join(projectDirectory, 'autolink.config.json'), 'utf8');
+    await doesNotExist(join(projectDirectory, 'config/autolink-modules.json'));
 
     // Every Autolink package resolves its own NativeModule through generated
     // code; generated apps must not retain the former central runtime package.
