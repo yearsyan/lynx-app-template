@@ -30,7 +30,8 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
 错误地结算新文档的 Promise。
 
 `@lynx-template/autolink-webview-bridge/client` 提供 `kv`、`clipboard`、`haptics`、
-`statusBar`、`getDeviceInfo` 等类型化封装，并使用同包生成的 RPC 契约。普通浏览器或未接入的宿主中，
+`statusBar`、`getDeviceInfo`、`getSafeAreaInsets` 等类型化封装；后三者都调用底层
+`DeviceInfo` 模块，并使用同包生成的 RPC 契约。普通浏览器或未接入的宿主中，
 `isNativeBridgeAvailable()` 返回 false，调用抛出 `NativeBridgeUnavailableError`。
 
 ## 能力授权

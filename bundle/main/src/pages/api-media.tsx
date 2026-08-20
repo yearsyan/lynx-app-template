@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 
 import '@lynx-template/autolink-webview-bridge';
 
-import { readSafeAreaInsets } from '@lynx-app/native-host';
 import { useInitData } from '@lynx-js/react';
 import type { TouchEvent as LynxTouchEvent } from '@lynx-js/types';
 import { albumUtils } from '@lynx-template/autolink-album-utils';
@@ -11,6 +10,7 @@ import type {
   AudioPlayerStateEvent,
 } from '@lynx-template/autolink-audio-player';
 import { audioPlayer } from '@lynx-template/autolink-audio-player';
+import { readSafeAreaInsets } from '@lynx-template/autolink-device-info';
 import { fileSystem } from '@lynx-template/autolink-file-system';
 import { screenshot } from '@lynx-template/autolink-screenshot';
 

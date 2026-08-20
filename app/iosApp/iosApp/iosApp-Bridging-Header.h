@@ -6,6 +6,7 @@
 #import <Lynx/LynxView.h>
 #import <LynxLibraryRegistry/LynxGeneratedLibraryRegistry.h>
 #import <lynx-app-router/RouterModule.h>
+#import <lynx-app-device-info/DeviceInfoModule.h>
 #import "LynxGenericResourceFetcher.h"
 #import <lynx-app-webview-bridge/LynxModuleBridgeConfig.h>
 #if DEBUG

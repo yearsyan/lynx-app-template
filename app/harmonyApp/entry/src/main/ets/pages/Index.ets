@@ -12,7 +12,18 @@ import {
   TemplateData,
 } from '@lynx/lynx';
 import { common } from '@kit.AbilityKit';
-import { window } from '@kit.ArkUI';
+import {
+  BACK_CONTEXT_DATA_KEY,
+  BackRegistration,
+  NativeBackController,
+} from '@lynx-template/autolink-back';
+import {
+  DeviceInfoModule,
+  DeviceInfoRegistration,
+  NativeSafeAreaController,
+  NativeStatusBarController,
+  SafeAreaInsets,
+} from '@lynx-template/autolink-device-info';
 
 import { BundleConfig } from '../config/BundleConfig';
 import { DevelopmentSettings } from 'entry/ets/config/DevelopmentSettings';
@@ -21,21 +32,11 @@ import {
   createModuleWebviewBehavior,
 } from '../webview/WebviewModuleBridge';
 import {
-  NativeBackController,
-  BackModule,
-  NativeBackRegistration,
-} from '../native/BackModule';
-import {
   NativeRoute,
   nativeRouteTransitionType,
   NativeRouterController,
   ROUTER_CONTEXT_DATA_KEY,
 } from '../host/NativeRouterHost';
-import {
-  NativeStatusBarController,
-  StatusBarModule,
-  NativeStatusBarRegistration,
-} from '../native/StatusBarModule';
 import { LaunchpadGenericResourceFetcher } from '../provider/LaunchpadGenericResourceFetcher';
 import { LaunchpadTemplateResourceFetcher } from '../provider/LaunchpadTemplateResourceFetcher';
 import { LynxBundleRepository } from '../provider/LynxBundleRepository';
@@ -73,27 +74,6 @@ class EmbeddedBundleFallbackClient extends LynxViewClient {
     }
     this.hasFallenBack = true;
     this.onBundleLoadFailure();
-  }
-}
-
-class SafeAreaInsets {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-
-  constructor(top: number = 0, right: number = 0, bottom: number = 0, left: number = 0) {
-    this.top = top;
-    this.right = right;
-    this.bottom = bottom;
-    this.left = left;
-  }
-
-  equals(other: SafeAreaInsets): boolean {
-    return this.top === other.top &&
-      this.right === other.right &&
-      this.bottom === other.bottom &&
-      this.left === other.left;
   }
 }
 
@@ -168,15 +148,13 @@ struct LynxBundlePage {
   private genericResourceFetcher: LynxGenericResourceFetcher = new LaunchpadGenericResourceFetcher();
   private bundleRepository: LynxBundleRepository = new LynxBundleRepository();
   private safeAreaInsets: SafeAreaInsets = new SafeAreaInsets();
+  private safeAreaController: NativeSafeAreaController = new NativeSafeAreaController();
   private metaData: MetaData = new MetaData(nativeEnvironmentData(this.safeAreaInsets, NativeRoute.main()));
   private modules: Map<string, ModuleClassWrapper> = new Map();
   // Explicit Harmony adapter reuses the page-scoped host module registry.
   private webviewBehaviors: Map<string, Behavior> = new Map();
-  private mainWindow: window.Window | undefined = undefined;
   private lynxContext: LynxContext | undefined = undefined;
-  private avoidAreaChangeCallback = (_options: window.AvoidAreaOptions): void => {
-    this.refreshSafeArea();
-  };
+  private hasStartedBundle: boolean = false;
   private lynxCreateCallback = (context: LynxContext): void => {
     this.installHostContext(context);
     this.lynxContext = context;
@@ -218,8 +196,21 @@ struct LynxBundlePage {
       ],
     ]);
     this.metaData.templateData = nativeEnvironmentData(this.safeAreaInsets, this.route);
+    this.safeAreaController.attach(
+      this.getUIContext(),
+      (insets: SafeAreaInsets): void => {
+        this.acceptSafeAreaInsets(insets);
+        this.startBundle(context);
+      },
+    );
+  }
+
+  private startBundle(context: common.UIAbilityContext): void {
+    if (this.hasStartedBundle) {
+      return;
+    }
+    this.hasStartedBundle = true;
     this.url = this.initialURL();
-    this.subscribeToSafeArea(context);
     if (this.route.bundle !== BundleConfig.BUNDLE_NAME ||
       this.bundleRepository.developmentURL(this.route.bundle).length > 0) {
       return;
@@ -241,7 +232,7 @@ struct LynxBundlePage {
   aboutToDisappear(): void {
     this.nativeBackController.deactivate(this.route.nativeBackID);
     this.nativeStatusBarController.deactivate(this.route.nativeBackID);
-    this.unsubscribeFromSafeArea();
+    this.safeAreaController.detach();
   }
 
   private initialURL(): string {
@@ -257,20 +248,15 @@ struct LynxBundlePage {
 
   private createModules(): Map<string, ModuleClassWrapper> {
     const modules = new Map<string, ModuleClassWrapper>();
-    // Package-owned libraries are installed globally by the official
-    // HarmonyOS Autolink AppStartup task. Only host-scoped modules live here.
+    // Package-owned libraries, including Back, are installed globally by the
+    // HarmonyOS Autolink AppStartup task. DeviceInfo additionally receives
+    // page-owned safe-area/status-bar state through its package adapter.
     modules.set(
-      BackModule.NAME,
+      DeviceInfoModule.NAME,
       new NativeModuleRegistration(
-        BackModule,
-        new NativeBackRegistration(this.nativeBackController, this.route.nativeBackID),
-      ),
-    );
-    modules.set(
-      StatusBarModule.NAME,
-      new NativeModuleRegistration(
-        StatusBarModule,
-        new NativeStatusBarRegistration(
+        DeviceInfoModule,
+        new DeviceInfoRegistration(
+          this.safeAreaController,
           this.nativeStatusBarController,
           this.route.nativeBackID,
         ),
@@ -281,74 +267,20 @@ struct LynxBundlePage {
 
   private installHostContext(context: LynxContext): void {
     const contextData: Record<string, Object> = context.getContextData() ?? {};
+    contextData[BACK_CONTEXT_DATA_KEY] = new BackRegistration(
+      this.nativeBackController,
+      this.route.nativeBackID,
+    );
     contextData[ROUTER_CONTEXT_DATA_KEY] = this.routerController;
     context.setContextData(contextData);
   }
 
-  private subscribeToSafeArea(context: common.UIAbilityContext): void {
-    window.getLastWindow(context).then((mainWindow: window.Window) => {
-      this.unsubscribeFromSafeArea();
-      this.mainWindow = mainWindow;
-      this.refreshSafeArea();
-      mainWindow.on('avoidAreaChange', this.avoidAreaChangeCallback);
-    }).catch((error: Error) => {
-      console.error(`Failed to observe safe area: ${error.message}`);
-    });
-  }
-
-  private unsubscribeFromSafeArea(): void {
-    if (this.mainWindow === undefined) {
+  private acceptSafeAreaInsets(insets: SafeAreaInsets): void {
+    if (this.safeAreaInsets.equals(insets)) {
       return;
     }
-    try {
-      this.mainWindow.off('avoidAreaChange', this.avoidAreaChangeCallback);
-    } catch (error) {
-      console.error(`Failed to stop observing safe area: ${JSON.stringify(error)}`);
-    }
-    this.mainWindow = undefined;
-  }
-
-  private refreshSafeArea(): void {
-    if (this.mainWindow === undefined) {
-      return;
-    }
-
-    let top = 0;
-    let right = 0;
-    let bottom = 0;
-    let left = 0;
-    const types: window.AvoidAreaType[] = [
-      window.AvoidAreaType.TYPE_SYSTEM,
-      window.AvoidAreaType.TYPE_CUTOUT,
-      window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR,
-    ];
-    for (const type of types) {
-      try {
-        const area = this.mainWindow.getWindowAvoidArea(type);
-        if (!area.visible) {
-          continue;
-        }
-        top = Math.max(top, area.topRect.height);
-        right = Math.max(right, area.rightRect.width);
-        bottom = Math.max(bottom, area.bottomRect.height);
-        left = Math.max(left, area.leftRect.width);
-      } catch (error) {
-        console.error(`Failed to read avoid area ${type}: ${JSON.stringify(error)}`);
-      }
-    }
-
-    const next = new SafeAreaInsets(
-      this.logicalPx(top),
-      this.logicalPx(right),
-      this.logicalPx(bottom),
-      this.logicalPx(left),
-    );
-    if (this.safeAreaInsets.equals(next)) {
-      return;
-    }
-
-    this.safeAreaInsets = next;
-    this.metaData.templateData = nativeEnvironmentData(next, this.route);
+    this.safeAreaInsets = insets;
+    this.metaData.templateData = nativeEnvironmentData(insets, this.route);
     this.publishNativeEnvironment();
   }
 
@@ -361,10 +293,6 @@ struct LynxBundlePage {
     }
     console.warn(`Lynx bundle ${this.url} failed to load; falling back to ${embedded}`);
     this.url = embedded;
-  }
-
-  private logicalPx(value: number): number {
-    return Math.round(this.getUIContext().px2vp(value) * 100) / 100;
   }
 
   private publishNativeEnvironment(): void {
@@ -430,6 +358,7 @@ struct Index {
         : NavDestinationMode.STANDARD)
       .systemTransition(
         nativeRouteTransitionType((param as NativeRoute).animation))
+      .onBackPressed((): boolean => this.nativeBackController.handleBack())
       .backgroundColor(Color.Transparent);
     }
   }

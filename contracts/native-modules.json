@@ -40,15 +40,19 @@
     {
       "name": "Back",
       "interfaceName": "BackModule",
-      "declaration": "lib/native-host/src/native.ts",
-      "declarationName": "BackModule",
+      "declaration": "autolink/back/types/platform-native-module.d.ts",
+      "declarationName": "Back",
+      "autolink": {
+        "directory": "back",
+        "exportName": "BACK_MODULE_NAME"
+      },
       "implementations": {
         "android": {
-          "searchRoot": "app/androidApp/app/src/main/java",
-          "fileName": "BackModule.kt"
+          "searchRoot": "autolink/back/android/src/main/java",
+          "fileName": "BackModule.java"
         },
-        "ios": "app/iosApp/iosApp/NativeModules/BackModule.swift",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/BackModule.ets"
+        "ios": "autolink/back/ios/src/BackModule.m",
+        "harmony": "autolink/back/harmony/src/main/ets/BackModule.ets"
       }
     },
     {
@@ -319,20 +323,6 @@
         },
         "ios": "autolink/secure-storage/ios/src/SecureStorageModule.m",
         "harmony": "autolink/secure-storage/harmony/src/main/ets/SecureStorageModule.ets"
-      }
-    },
-    {
-      "name": "StatusBar",
-      "interfaceName": "StatusBarModule",
-      "declaration": "lib/native-host/src/native.ts",
-      "declarationName": "StatusBarModule",
-      "implementations": {
-        "android": {
-          "searchRoot": "app/androidApp/app/src/main/java",
-          "fileName": "StatusBarModule.kt"
-        },
-        "ios": "app/iosApp/iosApp/NativeModules/StatusBarModule.swift",
-        "harmony": "app/harmonyApp/entry/src/main/ets/native/StatusBarModule.ets"
       }
     },
     {

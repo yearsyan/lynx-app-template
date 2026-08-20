@@ -1,13 +1,8 @@
 // Generated from contracts/native-modules.json. Do not edit.
-import {
-  BACK_MODULE_NAME,
-  type BackModule,
-  STATUS_BAR_MODULE_NAME,
-  type StatusBarModule,
-} from './native.js';
+import { BACK_MODULE_NAME, type BackModule } from './native.generated.js';
 
-/** Resolve the host-owned Back module for the current LynxView. */
-export function requireBackModule(): BackModule {
+/** Resolve this package's native module without a central runtime registry. */
+export function requireNativeModule(): BackModule {
   'background only';
   const nativeModule = NativeModules[BACK_MODULE_NAME] as
     | BackModule
@@ -19,20 +14,7 @@ export function requireBackModule(): BackModule {
   return nativeModule;
 }
 
-/** Resolve the host-owned StatusBar module for the current LynxView. */
-export function requireStatusBarModule(): StatusBarModule {
-  'background only';
-  const nativeModule = NativeModules[STATUS_BAR_MODULE_NAME] as
-    | StatusBarModule
-    | null
-    | undefined;
-  if (nativeModule === undefined || nativeModule === null) {
-    throw new Error('StatusBar is not registered by the host');
-  }
-  return nativeModule;
-}
-
-/** Convert the host modules' error-string callback convention to a Promise. */
+/** Convert the native error-string callback convention to a Promise. */
 export function completeNativeCall(
   action: (callback: (error: string) => void) => void,
 ): Promise<void> {
@@ -42,7 +24,7 @@ export function completeNativeCall(
       action((error) => {
         'background only';
         if (typeof error !== 'string') {
-          reject(new Error('Native host call returned an invalid error value'));
+          reject(new Error('Back returned an invalid error value'));
           return;
         }
         if (error.length > 0) {

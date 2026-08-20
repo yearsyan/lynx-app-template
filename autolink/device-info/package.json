@@ -1,6 +1,6 @@
 {
   "name": "@lynx-template/autolink-device-info",
-  "description": "Autolinked device info module for Lynx hosts (Android, iOS & HarmonyOS)",
+  "description": "Autolinked device, safe-area and status-bar APIs for Lynx hosts",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -16,5 +16,11 @@
     "types",
     "lynx.lib.json",
     "README.md"
-  ]
+  ],
+  "peerDependencies": {
+    "@lynx-js/react": "^0.123.0"
+  },
+  "devDependencies": {
+    "@lynx-js/react": "catalog:"
+  }
 }

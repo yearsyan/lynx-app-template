@@ -79,6 +79,10 @@ export function nativeModuleMethodArity(
       switch (methodName) {
         case 'getInfo':
           return 1;
+        case 'getSafeAreaInsets':
+          return 1;
+        case 'setStatusBarStyle':
+          return 2;
         default:
           return -1;
       }
@@ -213,13 +217,6 @@ export function nativeModuleMethodArity(
         case 'getString':
           return 3;
         case 'remove':
-          return 2;
-        default:
-          return -1;
-      }
-    case 'StatusBar':
-      switch (methodName) {
-        case 'setStyle':
           return 2;
         default:
           return -1;

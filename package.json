@@ -16,6 +16,7 @@
     "autolinkModules": [
       "album-utils",
       "audio-player",
+      "back",
       "battery",
       "biometric",
       "clipboard",
@@ -86,6 +87,7 @@
     "@lynx-js/types": "catalog:",
     "@lynx-template/autolink-album-utils": "workspace:*",
     "@lynx-template/autolink-audio-player": "workspace:*",
+    "@lynx-template/autolink-back": "workspace:*",
     "@lynx-template/autolink-battery": "workspace:*",
     "@lynx-template/autolink-biometric": "workspace:*",
     "@lynx-template/autolink-clipboard": "workspace:*",

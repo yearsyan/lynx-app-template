@@ -70,6 +70,7 @@ test('non-interactive CLI selection adds host-required integrations', async () =
   );
   assert.equal(options.name, 'fixture');
   assert.deepEqual(options.autolinkModules, [
+    'device-info',
     'mmkv',
     'router',
     'webview-bridge',

@@ -1,16 +1,16 @@
-package com.lynxapp.component
+package com.lynxapp.autolink.deviceinfo
 
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxUpdateMeta
+import com.lynx.tasm.LynxView
 import com.lynx.tasm.TemplateData
 
 /**
  * Publishes native window geometry using Lynx logical px (Android dp).
  * Keyboard/IME insets are deliberately excluded from the safe-area contract.
  */
-internal class NativeEnvironmentBridge(
+class NativeEnvironmentBridge(
     private val lynxView: LynxView,
     private val additionalData: Map<String, Any> = emptyMap(),
 ) {
@@ -57,7 +57,7 @@ internal class NativeEnvironmentBridge(
     private fun accept(windowInsets: WindowInsetsCompat) {
         val nativeInsets = windowInsets.getInsets(
             WindowInsetsCompat.Type.systemBars() or
-                WindowInsetsCompat.Type.displayCutout()
+                WindowInsetsCompat.Type.displayCutout(),
         )
         val density = lynxView.resources.displayMetrics.density
             .takeIf { it > 0f } ?: 1f

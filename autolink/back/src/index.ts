@@ -1,5 +1,6 @@
-import { useEffect, useRef } from '@lynx-js/react';
-import { completeNativeCall, requireBackModule } from './bridge.generated.js';
+import { completeNativeCall, requireNativeModule } from './bridge.generated.js';
+
+export * from './native.generated.js';
 
 export type BackPlatform = 'android' | 'ios' | 'harmony';
 export type BackPhase = 'start' | 'progress' | 'cancel' | 'commit';
@@ -19,7 +20,7 @@ export interface BackEvent {
 export type BackListener = (event: BackEvent) => void;
 
 export interface BackInterceptorRegistration {
-  /** Resolves after the native host has enabled back interception. */
+  /** Resolves after the current LynxView has enabled native interception. */
   readonly ready: Promise<void>;
   /** Removes this interceptor. Calling remove more than once is safe. */
   remove(): void;
@@ -42,6 +43,9 @@ function isBackEvent(value: unknown): value is BackEvent {
       event.phase === 'cancel' ||
       event.phase === 'commit') &&
     typeof event.progress === 'number' &&
+    Number.isFinite(event.progress) &&
+    event.progress >= 0 &&
+    event.progress <= 1 &&
     (event.source === 'system' ||
       event.source === 'gesture' ||
       event.source === 'button') &&
@@ -49,11 +53,19 @@ function isBackEvent(value: unknown): value is BackEvent {
       event.edge === 'right' ||
       event.edge === 'none') &&
     typeof event.touchX === 'number' &&
-    typeof event.touchY === 'number'
+    Number.isFinite(event.touchX) &&
+    typeof event.touchY === 'number' &&
+    Number.isFinite(event.touchY)
   );
 }
 
+function requireBackModule() {
+  'background only';
+  return requireNativeModule();
+}
+
 export const back = {
+  /** Enables or disables interception for this LynxView. */
   setEnabled(enabled: boolean): Promise<void> {
     'background only';
     return completeNativeCall((callback) =>
@@ -61,6 +73,7 @@ export const back = {
     );
   },
 
+  /** Subscribes to validated native Back lifecycle events. */
   addListener(listener: BackListener): () => void {
     'background only';
     const emitter = lynx.getJSModule('GlobalEventEmitter');
@@ -104,9 +117,8 @@ function dispatchBackStackEvent(event: BackEvent): void {
   const target = activeBackInterceptor;
   const isTerminal = event.phase === 'cancel' || event.phase === 'commit';
   try {
-    // Keep a gesture pinned to the interceptor that received `start`. If that
-    // popup disappears mid-gesture, never leak the remaining phases to the
-    // popup underneath it.
+    // Pin every phase to the interceptor that received start. If that popup
+    // disappears mid-gesture, do not leak the remaining phases underneath it.
     if (target !== null && !target.removed) {
       target.listener(event);
     }
@@ -119,16 +131,15 @@ function dispatchBackStackEvent(event: BackEvent): void {
 
 function ensureBackStackListener(): void {
   'background only';
-  if (removeBackStackListener !== null) {
-    return;
+  if (removeBackStackListener === null) {
+    removeBackStackListener = back.addListener(dispatchBackStackEvent);
   }
-  removeBackStackListener = back.addListener(dispatchBackStackEvent);
 }
 
 function reportBackStackError(error: unknown): void {
   'background only';
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`Unable to synchronize native back stack: ${message}`);
+  console.error(`Unable to synchronize native Back: ${message}`);
 }
 
 function reconcileBackStack(): Promise<void> {
@@ -148,9 +159,8 @@ function reconcileBackStack(): Promise<void> {
 }
 
 /**
- * LIFO back dispatcher for nested Lynx UI such as dropdowns, dialogs and
- * sheets. Only the most recently added interceptor receives a gesture. Native
- * interception stays enabled until the final entry is removed.
+ * LIFO dispatcher for nested Lynx UI such as dropdowns, dialogs and sheets.
+ * Native interception remains enabled until the final entry is removed.
  */
 export const backStack = {
   addInterceptor(listener: BackListener): BackInterceptorRegistration {
@@ -183,31 +193,3 @@ export const backStack = {
     return backInterceptors.length;
   },
 };
-
-/**
- * Registers a native-back interceptor while `enabled` and removes it on
- * cleanup. Interceptors form a LIFO stack, so the most recently enabled one
- * sees the gesture first. The latest `onEvent` is always invoked; only
- * `enabled` re-registers. The top interceptor must handle `commit` (close
- * its popup or call `router.close()`), or the back gesture is
- * consumed with no visible effect.
- */
-export function useBackInterceptor(
-  onEvent: BackListener,
-  enabled = true,
-): void {
-  const handlerRef = useRef<BackListener>(onEvent);
-  useEffect(() => {
-    handlerRef.current = onEvent;
-  });
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    const registration = backStack.addInterceptor((event) => {
-      'background only';
-      handlerRef.current(event);
-    });
-    return registration.remove;
-  }, [enabled]);
-}

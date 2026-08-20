@@ -1,5 +1,19 @@
 import UIKit
 
+enum NativeStatusBarStyle: String {
+  case darkContent = "dark-content"
+  case lightContent = "light-content"
+
+  var uiStyle: UIStatusBarStyle {
+    switch self {
+    case .darkContent:
+      return .darkContent
+    case .lightContent:
+      return .lightContent
+    }
+  }
+}
+
 /// Reloads from the embedded bundle when the bundle bytes cannot be fetched or
 /// parsed (dev server offline, broken OTA cache). JS runtime errors stay
 /// visible during development. Runs at most once: if the embedded bundle
@@ -31,7 +45,7 @@ private final class EmbeddedBundleFallback: NSObject, LynxViewLifecycle {
 }
 
 /// Reusable native host for both the storyboard root and routed Lynx bundles.
-class LynxPageViewController: UIViewController {
+class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
   private let bundleRepository = LynxBundleRepository()
   private let bundleName: String
   private let route: [String: Any]?
@@ -42,7 +56,6 @@ class LynxPageViewController: UIViewController {
   }
   private var nativeStatusBarStyle: NativeStatusBarStyle
   private var lynxView: LynxView?
-  private var nativeBackController: NativeBackController?
   private var embeddedFallback: EmbeddedBundleFallback?
   private var hasLoadedInitialBundle = false
   private var canUpdateTemplate = false
@@ -80,12 +93,8 @@ class LynxPageViewController: UIViewController {
     let config = WebviewModuleBridgeHostAdapter.makeConfig(
       provider: bundleRepository
     )
-    let nativeBackController = NativeBackController(host: self)
-    config.register(StatusBarModule.self, param: self)
-    config.register(BackModule.self, param: nativeBackController)
-    // Router, WebSocket, MMKV storage, clipboard and haptics come from the
-    // autolink/* workspace libraries; HarmonyOS hosts register their own
-    // instead. The Router's host navigation installs once in AppDelegate.
+    // Back, Router and the other workspace modules come from autolink/*.
+    // Router's host navigation policy installs once in AppDelegate.
     LynxGeneratedLibraryRegistry().setup(config)
     let lynxView = LynxView { builder in
       builder.config = config
@@ -106,8 +115,6 @@ class LynxPageViewController: UIViewController {
     lynxView.layoutHeightMode = .exact
     view.addSubview(lynxView)
     self.lynxView = lynxView
-    self.nativeBackController = nativeBackController
-    nativeBackController.attach(lynxView: lynxView)
 
     // A dev server or OTA cache that cannot serve the bundle must not leave a
     // white screen; render the embedded bundle instead (once).
@@ -142,7 +149,6 @@ class LynxPageViewController: UIViewController {
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    nativeBackController?.setVisible(true)
     loadInitialBundleIfReady()
   }
 
@@ -150,18 +156,10 @@ class LynxPageViewController: UIViewController {
     nativeStatusBarStyle.uiStyle
   }
 
-  func setNativeStatusBarStyle(_ style: NativeStatusBarStyle) {
+  func setLynxStatusBarStyle(_ rawStyle: String) {
+    guard let style = NativeStatusBarStyle(rawValue: rawStyle) else { return }
     nativeStatusBarStyle = style
     setNeedsStatusBarAppearanceUpdate()
-  }
-
-  override func viewWillDisappear(_ animated: Bool) {
-    nativeBackController?.setVisible(false)
-    super.viewWillDisappear(animated)
-  }
-
-  deinit {
-    nativeBackController?.destroy()
   }
 
   private func loadInitialBundleIfReady() {
@@ -203,22 +201,11 @@ class LynxPageViewController: UIViewController {
   }
 
   private func nativeEnvironmentData(_ insets: UIEdgeInsets) -> LynxTemplateData {
-    var data: [String: Any] = [
-      "nativeEnvironment": [
-        "schemaVersion": 1,
-        "unit": "px",
-        "safeAreaInsets": [
-          "top": Double(insets.top),
-          "right": Double(insets.right),
-          "bottom": Double(insets.bottom),
-          "left": Double(insets.left),
-        ],
-      ],
-    ]
+    var additionalData: [String: Any] = [:]
     if let route {
-      data["route"] = route
+      additionalData["route"] = route
     }
-    return LynxTemplateData(dictionary: data)
+    return LynxDeviceInfoTemplateData(insets, additionalData)
   }
 
   private func sameInsets(_ lhs: UIEdgeInsets, _ rhs: UIEdgeInsets?) -> Bool {

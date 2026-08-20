@@ -16,7 +16,6 @@
     "README.md"
   ],
   "devDependencies": {
-    "@lynx-app/native-host": "workspace:*",
     "@lynx-js/types": "catalog:",
     "@lynx-template/autolink-device-info": "workspace:*",
     "@lynx-template/autolink-haptics": "workspace:*"

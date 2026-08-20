@@ -8,4 +8,9 @@
  */
 export declare class DeviceInfo {
   getInfo(callback: (resultJSON: string) => void): void;
+  getSafeAreaInsets(callback: (resultJSON: string) => void): void;
+  setStatusBarStyle(
+    style: 'dark-content' | 'light-content',
+    callback: (error: string) => void,
+  ): void;
 }

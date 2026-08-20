@@ -25,10 +25,6 @@ const generatedHarmonyContractFile = join(
   repositoryDirectory,
   'app/harmonyApp/entry/src/main/ets/contracts/NativeModuleContracts.ets',
 );
-const generatedNativeHostBridgeFile = join(
-  repositoryDirectory,
-  'lib/native-host/src/bridge.generated.ts',
-);
 
 class ContractError extends Error {
   constructor(message) {
@@ -484,75 +480,6 @@ export function requireNativeModule(): ${module.interfaceName} {
 ${completionBlock}${decodeValueBlock}${envelopeBlock}${decodeEnvelopeBlock}`;
 }
 
-function hostModuleExportName(module) {
-  return `${module.name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}_MODULE_NAME`;
-}
-
-function generateNativeHostBridge(contract) {
-  const modules = contract.modules
-    .filter((module) => module.autolink === undefined)
-    .sort((left, right) => left.name.localeCompare(right.name));
-  const imports = [];
-  for (const module of modules) {
-    imports.push(`  ${hostModuleExportName(module)},`);
-    imports.push(`  type ${module.interfaceName},`);
-  }
-  const lines = [
-    '// Generated from contracts/native-modules.json. Do not edit.',
-    'import {',
-    ...imports,
-    "} from './native.js';",
-    '',
-  ];
-  for (const module of modules) {
-    const functionName = `require${module.interfaceName}`;
-    const exportName = hostModuleExportName(module);
-    lines.push(
-      `/** Resolve the host-owned ${module.name} module for the current LynxView. */`,
-      `export function ${functionName}(): ${module.interfaceName} {`,
-      "  'background only';",
-      `  const nativeModule = NativeModules[${exportName}] as`,
-      `    | ${module.interfaceName}`,
-      '    | null',
-      '    | undefined;',
-      '  if (nativeModule === undefined || nativeModule === null) {',
-      `    throw new Error('${module.name} is not registered by the host');`,
-      '  }',
-      '  return nativeModule;',
-      '}',
-      '',
-    );
-  }
-  lines.push(
-    "/** Convert the host modules' error-string callback convention to a Promise. */",
-    'export function completeNativeCall(',
-    '  action: (callback: (error: string) => void) => void,',
-    '): Promise<void> {',
-    "  'background only';",
-    '  return new Promise((resolve, reject) => {',
-    '    try {',
-    '      action((error) => {',
-    "        'background only';",
-    "        if (typeof error !== 'string') {",
-    "          reject(new Error('Native host call returned an invalid error value'));",
-    '          return;',
-    '        }',
-    '        if (error.length > 0) {',
-    '          reject(new Error(error));',
-    '        } else {',
-    '          resolve();',
-    '        }',
-    '      });',
-    '    } catch (error) {',
-    '      reject(error instanceof Error ? error : new Error(String(error)));',
-    '    }',
-    '  });',
-    '}',
-    '',
-  );
-  return lines.join('\n');
-}
-
 function generateHarmonyContract(contract) {
   const lines = [
     '// Generated from contracts/native-modules.json. Do not edit.',
@@ -585,10 +512,6 @@ function generatedOutputs(contract, platforms) {
     {
       path: generatedWebviewContractFile,
       content: generateWebviewContract(contract),
-    },
-    {
-      path: generatedNativeHostBridgeFile,
-      content: generateNativeHostBridge(contract),
     },
   ];
   if (platforms.includes('harmony')) {

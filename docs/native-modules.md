@@ -6,20 +6,19 @@
 调用契约、生成的 raw facade，以及手写的 Promise API、参数校验、返回值解码和事件
 生命周期；需要 React 的能力通过包内 `/react` 子路径导出 hooks。每个包的
 `bridge.generated.ts` 按 facade 的实际使用情况生成该模块专用的 resolver、callback 转
-Promise 和结构化值/旧 JSON 兼容解码，不依赖中心 runtime 包。`lib/native-host` 则拥有
-Back、StatusBar 和安全区等页面宿主能力，并生成自己的宿主模块 resolver。
+Promise 和结构化值/旧 JSON 兼容解码，不依赖中心 runtime 或 host facade。Back 的原生
+实现、事件校验、Promise facade、拦截栈与 React hook 也全部位于 `autolink/back`。
 Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
 
 - `KV`：以 MMKV 保存字符串；JSON 编解码由共享 TypeScript 层完成；
 - `Router`：打开另一个 bundle 对应的原生页面，或关闭当前页面；
-- `StatusBar`：按页面切换状态栏图标与文字的深浅样式；
 - `Back`：让当前 Lynx 页面同步声明是否接管系统返回，并接收返回生命周期事件；
 - `Clipboard`：读写系统剪贴板纯文本；
 - `Haptics`：单击式震动反馈，分 light / medium / heavy 三档；
 - `Biometric`：静默查询生物识别（指纹 / 面容）可用性，并拉起系统认证弹窗，可选降级到锁屏凭证；
 - `AlbumUtils`：从系统相册选择一张或多张图片，或把图片 URI 保存回系统相册；
 - `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64，并在缓存沙箱内写入 / 删除 / 列举文件；
-- `DeviceInfo`：按需读取机型、OS 版本、App 版本/构建号、屏幕密度、locale 以及平板/折叠屏判断；
+- `DeviceInfo`：按需读取机型、OS/App 版本、密度、locale、平板/折叠屏与当前安全区，并负责状态栏前景样式；TypeScript 仍提供易用的 `deviceInfo`、`safeArea`、`statusBar` facade；
 - `Battery`：按需读取电量（0..1，读不到时为 null）与充电状态；
 - `Toast`：一次性原生轻提示（info / success / error），替代 bundle 内自绘的 `<ToastHost />` 组件；
 - `Display`：按需查询屏幕宽度、当前窗口宽度与当前 LynxView 宽度（统一为 Lynx 逻辑像素），以及窗口亮度读取/设置与屏幕常亮；
@@ -33,11 +32,13 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 
 `Router`、`WebSocket`、`KV`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
 `Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner`、
-`AudioPlayer`、`SecureStorage` 与 `Toast` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
+`AudioPlayer`、`SecureStorage`、`Toast` 与 `Back` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
 （见下文「Lynx Autolink 集成」）。HarmonyOS 使用 4.2 nightly 的官方 Hvigor Autolink
-（源码 HAR + 全局 Registry + AppStartup）；只有 Back、StatusBar 因持有页面实例状态仍逐
-`LynxView` 手动注册。Router 的 ArkUI 导航策略留在宿主，通过 `LynxContext.contextData`
-注入，不参与模块注册。
+（源码 HAR + 全局 Registry + AppStartup）。HarmonyOS 的 Back 模块仍由 Autolink 注册，
+宿主只将 ArkUI 的离散 `onBackPress` 与 route registration 通过 `LynxContext.contextData`
+接到包内控制器。`DeviceInfoRegistration` 同样逐 `LynxView` 接入安全区监听和路由状态栏
+状态，但模块类与系统 API 实现都属于 `autolink/device-info`。Router 的 ArkUI 导航策略
+留在宿主，通过 contextData 注入，不参与模块注册。
 
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
 
@@ -46,8 +47,9 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 每个 Autolink NativeModule 的原始调用签名定义在所属包的
 `types/platform-native-module.d.ts`，例如 `KV` 位于
 `autolink/mmkv/types/platform-native-module.d.ts`。声明类本身就是 JS 侧的原始类型，
-不再在聚合包里复制一遍方法签名。宿主专属、不能由 Autolink 提供的 `Back` 和
-`StatusBar` 原始接口保留在 `lib/native-host/src/native.ts`。
+不再在聚合包里复制一遍方法签名。Back 的声明位于
+`autolink/back/types/platform-native-module.d.ts`；StatusBar 与 SafeArea 的声明位于
+`autolink/device-info/types/platform-native-module.d.ts`。仓库不再需要 `lib/native-host`。
 
 `contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
 映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
@@ -76,9 +78,10 @@ NativeModule 可直接传输的对象/数组；尚未迁移的三端实现可以
 业务代码直接依赖对应功能包，不访问全局 `NativeModules`：
 
 ```tsx
-import { backStack, statusBar } from '@lynx-app/native-host';
 import { albumUtils } from '@lynx-template/autolink-album-utils';
+import { backStack } from '@lynx-template/autolink-back';
 import { battery } from '@lynx-template/autolink-battery';
+import { statusBar } from '@lynx-template/autolink-device-info';
 import { fileSystem } from '@lynx-template/autolink-file-system';
 import { kv } from '@lynx-template/autolink-mmkv';
 import { router } from '@lynx-template/autolink-router';
@@ -229,7 +232,10 @@ iOS 在 `Info.plist` 声明 `CFBundleURLTypes`，HarmonyOS 在 `module.json5`
 - `dark-content`：深色图标和文字，适用于白色或其他浅色背景；
 - `light-content`：白色图标和文字，适用于深色背景。
 
-路由参数决定目标原生页面创建时的初始样式，默认是 `dark-content`；bridge 用于页面加载后动态切换当前页面。三个宿主都保持状态栏背景透明，让 Lynx 页面继续绘制到系统栏下面。路由 init data 中也包含 `route.statusBarStyle`，业务可以读取并保持自己的视觉状态一致。
+路由参数决定目标原生页面创建时的初始样式，默认是 `dark-content`；
+`statusBar.setStyle()` 通过同一个 `DeviceInfo.setStatusBarStyle` 模块方法动态切换当前页面，
+不再存在独立 `StatusBar` NativeModule。三个宿主都保持状态栏背景透明，让 Lynx 页面继续
+绘制到系统栏下面。路由 init data 中也包含 `route.statusBarStyle`，业务可以读取并保持自己的视觉状态一致。
 
 ### 剪贴板与震动反馈
 
@@ -664,16 +670,24 @@ attach 时 reject。
 
 ### 设备信息、显示宽度与亮度
 
-`DeviceInfo` 一次性返回设备与应用事实，`Display` 按需提供三种宽度与亮度/常亮控制；两者都是
-调用时现查，旋转、折叠/展开、多窗口拖拽与配置变更后立即反映最新值：
+`DeviceInfo` 返回设备与应用事实，也按需读取当前安全区和设置状态栏；`Display` 提供三种
+宽度与亮度/常亮控制。按需 API 都在调用时现查，旋转、折叠/展开、多窗口拖拽与配置变更后
+立即反映最新值：
 
 ```ts
-import { deviceInfo } from '@lynx-template/autolink-device-info';
+import {
+  deviceInfo,
+  safeArea,
+  statusBar,
+} from '@lynx-template/autolink-device-info';
 import { display } from '@lynx-template/autolink-display';
 
 const info = await deviceInfo.getInfo();
 // { model, manufacturer, osVersion, osApiLevel, appVersion, appBuild,
 //   density, locale, isTablet, isFoldable }
+
+const insets = await safeArea.getInsets(); // { top, right, bottom, left }
+await statusBar.setStyle('light-content');
 
 const screen = await display.screenWidth();     // 整屏宽度
 const window = await display.windowWidth();     // 当前窗口宽度（分屏/折叠时小于屏幕宽）
@@ -876,11 +890,11 @@ if (await sensors.available('compass')) {
 React 相关入口按需拆分，避免普通 Promise API 强制依赖 React：
 
 - `@lynx-template/autolink-router/react#useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失字段为 `undefined`，使用前自行校验）；
-- `@lynx-app/native-host#useBackInterceptor(onEvent, enabled?)`：声明式注册页面宿主返回拦截器，`enabled` 变化时自动注册/移除，且始终调用最新的 `onEvent`；拦截器仍遵循后进先出栈语义。
+- `@lynx-template/autolink-back/react#useBackInterceptor(onEvent, enabled?)`：声明式注册页面返回拦截器，`enabled` 变化时自动注册/移除，且始终调用最新的 `onEvent`；拦截器仍遵循后进先出栈语义。
 
 ### 返回拦截与进度
 
-`Back` 使用“预先启用 + 事件通知”的模型。共享层的
+`Back` 使用“预先启用 + 事件通知”的模型。`autolink/back` 的
 `backStack.addInterceptor()` 会在第一个拦截器入栈时启用原生返回，在最后一个
 拦截器出栈时关闭。宿主不会在手势开始后等待异步 JavaScript 决定是否拦截。启用后，
 栈顶业务必须处理 `commit`（关闭弹窗或调用 `router.close()`），否则原生返回会被
@@ -927,11 +941,15 @@ interface BackEvent {
 | --- | --- | --- |
 | Android 14+ | 系统预测性返回手势 | `start` / 连续 `progress` / `cancel` / `commit` |
 | Android 13 及更低版本 | 系统返回手势或按键 | 离散的 `start` → `commit` |
-| iOS | 宿主接管的屏幕边缘手势 | `start` / 连续 `progress` / `cancel` / `commit`；支持左右布局方向 |
+| iOS | 包内屏幕边缘手势 | `start` / 连续 `progress` / `cancel` / `commit`；支持左右布局方向 |
 | iOS | 导航栏返回按钮 | 离散的 `start` → `commit` |
 | HarmonyOS | 页面 `onBackPress()` | 离散的 `start` → `commit` |
 
-iOS 在启用期间会暂停 `UINavigationController` 自带的侧滑返回，改由宿主边缘手势上报进度；`commit` 后仍由 Lynx 业务决定关闭页面。因此这里提供的是统一可观测进度，不是 UIKit 原生交互式转场对象。Android 注册默认优先级回调后同样由当前 Lynx 页面拥有返回，系统不会替业务自动完成页面动画。
+iOS 模块从 `LynxView` responder chain 自动定位所属 VC，在页面可见且启用期间暂停
+`UINavigationController` 自带侧滑，改由包内边缘手势上报进度；页面消失或模块销毁时恢复
+系统手势和导航按钮。`commit` 后仍由 Lynx 业务决定关闭页面，因此这里提供的是统一可观测
+进度，不是 UIKit 原生交互式转场对象。Android 模块通过宿主 `FragmentActivity` 的 AndroidX
+`OnBackPressedDispatcher` 注册生命周期 callback，系统不会替业务自动完成页面动画。
 
 `progress` 通过 Lynx `GlobalEventEmitter` 进入后台运行时，适合更新返回预览状态；如果业务要求逐帧、与原生转场严格同步的动画，应进一步实现原生 UI 或渲染线程专用通道。
 
@@ -949,8 +967,10 @@ Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest
 
 这套行为已经封装在 `@lynx-template/activity-sheet`：`openActivityBottomSheet()` 负责以透明 sheet 路由打开目标 bundle，`useActivityBottomSheet()` 负责返回生命周期和关闭时序，`ActivityBottomSheet` 负责遮罩、全宽面板、grabber、动画与底部安全区。业务 bundle 只需要传入自己的内容；完整示例见 `lib/activity-sheet/README.md`。
 
-NativeModules 由应用级 Autolink Registry 自动提供；每个新路由页只补充页面作用域的
-Back、StatusBar，并继续注入 Router handler 与 `nativeEnvironment.safeAreaInsets`。因此
+NativeModules 由应用级 Autolink Registry 自动提供；Android/iOS 新路由页无需补充 Back
+注册。HarmonyOS 页面只把 route registration 放入 `LynxContext.contextData`，并转发 ArkUI
+离散返回事件。页面同时把 `DeviceInfo` 包提供的状态栏/安全区适配器接到当前 LynxView，
+继续注入 Router handler 与 `nativeEnvironment.safeAreaInsets`。因此
 第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层
 bundle。
 
@@ -1019,15 +1039,17 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 交互创建时可在多选 TUI 中取消可选库；只有启用库会作为根直接依赖出现在
 `node_modules`，从而被 Android、iOS 与 HarmonyOS 的官方扫描器发现。未启用库仍保留
 源码、原始声明与生成契约，修改清单并依次运行 `pnpm native:autolink:apply`、
-`pnpm install` 即可重新启用。`router` 是三端宿主必需项；Android/iOS 还会强制保留
-`webview-bridge`，这两个宿主直接引用了它的适配器类型。
+`pnpm install` 即可重新启用。`router` 与 `device-info` 是三端宿主必需项；后者向宿主提供
+首帧安全区和页面状态栏适配器。Android/iOS 还会强制保留 `webview-bridge`，这两个宿主
+直接引用了它的适配器类型。
 
 ```text
 autolink/
 ├── album-utils/   # AlbumUtils（相册选图 + 存图）
+├── back/          # Back（系统返回拦截 + Android/iOS 预测进度）
 ├── battery/       # Battery（电量 + 充电状态）
 ├── biometric/     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
-├── device-info/   # DeviceInfo（机型、OS/App 版本、密度、locale、平板/折叠屏）
+├── device-info/   # DeviceInfo（设备事实、安全区、状态栏）
 ├── display/       # Display（屏幕宽 / 窗口宽 / LynxView 宽 / 亮度 / 常亮）
 ├── sensors/       # Sensors（加速度计 + 罗盘流式读数）
 ├── toast/         # Toast（原生轻提示；iOS 为模块自绘气泡）
@@ -1059,9 +1081,10 @@ autolink/
 所在的宿主后委托给宿主安装的无状态 handler（Android 在 `LynxTemplateApplication`、
 iOS 在 `AppDelegate` 中各调用一次 `RouterModule.setRouteHandler(AppRouteHandler())`）；
 `openURL` 则完全在库内直通系统，详见[系统路由](#系统路由)。
-`biometric` 是唯一对宿主有形态要求的库：Android 的 `BiometricPrompt` 必须托管在
-`FragmentActivity` 上，本模板的两个宿主 Activity 已改为继承 `FragmentActivity`；
-iOS 使用 Face ID 需要宿主声明 `NSFaceIDUsageDescription`。
+`biometric` 与 `back` 对 Android 宿主有相同的形态要求：`BiometricPrompt` 和
+`OnBackPressedDispatcher` callback 都托管在 `FragmentActivity` 上，本模板所有创建
+LynxView 的 Activity 均继承 `FragmentActivity`。iOS 使用 Face ID 还需要宿主声明
+`NSFaceIDUsageDescription`。
 
 **Android**：构建固定为 AGP 8.13.2、Gradle 8.13、compileSdk 36 与经典 Kotlin Android
 插件 2.4.10，以使用 Lynx 官方 4.0.1 Autolink。`settings.gradle.kts` 应用
@@ -1094,8 +1117,11 @@ Provider Registry。
 `app/harmonyApp/vendor/lynx-library-plugin`；正式包发布后可换成 Hvigor 依赖而无需改 HAR。
 相册、文件选择器、扫码、Display 与 Screenshot 从 `LynxContext` 取得窗口、组件或
 `UIAbilityContext`；Sensors、WebSocket 通过 `LynxViewClient` 清理实例资源，因此 Provider
-不需要页面参数。Router 只从 `LynxContext.contextData` 取得宿主导航 handler。只有 Back、
-StatusBar 仍在 `app/harmonyApp/entry/src/main/ets/native/` 逐 `LynxView` 手动注册。
+不需要页面参数。Router 从 `LynxContext.contextData` 取得宿主导航 handler；Back 从同一
+容器取得 `BackRegistration`，而模块、route session、事件载荷和同步控制器均由自身源码
+HAR 导出。宿主只在 ArkUI `onBackPress` 中调用控制器，因为 HarmonyOS 没有独立订阅或
+返回进度 API。DeviceInfo 的页面注册对象、SafeArea 监听和 StatusBar 控制器也由自身源码
+HAR 导出。
 
 **新增一个 autolink 库**：最简单的方式是 `pnpm new:native-module <name>`，脚手架会生成
 三端 stub（含官方 Provider 结构的 `harmony/` 源码 HAR）、契约、workspace 依赖与
@@ -1114,8 +1140,8 @@ ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm nativ
 
 ## 原生实现位置
 
-- Autolink NativeModule 库（三端）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/back`、`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
-- Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`；Autolink Registry 只存在于 Gradle 生成目录；
-- iOS 宿主：`NativeModules/` 下的 `AppRouteHandler.swift`（Router 的宿主导航）与其他宿主模块、`LynxPageViewController.swift`；
-- HarmonyOS 宿主：`host/NativeRouterHost.ets` 提供 Router 的 ArkUI 导航策略；`native/` 下仅 `BackModule`、`StatusBarModule` 逐页面注册，入口位于 `pages/Index.ets`。
+- Android 宿主：`nativemodule/` 下只保留 `AppRouteHandler.kt`（Router 的宿主导航）以及 `LynxPageActivity.kt`；Back 位于 `autolink/back/android`，StatusBar/SafeArea 位于 `autolink/device-info/android`，Autolink Registry 只存在于 Gradle 生成目录；
+- iOS 宿主：`NativeModules/AppRouteHandler.swift` 提供 Router 导航策略，`LynxPageViewController.swift` 创建页面；Back 与 DeviceInfo 都从自身 pod 自动定位页面；
+- HarmonyOS 宿主：`host/NativeRouterHost.ets` 提供 Router 的 ArkUI 导航策略；`pages/Index.ets` 接入 `autolink/back/harmony` 和 `autolink/device-info/harmony` 导出的薄页面适配器，不再实现宿主 NativeModule。

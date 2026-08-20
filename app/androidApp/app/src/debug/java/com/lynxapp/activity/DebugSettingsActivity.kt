@@ -21,8 +21,7 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.lynxapp.DevelopmentSettings
-import com.lynxapp.component.enableLynxEdgeToEdge
-import com.lynxapp.component.STATUS_BAR_STYLE_LIGHT_CONTENT
+import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
 
 /** Native configuration UI compiled only into the Android Debug variant. */
 class DebugSettingsActivity : Activity() {
@@ -33,7 +32,10 @@ class DebugSettingsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableLynxEdgeToEdge(STATUS_BAR_STYLE_LIGHT_CONTENT)
+        DeviceSystemUI.enableEdgeToEdge(
+            this,
+            DeviceSystemUI.STATUS_BAR_STYLE_LIGHT_CONTENT,
+        )
         setContentView(createContent())
         populate(DevelopmentSettings.snapshot(this))
     }

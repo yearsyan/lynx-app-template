@@ -1,5 +1,5 @@
-import { statusBar } from '@lynx-app/native-host';
 import { useCallback, useState } from '@lynx-js/react';
+import { statusBar } from '@lynx-template/autolink-device-info';
 import { display } from '@lynx-template/autolink-display';
 import { localNotification } from '@lynx-template/autolink-local-notification';
 import { toast } from '@lynx-template/autolink-toast';

@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { UIContext } from '@kit.ArkUI';
 
 import { BundleConfig } from '../config/BundleConfig';
-import { STATUS_BAR_STYLE_DARK_CONTENT } from '../native/StatusBarModule';
+import { STATUS_BAR_STYLE_DARK_CONTENT } from '@lynx-template/autolink-device-info';
 
 interface NativeRouteOptions {
   bundle: string;

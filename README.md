@@ -18,10 +18,11 @@
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
 ├── autolink          # Lynx 原生库，三端均由官方 Autolink 注册
+│   ├── back          # Back（系统返回拦截 + 预测手势进度）
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
 │   ├── battery       # Battery（电量 + 充电状态）
 │   ├── clipboard     # Clipboard
-│   ├── device-info   # DeviceInfo
+│   ├── device-info   # DeviceInfo（设备信息、安全区、状态栏）
 │   ├── display       # Display（宽度 + 亮度 + 常亮）
 │   ├── file-system   # FileSystem（系统文件选择器 + URI 文件操作）
 │   ├── haptics       # Haptics
@@ -41,8 +42,7 @@
 ├── contracts        # NativeModule 名称、声明文件与三端实现的映射元数据
 ├── lib              # bundles 共享的基础库 workspace packages
 │   ├── activity-sheet # 跨 bundle 复用的原生透明底部面板
-│   ├── bundle-config # 跨 bundle 复用的 Rspeedy 构建配置
-│   └── native-host  # Back、StatusBar、安全区等页面宿主能力
+│   └── bundle-config # 跨 bundle 复用的 Rspeedy 构建配置
 └── scripts          # 原生配置、bundle 创建与发布同步脚本
 ```
 
@@ -64,9 +64,11 @@
 
 原生模块与 Element 库集中维护在 `autolink/`。Android、iOS 与 HarmonyOS 三个宿主都由
 Lynx 官方 Autolink 工具扫描各自平台的库、接入依赖并生成 Registry；宿主不维护
-Autolink Provider 清单。十六个 NativeModule 库均提供 HarmonyOS 源码 HAR；其中 Router
+Autolink Provider 清单。NativeModule 库均提供 HarmonyOS 源码 HAR；其中 Router
 通过 `LynxContext.contextData` 调用宿主的 ArkUI 导航策略，但模块类和注册仍由 Autolink
-管理。HarmonyOS 仅 Back、StatusBar 因页面实例状态继续在创建 `LynxView` 时注册。iOS 的
+管理。Back 已纵向封装在 `autolink/back`；Android/iOS 不再手工注册，HarmonyOS 宿主只把
+声明式返回事件和路由会话接到包内控制器。StatusBar 与 SafeArea 位于
+`autolink/device-info`。iOS 的
 `glass-switch` 与 `glass-dropdown` 也已作为
 `autolink/liquid-glass` 中的 Element 自动接入。集成细节见
 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。

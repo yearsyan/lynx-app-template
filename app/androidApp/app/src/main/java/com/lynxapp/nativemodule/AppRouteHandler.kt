@@ -13,8 +13,7 @@ import com.lynxapp.autolink.router.RouterModule.ANIMATION_NONE
 import com.lynxapp.autolink.router.RouterModule.PRESENTATION_PUSH
 import com.lynxapp.autolink.router.RouterModule.PRESENTATION_SHEET
 import com.lynxapp.autolink.router.RouterModule.isLynxRouteAnimation
-import com.lynxapp.component.STATUS_BAR_STYLE_DARK_CONTENT
-import com.lynxapp.component.isLynxStatusBarStyle
+import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
 import org.json.JSONObject
 
 /**
@@ -42,9 +41,9 @@ class AppRouteHandler : LynxRouteHandler {
         }
         val statusBarStyle = options.getString(
             "statusBarStyle",
-            STATUS_BAR_STYLE_DARK_CONTENT,
+            DeviceSystemUI.STATUS_BAR_STYLE_DARK_CONTENT,
         )
-        if (!isLynxStatusBarStyle(statusBarStyle)) {
+        if (!DeviceSystemUI.isStatusBarStyle(statusBarStyle)) {
             callback.invoke("Invalid status bar style: $statusBarStyle")
             return
         }

@@ -1,7 +1,6 @@
-import { useBackInterceptor } from '@lynx-app/native-host';
-
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
+import { useBackInterceptor } from '@lynx-template/autolink-back/react';
 
 import type { GlassDropdownEvent } from './native-elements.js';
 

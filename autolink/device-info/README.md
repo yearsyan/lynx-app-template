@@ -1,26 +1,41 @@
 # @lynx-template/autolink-device-info
 
-Autolinked Lynx native library that registers `DeviceInfo` on Android and
-iOS hosts. Bundles import `deviceInfo` from this package root.
+Autolinked Lynx native library that registers one `DeviceInfo` module on
+Android, iOS and HarmonyOS. It owns device facts, current safe-area reads,
+first-frame/reactive safe-area host adapters and status-bar foreground style.
+
+Bundles import these package-root facades:
+
+```ts
+import {
+  deviceInfo,
+  readSafeAreaInsets,
+  safeArea,
+  statusBar,
+} from '@lynx-template/autolink-device-info';
+
+const info = await deviceInfo.getInfo();
+const currentInsets = await safeArea.getInsets();
+await statusBar.setStyle('dark-content');
+```
 
 `getInfo` returns a JSON envelope `{ "value": { … } }` (or `{ "error": … }`)
 with:
 
-| Field | Android | iOS |
-| --- | --- | --- |
-| `model` | `Build.MODEL` | `utsname.machine` (e.g. `iPhone17,2`) |
-| `manufacturer` | `Build.MANUFACTURER` | `Apple` |
-| `osVersion` | `Build.VERSION.RELEASE` | `UIDevice.systemVersion` |
-| `osApiLevel` | `Build.VERSION.SDK_INT` | `null` |
-| `appVersion` | `PackageInfo.versionName` | `CFBundleShortVersionString` |
-| `appBuild` | `PackageInfo` (long) version code | `CFBundleVersion` |
-| `density` | `DisplayMetrics.density` | `UIScreen.scale` |
-| `locale` | `Locale.getDefault().toLanguageTag()` | `NSLocale.currentLocale.localeIdentifier` |
-| `isTablet` | `smallestScreenWidthDp >= 600` | `UIUserInterfaceIdiomPad` |
-| `isFoldable` | hinge-angle sensor feature (API 30+) | always `false` |
+| Field | Android | iOS | HarmonyOS |
+| --- | --- | --- | --- |
+| `model` | `Build.MODEL` | `utsname.machine` | `deviceInfo.productModel` |
+| `manufacturer` | `Build.MANUFACTURER` | `Apple` | `deviceInfo.brand` |
+| `osVersion` | `Build.VERSION.RELEASE` | `UIDevice.systemVersion` | `deviceInfo.osFullName` |
+| `osApiLevel` | `Build.VERSION.SDK_INT` | `null` | `deviceInfo.sdkApiVersion` |
+| `appVersion` / `appBuild` | `PackageInfo` | bundle info dictionary | `bundleManager` |
+| `density` | `DisplayMetrics.density` | `UIScreen.scale` | `display.densityPixels` |
+| `locale` | default locale | current locale | system locale |
+| `isTablet` / `isFoldable` | configuration / hinge feature | idiom / `false` | device type / display API |
 
-No permissions are required on either platform.
+Safe-area values use Lynx logical px (Android dp, iOS pt, HarmonyOS vp). The
+package also exports the small native host adapters needed to inject real
+geometry before the first render and update it when the window changes.
 
-HarmonyOS ships `DeviceInfoModule` (backed by `deviceInfo`,
-`bundleManager` and `display`) as the `harmony/` source HAR, registered
-globally by the official HarmonyOS Hvigor Autolink provider.
+Status-bar styles are `dark-content` and `light-content`; the background stays
+transparent so Lynx continues drawing edge-to-edge. No permission is required.

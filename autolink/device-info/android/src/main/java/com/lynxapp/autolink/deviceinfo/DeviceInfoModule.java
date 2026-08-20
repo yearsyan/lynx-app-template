@@ -1,16 +1,22 @@
 package com.lynxapp.autolink.deviceinfo;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
 import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.lynx.react.bridge.Callback;
 import com.lynx.jsbridge.LynxContextModule;
 import com.lynx.jsbridge.LynxMethod;
 import com.lynx.jsbridge.LynxNativeModule;
+import com.lynx.tasm.LynxView;
 import com.lynx.tasm.behavior.LynxContext;
 
 import org.json.JSONException;
@@ -58,6 +64,62 @@ public final class DeviceInfoModule extends LynxContextModule {
         }
     }
 
+    @LynxMethod
+    public void getSafeAreaInsets(Callback callback) {
+        LynxView lynxView = mLynxContext != null ? mLynxContext.getLynxView() : null;
+        if (lynxView == null) {
+            callback.invoke(error("DeviceInfo has no attached LynxView"));
+            return;
+        }
+        lynxView.post(() -> {
+            try {
+                WindowInsetsCompat windowInsets = ViewCompat.getRootWindowInsets(lynxView);
+                if (windowInsets == null) {
+                    callback.invoke(error("DeviceInfo has no window insets"));
+                    return;
+                }
+                Insets nativeInsets = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars()
+                                | WindowInsetsCompat.Type.displayCutout());
+                float density = lynxView.getResources().getDisplayMetrics().density;
+                if (density <= 0) {
+                    density = 1;
+                }
+                JSONObject value = new JSONObject();
+                value.put("top", nativeInsets.top / (double) density);
+                value.put("right", nativeInsets.right / (double) density);
+                value.put("bottom", nativeInsets.bottom / (double) density);
+                value.put("left", nativeInsets.left / (double) density);
+                JSONObject result = new JSONObject();
+                result.put("value", value);
+                callback.invoke(result.toString());
+            } catch (Throwable error) {
+                callback.invoke(error(messageOf(error, "Unable to read safe-area insets")));
+            }
+        });
+    }
+
+    @LynxMethod
+    public void setStatusBarStyle(String style, Callback callback) {
+        if (!DeviceSystemUI.isStatusBarStyle(style)) {
+            callback.invoke("Invalid status bar style: " + style);
+            return;
+        }
+        Activity activity = hostActivity();
+        if (activity == null) {
+            callback.invoke("DeviceInfo has no Activity host");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                DeviceSystemUI.setStatusBarStyle(activity, style);
+                callback.invoke("");
+            } catch (Throwable error) {
+                callback.invoke(messageOf(error, "Unable to style the status bar"));
+            }
+        });
+    }
+
     private void putAppVersion(JSONObject value, Context context) throws JSONException {
         try {
             PackageManager pm = context.getPackageManager();
@@ -90,6 +152,18 @@ public final class DeviceInfoModule extends LynxContextModule {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
                 && context.getPackageManager()
                         .hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE);
+    }
+
+    @Nullable
+    private Activity hostActivity() {
+        Context context = mLynxContext != null ? mLynxContext : mContext;
+        while (context instanceof ContextWrapper) {
+            if (context instanceof Activity) {
+                return (Activity) context;
+            }
+            context = ((ContextWrapper) context).getBaseContext();
+        }
+        return context instanceof Activity ? (Activity) context : null;
     }
 
     @Nullable

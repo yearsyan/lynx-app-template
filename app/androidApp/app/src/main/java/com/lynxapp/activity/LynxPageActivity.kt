@@ -8,25 +8,22 @@ import android.widget.FrameLayout
 import androidx.fragment.app.FragmentActivity
 import com.google.gson.Gson
 import com.lynx.tasm.LynxView
+import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
+import com.lynxapp.autolink.deviceinfo.NativeEnvironmentBridge
 import com.lynxapp.LynxBundleRepository
-import com.lynxapp.component.NativeEnvironmentBridge
-import com.lynxapp.component.STATUS_BAR_STYLE_DARK_CONTENT
 import com.lynxapp.component.createLynxView
-import com.lynxapp.component.enableLynxEdgeToEdge
 import com.lynxapp.autolink.router.RouterModule
-import com.lynxapp.nativemodule.NativeBackController
 
 /**
  * Hosts a secondary embedded Lynx bundle as an opaque page or transparent overlay.
  *
- * Extends FragmentActivity (not plain Activity) so the autolinked Biometric
- * module can host its BiometricPrompt on the activity that owns the LynxView.
+ * Extends FragmentActivity (not plain Activity) so the autolinked Back and
+ * Biometric modules can use AndroidX lifecycle-aware host APIs.
  */
 open class LynxPageActivity : FragmentActivity() {
     private lateinit var lynxView: LynxView
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
     private lateinit var bundleRepository: LynxBundleRepository
-    private lateinit var nativeBackController: NativeBackController
     private lateinit var root: FrameLayout
     private var fellBackToEmbedded = false
 
@@ -46,7 +43,7 @@ open class LynxPageActivity : FragmentActivity() {
 
     private val statusBarStyle: String
         get() = intent.getStringExtra(EXTRA_STATUS_BAR_STYLE)
-            ?: STATUS_BAR_STYLE_DARK_CONTENT
+            ?: DeviceSystemUI.STATUS_BAR_STYLE_DARK_CONTENT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,18 +51,15 @@ open class LynxPageActivity : FragmentActivity() {
             window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             window.decorView.setBackgroundColor(Color.TRANSPARENT)
         }
-        enableLynxEdgeToEdge(statusBarStyle)
+        DeviceSystemUI.enableEdgeToEdge(this, statusBarStyle)
         bundleRepository = LynxBundleRepository(this)
-        nativeBackController = NativeBackController(this)
         lynxView = createLynxView(
             bundleRepository,
-            nativeBackController,
             bundleName,
             onBundleLoadFailure = ::fallBackToEmbeddedBundle,
         ).apply {
             setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
         }
-        nativeBackController.attach(lynxView)
         root = FrameLayout(this).apply {
             addView(
                 lynxView,
@@ -84,17 +78,9 @@ open class LynxPageActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
-        nativeBackController.destroy()
         nativeEnvironmentBridge.detach()
         lynxView.destroy()
         super.onDestroy()
-    }
-
-    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun onBackPressed() {
-        if (!nativeBackController.handleLegacyBack()) {
-            super.onBackPressed()
-        }
     }
 
     private fun loadBundle() {
@@ -113,20 +99,16 @@ open class LynxPageActivity : FragmentActivity() {
         Log.w(TAG, "Bundle $bundleName failed to load; falling back to $embedded")
 
         nativeEnvironmentBridge.detach()
-        nativeBackController.destroy()
         root.removeView(lynxView)
         lynxView.destroy()
 
-        nativeBackController = NativeBackController(this)
         lynxView = createLynxView(
             bundleRepository,
-            nativeBackController,
             bundleName,
             groupUrl = embedded,
         ).apply {
             setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
         }
-        nativeBackController.attach(lynxView)
         root.addView(
             lynxView,
             0,

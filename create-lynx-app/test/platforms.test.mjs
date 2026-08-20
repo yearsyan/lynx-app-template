@@ -247,7 +247,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     const packageJson = JSON.parse(
       await readFile(join(projectDirectory, 'package.json'), 'utf8'),
     );
-    const expected = ['mmkv', 'router', 'webview-bridge'];
+    const expected = ['device-info', 'mmkv', 'router', 'webview-bridge'];
     assert.deepEqual(packageJson.nativeApp.autolinkModules, expected);
     assert.deepEqual(
       directAutolinkDependencies(packageJson),
@@ -286,6 +286,10 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
       'utf8',
     );
     assert.match(webviewClient, /from '\.\/contracts\.generated\.js'/);
+    assert.match(
+      webviewClient,
+      /NATIVE_MODULE_METHODS\.DeviceInfo\.setStatusBarStyle/,
+    );
     const webviewContracts = await readFile(
       join(
         projectDirectory,
@@ -294,7 +298,79 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
       'utf8',
     );
     assert.match(webviewContracts, /NATIVE_MODULE_METHODS/);
+    assert.match(webviewContracts, /setStatusBarStyle/);
+    assert.match(webviewContracts, /getSafeAreaInsets/);
+    assert.doesNotMatch(webviewContracts, /\bStatusBar:/);
     assert.doesNotMatch(webviewContracts, /\bimport\b/);
+    const deviceInfoDeclaration = await readFile(
+      join(
+        projectDirectory,
+        'autolink/device-info/types/platform-native-module.d.ts',
+      ),
+      'utf8',
+    );
+    assert.match(deviceInfoDeclaration, /getSafeAreaInsets/);
+    assert.match(deviceInfoDeclaration, /setStatusBarStyle/);
+    const backDeclaration = await readFile(
+      join(projectDirectory, 'autolink/back/types/platform-native-module.d.ts'),
+      'utf8',
+    );
+    assert.match(backDeclaration, /setEnabled/);
+    const backPackageJson = JSON.parse(
+      await readFile(
+        join(projectDirectory, 'autolink/back/package.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(backPackageJson.exports['./react'], './src/react.ts');
+    assert.equal(backPackageJson.dependencies, undefined);
+    const backFacade = await readFile(
+      join(projectDirectory, 'autolink/back/src/index.ts'),
+      'utf8',
+    );
+    assert.doesNotMatch(backFacade, /@lynx-js\/react/);
+    const backReact = await readFile(
+      join(projectDirectory, 'autolink/back/src/react.ts'),
+      'utf8',
+    );
+    assert.match(backReact, /backStack\.addInterceptor/);
+    await doesNotExist(join(projectDirectory, 'lib/native-host'));
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'app/androidApp/app/src/main/java/com/lynxapp/nativemodule/StatusBarModule.kt',
+      ),
+    );
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'app/iosApp/iosApp/NativeModules/StatusBarModule.swift',
+      ),
+    );
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'app/androidApp/app/src/main/java/com/lynxapp/nativemodule/BackModule.kt',
+      ),
+    );
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'app/iosApp/iosApp/NativeModules/BackModule.swift',
+      ),
+    );
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'app/harmonyApp/entry/src/main/ets/native/BackModule.ets',
+      ),
+    );
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'app/harmonyApp/entry/src/main/ets/native/StatusBarModule.ets',
+      ),
+    );
     for (const moduleName of ['battery', 'local-notification', 'permissions']) {
       const structuredBridge = await readFile(
         join(
@@ -342,8 +418,12 @@ test('Harmony-only none selection retains Router but not WebView bridge', async 
     const packageJson = JSON.parse(
       await readFile(join(projectDirectory, 'package.json'), 'utf8'),
     );
-    assert.deepEqual(packageJson.nativeApp.autolinkModules, ['router']);
+    assert.deepEqual(packageJson.nativeApp.autolinkModules, [
+      'device-info',
+      'router',
+    ]);
     assert.deepEqual(directAutolinkDependencies(packageJson), [
+      '@fixture/autolink-device-info',
       '@fixture/autolink-router',
     ]);
   } finally {

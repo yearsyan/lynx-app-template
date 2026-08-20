@@ -1,7 +1,7 @@
 {
   "name": "@lynx-template/autolink-device-info",
   "version": "1.0.0",
-  "description": "Autolinked device info module for Lynx hosts (HarmonyOS source HAR)",
+  "description": "Autolinked device, safe-area and status-bar APIs for Lynx hosts (HarmonyOS source HAR)",
   "main": "Index.ets",
   "license": "Apache-2.0",
   "dependencies": {

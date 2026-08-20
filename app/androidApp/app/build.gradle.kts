@@ -90,8 +90,8 @@ kotlin {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    // LynxPageActivity extends FragmentActivity so the autolinked Biometric
-    // library can host BiometricPrompt on the current Lynx page.
+    // Lynx pages extend FragmentActivity so the autolinked Back and Biometric
+    // libraries can use lifecycle-aware AndroidX host APIs.
     implementation("androidx.fragment:fragment:1.8.9")
     // Lynx 4.0 still requests AppCompat 1.0.0. Pin the current,
     // binary-compatible VectorDrawable artifacts across build toolchains.

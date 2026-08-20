@@ -35,6 +35,8 @@ PODS:
     - Lynx
   - lynx-app-audio-player (1.0.0):
     - Lynx
+  - lynx-app-back (1.0.0):
+    - Lynx
   - lynx-app-battery (1.0.0):
     - Lynx
   - lynx-app-biometric (1.0.0):
@@ -230,6 +232,7 @@ DEPENDENCIES:
   - DebugRouter/MessageTransceiverEnable (= 5.0.15)
   - lynx-app-album-utils (from `/Users/u/workspace/lynx-template/autolink/album-utils/ios`)
   - lynx-app-audio-player (from `/Users/u/workspace/lynx-template/autolink/audio-player/ios`)
+  - lynx-app-back (from `/Users/u/workspace/lynx-template/autolink/back/ios`)
   - lynx-app-battery (from `/Users/u/workspace/lynx-template/autolink/battery/ios`)
   - lynx-app-biometric (from `/Users/u/workspace/lynx-template/autolink/biometric/ios`)
   - lynx-app-clipboard (from `/Users/u/workspace/lynx-template/autolink/clipboard/ios`)
@@ -289,6 +292,8 @@ EXTERNAL SOURCES:
     :path: "/Users/u/workspace/lynx-template/autolink/album-utils/ios"
   lynx-app-audio-player:
     :path: "/Users/u/workspace/lynx-template/autolink/audio-player/ios"
+  lynx-app-back:
+    :path: "/Users/u/workspace/lynx-template/autolink/back/ios"
   lynx-app-battery:
     :path: "/Users/u/workspace/lynx-template/autolink/battery/ios"
   lynx-app-biometric:
@@ -339,6 +344,7 @@ SPEC CHECKSUMS:
   Lynx: 34c94a5ca239b8c282519ccbb598da390c3d7741
   lynx-app-album-utils: 945e846361c8b9a3f51f2afed5a2363f3c3efcde
   lynx-app-audio-player: 78bd28ca624df990405aff1bbeb1f2a44c775f9e
+  lynx-app-back: 6b9a9023a58f952bf1acecaf6fcc2380a81ac8e3
   lynx-app-battery: 545ed37e26586b90d45054415486d69d49100fa0
   lynx-app-biometric: 2422797a73addbe29137aed33c284d36c387a553
   lynx-app-clipboard: 4fa5b6d19bbf978336d5c8b09e303bee5ae35821

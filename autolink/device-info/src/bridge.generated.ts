@@ -17,6 +17,31 @@ export function requireNativeModule(): DeviceInfoModule {
   return nativeModule;
 }
 
+/** Convert the native error-string callback convention to a Promise. */
+export function completeNativeCall(
+  action: (callback: (error: string) => void) => void,
+): Promise<void> {
+  'background only';
+  return new Promise((resolve, reject) => {
+    try {
+      action((error) => {
+        'background only';
+        if (typeof error !== 'string') {
+          reject(new Error('DeviceInfo returned an invalid error value'));
+          return;
+        }
+        if (error.length > 0) {
+          reject(new Error(error));
+        } else {
+          resolve();
+        }
+      });
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
 /** Accept structured bridge values and legacy JSON strings during migration. */
 export function decodeNativeValue(value: unknown, source: string): unknown {
   'background only';

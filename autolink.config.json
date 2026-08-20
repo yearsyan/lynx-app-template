@@ -8,6 +8,9 @@
       "name": "audio-player"
     },
     {
+      "name": "back"
+    },
+    {
       "name": "battery"
     },
     {
@@ -17,7 +20,12 @@
       "name": "clipboard"
     },
     {
-      "name": "device-info"
+      "name": "device-info",
+      "requiredFor": [
+        "android",
+        "ios",
+        "harmony"
+      ]
     },
     {
       "name": "display"

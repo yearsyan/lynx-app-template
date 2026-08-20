@@ -10,9 +10,6 @@ import com.lynx.xelement.XElementBehaviors
 import com.lynxapp.GroupTemplateFetcher
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxGenericResourceFetcher
-import com.lynxapp.nativemodule.NativeBackController
-import com.lynxapp.nativemodule.BackModule
-import com.lynxapp.nativemodule.StatusBarModule
 
 // LynxSubErrorCode E_APP_BUNDLE_LOAD_BAD_RESPONSE / _PARSE_FAILED /
 // _BAD_BUNDLE: the bundle bytes could not be fetched or parsed (dev server
@@ -23,7 +20,6 @@ private val BUNDLE_LOAD_FAILURE_SUBCODES = setOf(10203, 10204, 10205)
 /** Creates every app-owned LynxView with the same native module contract. */
 internal fun Activity.createLynxView(
     bundleRepository: LynxBundleRepository,
-    nativeBackController: NativeBackController,
     bundleKey: String,
     groupUrl: String? = null,
     onBundleLoadFailure: (() -> Unit)? = null,
@@ -47,19 +43,9 @@ internal fun Activity.createLynxView(
     builder.setTemplateProvider(bundleRepository)
     builder.setGenericResourceFetcher(LynxGenericResourceFetcher)
     builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
-    // Workspace libraries are registered app-wide by Lynx's generated
-    // Autolink entry. The Router's host navigation installs once in the
-    // Application; only view-owned modules are registered explicitly here.
-    builder.registerModule(
-        StatusBarModule.NAME,
-        StatusBarModule::class.java,
-        this,
-    )
-    builder.registerModule(
-        BackModule.NAME,
-        BackModule::class.java,
-        nativeBackController,
-    )
+    // Workspace libraries, including Back, are registered app-wide by Lynx's
+    // generated Autolink entry. Router host navigation installs once in the
+    // Application; view-scoped modules discover this Activity from context.
     return builder.build(this).also { lynxView ->
         webviewBridgeAdapter.attach(lynxView)
         if (onBundleLoadFailure != null) {

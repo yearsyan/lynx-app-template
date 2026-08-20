@@ -14,7 +14,7 @@ the global provider does not expose a page's host-scoped module map.
 
 Pages loaded inside `<module-webview>` can use the `/client` export to wrap the
 injected `window.__lynxNativeBridge` protocol with typed facades (`kv`,
-`clipboard`, `haptics`, `statusBar`, `getDeviceInfo`) and a generic
+`clipboard`, `haptics`, `statusBar`, `getDeviceInfo`, `getSafeAreaInsets`) and a generic
 `invokeNative` escape hatch. Its module and method names come from the
 package-local generated contract.
 

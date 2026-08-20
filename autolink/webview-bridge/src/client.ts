@@ -16,8 +16,11 @@
  * below rejects with `NativeBridgeUnavailableError`.
  */
 
-import type { StatusBarStyle } from '@lynx-app/native-host';
-import type { DeviceInfo } from '@lynx-template/autolink-device-info';
+import type {
+  DeviceInfo,
+  SafeAreaInsets,
+  StatusBarStyle,
+} from '@lynx-template/autolink-device-info';
 import type { HapticImpact } from '@lynx-template/autolink-haptics';
 import {
   NATIVE_MODULE_METHODS,
@@ -185,12 +188,12 @@ export const haptics = {
   },
 };
 
-/** StatusBar module, mirroring `@lynx-app/native-host`'s `statusBar`. */
+/** Status-bar facade backed by the Autolinked DeviceInfo module. */
 export const statusBar = {
   async setStyle(style: StatusBarStyle): Promise<void> {
     await invokeVoid(
-      NATIVE_MODULE_NAMES.StatusBar,
-      NATIVE_MODULE_METHODS.StatusBar.setStyle,
+      NATIVE_MODULE_NAMES.DeviceInfo,
+      NATIVE_MODULE_METHODS.DeviceInfo.setStatusBarStyle,
       [style],
     );
   },
@@ -209,26 +212,48 @@ export async function getDeviceInfo(): Promise<DeviceInfo> {
   return decodeDeviceInfo(payload);
 }
 
-function decodeDeviceInfo(payload: unknown): DeviceInfo {
-  let parsed = payload;
-  if (typeof payload === 'string') {
-    try {
-      parsed = JSON.parse(payload) as unknown;
-    } catch {
-      throw new NativeBridgeError('DeviceInfo returned invalid JSON');
-    }
+/** Reads the current native safe area from the Autolinked DeviceInfo module. */
+export async function getSafeAreaInsets(): Promise<SafeAreaInsets> {
+  const [payload] = await invokeNative<[unknown]>(
+    NATIVE_MODULE_NAMES.DeviceInfo,
+    NATIVE_MODULE_METHODS.DeviceInfo.getSafeAreaInsets,
+    [],
+  );
+  return decodeSafeAreaInsets(payload);
+}
+
+function decodeSafeAreaInsets(payload: unknown): SafeAreaInsets {
+  const value = decodeEnvelopeValue(
+    payload,
+    'safe-area insets',
+  ) as Partial<SafeAreaInsets> | null;
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    typeof value.top !== 'number' ||
+    !Number.isFinite(value.top) ||
+    typeof value.right !== 'number' ||
+    !Number.isFinite(value.right) ||
+    typeof value.bottom !== 'number' ||
+    !Number.isFinite(value.bottom) ||
+    typeof value.left !== 'number' ||
+    !Number.isFinite(value.left)
+  ) {
+    throw new NativeBridgeError('DeviceInfo returned invalid safe-area insets');
   }
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new NativeBridgeError('DeviceInfo returned an invalid payload');
-  }
-  const result = parsed as {
-    value?: unknown;
-    error?: unknown;
+  return {
+    top: Math.max(0, value.top),
+    right: Math.max(0, value.right),
+    bottom: Math.max(0, value.bottom),
+    left: Math.max(0, value.left),
   };
-  if (typeof result.error === 'string' && result.error.length > 0) {
-    throw new NativeBridgeError(result.error);
-  }
-  const info = result.value as Partial<DeviceInfo> | null | undefined;
+}
+
+function decodeDeviceInfo(payload: unknown): DeviceInfo {
+  const info = decodeEnvelopeValue(
+    payload,
+    'device info',
+  ) as Partial<DeviceInfo> | null;
   if (typeof info !== 'object' || info === null) {
     throw new NativeBridgeError('DeviceInfo returned an invalid payload');
   }
@@ -248,4 +273,26 @@ function decodeDeviceInfo(payload: unknown): DeviceInfo {
     throw new NativeBridgeError('DeviceInfo returned an invalid payload');
   }
   return info as DeviceInfo;
+}
+
+function decodeEnvelopeValue(payload: unknown, label: string): unknown {
+  let parsed = payload;
+  if (typeof payload === 'string') {
+    try {
+      parsed = JSON.parse(payload) as unknown;
+    } catch {
+      throw new NativeBridgeError(`DeviceInfo returned invalid ${label} JSON`);
+    }
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new NativeBridgeError('DeviceInfo returned an invalid payload');
+  }
+  const result = parsed as {
+    value?: unknown;
+    error?: unknown;
+  };
+  if (typeof result.error === 'string' && result.error.length > 0) {
+    throw new NativeBridgeError(result.error);
+  }
+  return result.value;
 }

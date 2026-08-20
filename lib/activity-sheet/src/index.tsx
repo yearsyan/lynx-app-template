@@ -1,11 +1,4 @@
 import {
-  type BackEdge,
-  type BackEvent,
-  type BackPhase,
-  backStack,
-  readSafeAreaInsets,
-} from '@lynx-app/native-host';
-import {
   type ReactNode,
   runOnBackground,
   useCallback,
@@ -20,6 +13,13 @@ import type {
   MainThread,
   Target,
 } from '@lynx-js/types';
+import {
+  type BackEdge,
+  type BackEvent,
+  type BackPhase,
+  backStack,
+} from '@lynx-template/autolink-back';
+import { readSafeAreaInsets } from '@lynx-template/autolink-device-info';
 import {
   type RouteAnimation,
   router,

@@ -56,6 +56,9 @@ importers:
       '@lynx-template/autolink-audio-player':
         specifier: workspace:*
         version: link:autolink/audio-player
+      '@lynx-template/autolink-back':
+        specifier: workspace:*
+        version: link:autolink/back
       '@lynx-template/autolink-battery':
         specifier: workspace:*
         version: link:autolink/battery
@@ -127,13 +130,23 @@ importers:
 
   autolink/audio-player: {}
 
+  autolink/back:
+    devDependencies:
+      '@lynx-js/react':
+        specifier: 'catalog:'
+        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
+
   autolink/battery: {}
 
   autolink/biometric: {}
 
   autolink/clipboard: {}
 
-  autolink/device-info: {}
+  autolink/device-info:
+    devDependencies:
+      '@lynx-js/react':
+        specifier: 'catalog:'
+        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
 
   autolink/display: {}
 
@@ -182,9 +195,6 @@ importers:
 
   autolink/webview-bridge:
     devDependencies:
-      '@lynx-app/native-host':
-        specifier: workspace:*
-        version: link:../../lib/native-host
       '@lynx-js/types':
         specifier: 'catalog:'
         version: 4.0.0
@@ -197,9 +207,6 @@ importers:
 
   bundle/main:
     dependencies:
-      '@lynx-app/native-host':
-        specifier: workspace:*
-        version: link:../../lib/native-host
       '@lynx-js/lynx-ui':
         specifier: 3.136.0
         version: 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -215,6 +222,9 @@ importers:
       '@lynx-template/autolink-audio-player':
         specifier: workspace:*
         version: link:../../autolink/audio-player
+      '@lynx-template/autolink-back':
+        specifier: workspace:*
+        version: link:../../autolink/back
       '@lynx-template/autolink-battery':
         specifier: workspace:*
         version: link:../../autolink/battery
@@ -294,9 +304,6 @@ importers:
 
   bundle/predictive-back-sheet:
     dependencies:
-      '@lynx-app/native-host':
-        specifier: workspace:*
-        version: link:../../lib/native-host
       '@lynx-js/react':
         specifier: 'catalog:'
         version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
@@ -325,12 +332,15 @@ importers:
 
   lib/activity-sheet:
     dependencies:
-      '@lynx-app/native-host':
-        specifier: workspace:*
-        version: link:../native-host
       '@lynx-js/react':
         specifier: 'catalog:'
         version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
+      '@lynx-template/autolink-back':
+        specifier: workspace:*
+        version: link:../../autolink/back
+      '@lynx-template/autolink-device-info':
+        specifier: workspace:*
+        version: link:../../autolink/device-info
       '@lynx-template/autolink-router':
         specifier: workspace:*
         version: link:../../autolink/router
@@ -356,19 +366,6 @@ importers:
       '@rsbuild/plugin-type-check':
         specifier: 'catalog:'
         version: 1.5.0(@rsbuild/core@2.1.7)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(typescript@6.0.3)
-
-  lib/native-host:
-    dependencies:
-      '@lynx-js/react':
-        specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
-    devDependencies:
-      '@lynx-js/types':
-        specifier: 'catalog:'
-        version: 4.0.0
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
 
 packages:
 

@@ -13,12 +13,12 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@lynx-app/native-host": "workspace:*",
     "@lynx-js/lynx-ui": "3.136.0",
     "@lynx-js/react": "catalog:",
     "@lynx-template/activity-sheet": "workspace:*",
     "@lynx-template/autolink-album-utils": "workspace:*",
     "@lynx-template/autolink-audio-player": "workspace:*",
+    "@lynx-template/autolink-back": "workspace:*",
     "@lynx-template/autolink-battery": "workspace:*",
     "@lynx-template/autolink-biometric": "workspace:*",
     "@lynx-template/autolink-clipboard": "workspace:*",

@@ -55,6 +55,8 @@ export const NATIVE_MODULE_CONTRACT = {
     name: 'DeviceInfo',
     methods: {
       getInfo: { name: 'getInfo', arity: 1 },
+      getSafeAreaInsets: { name: 'getSafeAreaInsets', arity: 1 },
+      setStatusBarStyle: { name: 'setStatusBarStyle', arity: 2 },
     },
   },
   Display: {
@@ -152,12 +154,6 @@ export const NATIVE_MODULE_CONTRACT = {
       remove: { name: 'remove', arity: 2 },
     },
   },
-  StatusBar: {
-    name: 'StatusBar',
-    methods: {
-      setStyle: { name: 'setStyle', arity: 2 },
-    },
-  },
   Toast: {
     name: 'Toast',
     methods: {
@@ -194,7 +190,6 @@ export const NATIVE_MODULE_NAMES = {
   Screenshot: NATIVE_MODULE_CONTRACT.Screenshot.name,
   Sensors: NATIVE_MODULE_CONTRACT.Sensors.name,
   SecureStorage: NATIVE_MODULE_CONTRACT.SecureStorage.name,
-  StatusBar: NATIVE_MODULE_CONTRACT.StatusBar.name,
   Toast: NATIVE_MODULE_CONTRACT.Toast.name,
   WebSocket: NATIVE_MODULE_CONTRACT.WebSocket.name,
 } as const;
@@ -234,6 +229,10 @@ export const NATIVE_MODULE_METHODS = {
   },
   DeviceInfo: {
     getInfo: NATIVE_MODULE_CONTRACT.DeviceInfo.methods.getInfo.name,
+    getSafeAreaInsets:
+      NATIVE_MODULE_CONTRACT.DeviceInfo.methods.getSafeAreaInsets.name,
+    setStatusBarStyle:
+      NATIVE_MODULE_CONTRACT.DeviceInfo.methods.setStatusBarStyle.name,
   },
   Display: {
     screenWidth: NATIVE_MODULE_CONTRACT.Display.methods.screenWidth.name,
@@ -297,9 +296,6 @@ export const NATIVE_MODULE_METHODS = {
     setString: NATIVE_MODULE_CONTRACT.SecureStorage.methods.setString.name,
     getString: NATIVE_MODULE_CONTRACT.SecureStorage.methods.getString.name,
     remove: NATIVE_MODULE_CONTRACT.SecureStorage.methods.remove.name,
-  },
-  StatusBar: {
-    setStyle: NATIVE_MODULE_CONTRACT.StatusBar.methods.setStyle.name,
   },
   Toast: {
     show: NATIVE_MODULE_CONTRACT.Toast.methods.show.name,

@@ -1,7 +1,10 @@
 // organizeImports is disabled for this file in biome.json: the scaffolder
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
-import { readSafeAreaInsets, statusBar } from '@lynx-app/native-host';
+import {
+  readSafeAreaInsets,
+  statusBar,
+} from '@lynx-template/autolink-device-info';
 
 import { ScrollView } from '@lynx-js/lynx-ui';
 

@@ -8,6 +8,8 @@
   "devDependencies": {
   },
   "dependencies": {
+    "@lynx-template/autolink-back": "file:../../../autolink/back/harmony",
+    "@lynx-template/autolink-device-info": "file:../../../autolink/device-info/harmony",
     "@lynx/lynx": "4.2.0-nightly.202608180606.150.ga573c3b8",
     "@lynx/lynx_base": "4.2.0-nightly.202608180606.150.ga573c3b8",
     "@lynx/lynx_devtool": "4.2.0-nightly.202608180606.150.ga573c3b8",
