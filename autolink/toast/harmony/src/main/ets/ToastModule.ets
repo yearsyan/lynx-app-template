@@ -8,7 +8,7 @@ const DEFAULT_TEXT_COLOR: string = '#FFFFFFFF';
 const MIN_DURATION_MS: number = 1500;
 const MAX_DURATION_MS: number = 10000;
 
-/** Options mirrored from @lynx-app/native-bridge ToastOptions. */
+/** Options mirrored from this package's TypeScript ToastOptions. */
 export interface ToastOptions {
   type?: string;
   showIcon?: boolean;

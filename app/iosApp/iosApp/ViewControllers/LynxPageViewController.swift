@@ -50,7 +50,7 @@ class LynxPageViewController: UIViewController {
 
   init(
     bundleName: String,
-    route: [String: Any],
+    route: [String: Any]?,
     transparent: Bool,
     statusBarStyle: NativeStatusBarStyle
   ) {

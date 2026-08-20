@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "references": [
-    { "path": "../../lib/native-bridge" },
+    { "path": "../../lib/native-host" },
     { "path": "./tsconfig.node.json" },
     { "path": "./src" }
   ],

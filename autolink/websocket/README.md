@@ -1,8 +1,8 @@
 # @lynx-template/autolink-websocket
 
 Autolinked Lynx native library that registers `WebSocket` on Android, iOS and
-HarmonyOS hosts. Bundles keep consuming the JS API through
-`@lynx-app/native-bridge`; events use the `webSocket` global channel.
+HarmonyOS hosts. Its root exports the `WebSocketConnection`/`webSocket` API;
+events use the `webSocket` global channel.
 
 - **Android** (`android/`) — OkHttp-based transport compiled as a Gradle
   library project and registered by `org.lynxsdk.lynx.library-build`.

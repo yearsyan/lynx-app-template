@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.permissions",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-permissions.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

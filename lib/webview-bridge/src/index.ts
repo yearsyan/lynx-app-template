@@ -15,17 +15,16 @@
  * browsers), {@link isNativeBridgeAvailable} reports false and every facade
  * below rejects with `NativeBridgeUnavailableError`.
  */
-import type {
-  DeviceInfo,
-  HapticImpact,
-  StatusBarStyle,
-} from '@lynx-app/native-bridge';
+
 import {
   NATIVE_MODULE_METHODS,
   NATIVE_MODULE_NAMES,
   type NativeMethodName,
   type NativeModuleName,
 } from '@lynx-app/native-contracts';
+import type { StatusBarStyle } from '@lynx-app/native-host';
+import type { DeviceInfo } from '@lynx-template/autolink-device-info';
+import type { HapticImpact } from '@lynx-template/autolink-haptics';
 
 interface NativeBridgeGlobal {
   invoke(module: string, method: string, args?: unknown[]): Promise<unknown[]>;
@@ -93,7 +92,7 @@ async function invokeVoid(...invocation: NativeInvocation): Promise<void> {
   }
 }
 
-/** KV module (MMKV-backed), mirroring `@lynx-app/native-bridge`'s `kv`. */
+/** KV module (MMKV-backed), mirroring the Autolink MMKV package's `kv`. */
 export const kv = {
   async setString(key: string, value: string): Promise<void> {
     await invokeVoid(
@@ -155,7 +154,7 @@ export const kv = {
   },
 };
 
-/** Clipboard module, mirroring `@lynx-app/native-bridge`'s `clipboard`. */
+/** Clipboard module, mirroring the Autolink Clipboard package facade. */
 export const clipboard = {
   async setString(text: string): Promise<void> {
     await invokeVoid(
@@ -175,7 +174,7 @@ export const clipboard = {
   },
 };
 
-/** Haptics module, mirroring `@lynx-app/native-bridge`'s `haptics`. */
+/** Haptics module, mirroring the Autolink Haptics package facade. */
 export const haptics = {
   async impact(style: HapticImpact): Promise<void> {
     await invokeVoid(
@@ -186,7 +185,7 @@ export const haptics = {
   },
 };
 
-/** StatusBar module, mirroring `@lynx-app/native-bridge`'s `statusBar`. */
+/** StatusBar module, mirroring `@lynx-app/native-host`'s `statusBar`. */
 export const statusBar = {
   async setStyle(style: StatusBarStyle): Promise<void> {
     await invokeVoid(
@@ -198,11 +197,11 @@ export const statusBar = {
 };
 
 /**
- * DeviceInfo module. The native method answers with a JSON string; decode
- * matches `@lynx-app/native-bridge`'s `decodeDeviceInfo`.
+ * DeviceInfo module. Accepts either a structured bridge result or the legacy
+ * JSON envelope, matching the Autolink package facade.
  */
 export async function getDeviceInfo(): Promise<DeviceInfo> {
-  const [payload] = await invokeNative<[string]>(
+  const [payload] = await invokeNative<[unknown]>(
     NATIVE_MODULE_NAMES.DeviceInfo,
     NATIVE_MODULE_METHODS.DeviceInfo.getInfo,
     [],
@@ -210,12 +209,14 @@ export async function getDeviceInfo(): Promise<DeviceInfo> {
   return decodeDeviceInfo(payload);
 }
 
-function decodeDeviceInfo(payload: string): DeviceInfo {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(payload);
-  } catch {
-    throw new NativeBridgeError('DeviceInfo returned invalid JSON');
+function decodeDeviceInfo(payload: unknown): DeviceInfo {
+  let parsed = payload;
+  if (typeof payload === 'string') {
+    try {
+      parsed = JSON.parse(payload) as unknown;
+    } catch {
+      throw new NativeBridgeError('DeviceInfo returned invalid JSON');
+    }
   }
   if (typeof parsed !== 'object' || parsed === null) {
     throw new NativeBridgeError('DeviceInfo returned an invalid payload');

@@ -33,6 +33,10 @@
 	     updates); the system shows this string before the permission dialog. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Show which direction you are facing in Lynx pages.</string>
+	<!-- Required by the Permissions module's microphone probe; the
+	     system shows this string before the permission dialog. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record audio in Lynx pages when you choose to.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save images you choose to keep into the photo album.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -52,8 +56,6 @@
 					<string>Default Configuration</string>
 					<key>UISceneDelegateClassName</key>
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
 				</dict>
 			</array>
 		</dict>

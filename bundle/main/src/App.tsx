@@ -1,14 +1,15 @@
 // organizeImports is disabled for this file in biome.json: the scaffolder
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
-import { router, statusBar, useRouteParams } from '@lynx-app/native-bridge';
+import { readSafeAreaInsets, statusBar } from '@lynx-app/native-host';
 
 import { ScrollView } from '@lynx-js/lynx-ui';
 
 import { useCallback, useEffect, useState } from '@lynx-js/react';
 import { useInitData } from '@lynx-js/react';
 
-import { readSafeAreaInsets } from '@lynx-app/native-bridge';
+import { router } from '@lynx-template/autolink-router';
+import { useRouteParams } from '@lynx-template/autolink-router/react';
 
 import './App.css';
 import './components/native-elements.js';

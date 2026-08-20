@@ -19,16 +19,20 @@
     "@lynx-template/autolink-display": "workspace:*",
     "@lynx-template/autolink-file-system": "workspace:*",
     "@lynx-template/autolink-haptics": "workspace:*",
+    "@lynx-template/autolink-local-notification": "workspace:*",
     "@lynx-template/autolink-mmkv": "workspace:*",
+    "@lynx-template/autolink-permissions": "workspace:*",
     "@lynx-template/autolink-router": "workspace:*",
     "@lynx-template/autolink-scanner": "workspace:*",
     "@lynx-template/autolink-screenshot": "workspace:*",
     "@lynx-template/autolink-secure-storage": "workspace:*",
     "@lynx-template/autolink-sensors": "workspace:*",
     "@lynx-template/autolink-toast": "workspace:*",
-    "@lynx-template/autolink-websocket": "workspace:*"
+    "@lynx-template/autolink-websocket": "workspace:*",
+    "@lynx-app/native-host": "workspace:*"
   },
   "devDependencies": {
+    "@lynx-js/types": "catalog:",
     "typescript": "catalog:"
   },
   "private": true

@@ -1,8 +1,8 @@
 # @lynx-template/autolink-album-utils
 
 Autolinked Lynx native library that registers `AlbumUtils` on
-Android and iOS. Bundles consume it through
-`@lynx-app/native-bridge#albumUtils`.
+Android and iOS. Its Promise API is exported as
+`@lynx-template/autolink-album-utils#albumUtils`.
 
 - `pick` selects one or more images from the system album.
 - `saveToAlbum` writes an image URI into the system album.

@@ -1,5 +1,6 @@
-import { router, WebSocketConnection } from '@lynx-app/native-bridge';
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
+import { router } from '@lynx-template/autolink-router';
+import { WebSocketConnection } from '@lynx-template/autolink-websocket';
 
 import {
   ApiName,

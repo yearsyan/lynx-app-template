@@ -1,7 +1,7 @@
 # @lynx-template/autolink-sensors
 
 Autolinked Lynx native library that registers `Sensors` on Android, iOS and
-HarmonyOS hosts. Bundles consume it through `@lynx-app/native-bridge#sensors`.
+HarmonyOS hosts. Bundles import `sensors` from this package root.
 
 `isAvailable`/`start`/`stop` are command methods acked with an error string.
 Readings stream back through the Lynx `GlobalEventEmitter` on the `sensors`

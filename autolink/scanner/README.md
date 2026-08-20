@@ -1,7 +1,7 @@
 # @lynx-template/autolink-scanner
 
 Autolinked Lynx native library that registers `Scanner` on Android and iOS
-hosts. Bundles consume it through `@lynx-app/native-bridge#scanner`.
+hosts. Bundles import `scanner` from this package root.
 
 Both entry points answer a JSON envelope
 `{ "value": { "code", "content", "format", "message" } }` or

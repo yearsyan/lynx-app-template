@@ -15,6 +15,18 @@
     {
       "name": "network",
       "value": "Request network"
+    },
+    {
+      "name": "camera_permission",
+      "value": "Take photos and scan codes"
+    },
+    {
+      "name": "microphone_permission",
+      "value": "Record audio"
+    },
+    {
+      "name": "photo_library_permission",
+      "value": "Access photos you choose to use"
     }
   ]
 }

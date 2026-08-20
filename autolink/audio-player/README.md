@@ -2,8 +2,8 @@
 
 The `AudioPlayer` NativeModule: local-file audio playback for Lynx hosts
 (Android, iOS & HarmonyOS). Commands use error-string acknowledgements and
-state/progress updates flow back as `audioPlayer` global events; the
-high-level `audioPlayer` API lives in `@lynx-app/native-bridge`.
+state/progress updates flow back as `audioPlayer` global events; the package
+root exports the high-level `audioPlayer` Promise and event API.
 
 - Android: `android/src/main/java/com/lynxapp/autolink/audioplayer/AudioPlayerModule.java`
   (framework `MediaPlayer` + manual audio-focus handling; no extra dependencies)

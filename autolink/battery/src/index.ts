@@ -1,5 +1,65 @@
-// Generated from contracts/native-modules.json. Do not edit.
-export type { Battery as BatteryModule } from '../types/platform-native-module.js';
+import {
+  decodeNativeEnvelope,
+  requireNativeModule,
+} from '@lynx-app/native-runtime';
+import { BATTERY_MODULE_NAME } from './native.generated.js';
 
-/** Name the native hosts register this module under. */
-export const BATTERY_MODULE_NAME = 'Battery' as const;
+export * from './native.generated.js';
+
+/** Battery state reported by the native Battery module. */
+export interface BatteryInfo {
+  /** State of charge 0..1; null when the host cannot read it (e.g. iOS simulator). */
+  level: number | null;
+  /** True while connected to power and charging or full. */
+  charging: boolean;
+}
+
+interface BatteryResult {
+  error?: unknown;
+  value?: unknown;
+}
+
+function requireBatteryModule() {
+  'background only';
+  return requireNativeModule(BATTERY_MODULE_NAME);
+}
+
+function decodeBatteryInfo(value: unknown): BatteryInfo {
+  'background only';
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('Battery returned an invalid payload');
+  }
+  const info = value as Partial<BatteryInfo>;
+  const levelValid =
+    info.level === null ||
+    (typeof info.level === 'number' && Number.isFinite(info.level));
+  if (!levelValid || typeof info.charging !== 'boolean') {
+    throw new Error('Battery returned an invalid payload');
+  }
+  return info as BatteryInfo;
+}
+
+export const battery = {
+  /** Reads the current battery level and charging state on demand. */
+  getInfo(): Promise<BatteryInfo> {
+    'background only';
+    return new Promise((resolve, reject) => {
+      requireBatteryModule().getInfo((resultValue) => {
+        'background only';
+        try {
+          const result = decodeNativeEnvelope(
+            resultValue,
+            'Battery',
+          ) as BatteryResult;
+          if (typeof result.error === 'string' && result.error.length > 0) {
+            reject(new Error(result.error));
+            return;
+          }
+          resolve(decodeBatteryInfo(result.value));
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      });
+    });
+  },
+};

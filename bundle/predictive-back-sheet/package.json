@@ -14,9 +14,10 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@lynx-app/native-host": "workspace:*",
     "@lynx-js/react": "catalog:",
     "@lynx-template/activity-sheet": "workspace:*",
-    "@lynx-app/native-bridge": "workspace:*"
+    "@lynx-template/autolink-router": "workspace:*"
   },
   "devDependencies": {
     "@lynx-js/preact-devtools": "catalog:",

@@ -2,9 +2,11 @@
 
 ## 设计目标
 
-原生能力分为三层：每个 `autolink/*` 包拥有自己的原始 TypeScript 调用契约，
-`lib/native-contracts` 聚合这些类型并生成模块注册表，`lib/native-bridge` 则提供所有
-Lynx bundle 共享的 Promise、参数校验、返回值解码、事件生命周期和 React hooks。
+原生能力按功能纵向封装：每个 `autolink/*` 包同时拥有三端实现、原始 TypeScript
+调用契约、生成的 raw facade，以及手写的 Promise API、参数校验、返回值解码和事件
+生命周期；需要 React 的能力通过包内 `/react` 子路径导出 hooks。`lib/native-runtime`
+只保留模块解析、callback 转 Promise 和结构化值/旧 JSON 兼容解码等通用原语，
+`lib/native-host` 则拥有 Back、StatusBar 和安全区等页面宿主能力。
 Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
 
 - `KV`：以 MMKV 保存字符串；JSON 编解码由共享 TypeScript 层完成；
@@ -44,17 +46,19 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 `types/platform-native-module.d.ts`，例如 `KV` 位于
 `autolink/mmkv/types/platform-native-module.d.ts`。声明类本身就是 JS 侧的原始类型，
 不再在聚合包里复制一遍方法签名。宿主专属、不能由 Autolink 提供的 `Back` 和
-`StatusBar` 原始接口保留在 `lib/native-contracts/src/host.ts`。
+`StatusBar` 原始接口保留在 `lib/native-host/src/native.ts`。
 
 `contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
 映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
-`@lynx-app/native-contracts` 的模块名、方法白名单、参数个数和类型注册表，同时让各
-Autolink 包从根入口导出自己的原始类型与模块名常量。`lib/native-bridge` 和 WebView
-bridge 都消费该聚合结果，不再各自声明 `AppModules` 或硬编码模块、方法字符串。
+`@lynx-app/native-contracts` 的模块名、方法白名单、参数个数和类型注册表，同时在每个
+Autolink 包生成 `src/native.generated.ts`。包根入口 `src/index.ts` 是手写 facade，
+生成器不会覆盖；原始类型与模块名通过 `/raw` 子路径提供。聚合注册表只用于合同检查和
+WebView RPC 白名单，业务 bundle 直接依赖所使用的 Autolink 包。
 
-`native-bridge` 仍然保留，因为生成类只描述 callback 形式的传输协议，不包含 Promise
-封装、运行时参数校验、JSON/事件解码、LIFO 返回栈或 React hooks。业务 bundle 应使用
-`@lynx-app/native-bridge`；只有桥接基础设施需要直接消费原始契约。
+原生方法仍可使用 callback ABI，Promise 在所属包的 facade 内完成。返回值优先使用
+NativeModule 可直接传输的对象/数组；尚未迁移的三端实现可以继续返回 JSON 字符串，
+`decodeNativeValue` / `decodeNativeEnvelope` 同时接受两种形式。无论传输形式如何，模块
+自己的 facade 都必须做运行时校验，不能把原生返回值仅靠 TypeScript 断言交给业务层。
 
 `pnpm native:contracts:check` 除了检查生成物，还会核对
 `package.json#nativeApp.platforms` 中启用平台的原生实现：Android 的
@@ -65,18 +69,15 @@ bridge 都消费该聚合结果，不再各自声明 `AppModules` 或硬编码�
 
 ## JavaScript API
 
-业务代码只依赖 workspace 包，不直接访问全局 `NativeModules`：
+业务代码直接依赖对应功能包，不访问全局 `NativeModules`：
 
 ```tsx
-import {
-  albumUtils,
-  backStack,
-  battery,
-  fileSystem,
-  kv,
-  router,
-  statusBar,
-} from '@lynx-app/native-bridge';
+import { backStack, statusBar } from '@lynx-app/native-host';
+import { albumUtils } from '@lynx-template/autolink-album-utils';
+import { battery } from '@lynx-template/autolink-battery';
+import { fileSystem } from '@lynx-template/autolink-file-system';
+import { kv } from '@lynx-template/autolink-mmkv';
+import { router } from '@lynx-template/autolink-router';
 
 async function saveSession() {
   'background only';
@@ -247,7 +248,7 @@ soft / sharp / hard 预置效果；设备不支持对应预置效果时降级为
 `Biometric` 分为静默查询和交互认证两级 API：
 
 ```ts
-import { biometric } from '@lynx-app/native-bridge';
+import { biometric } from '@lynx-template/autolink-biometric';
 
 // 静默查询：不弹任何 UI，用于决定是否展示"开启生物识别"入口。
 const support = await biometric.checkSupport();
@@ -309,7 +310,7 @@ outcome：`FAIL` → `failed`（指纹 / 面容识别未通过，Android / iOS �
 成功的生物识别弹窗内使用。协议分两步：
 
 ```ts
-import { biometric } from '@lynx-app/native-bridge';
+import { biometric } from '@lynx-template/autolink-biometric';
 
 // 1) 每设备一次：生成密钥，把公钥交给服务端绑定到账号。
 const created = await biometric.createSigningKey();
@@ -511,7 +512,7 @@ if (photoURI) {
 本地图片识码（例如 `albumUtils.pick()` 的返回值），全程不进入 JS 的位图通道：
 
 ```ts
-import { scanner } from '@lynx-app/native-bridge';
+import { scanner } from '@lynx-template/autolink-scanner';
 
 const outcome = await scanner.scan();
 if (outcome.success) {
@@ -556,7 +557,7 @@ HarmonyOS 的用户取消以 Scan Kit 错误码 `1000500002`
 fd 在整个播放期间保持打开）。共享层拒绝 `http(s)://` 并提示仅支持本地文件。
 
 ```ts
-import { audioPlayer } from '@lynx-app/native-bridge';
+import { audioPlayer } from '@lynx-template/autolink-audio-player';
 
 const player = audioPlayer.create({
   uri: pickedURI,
@@ -622,7 +623,8 @@ Harmony `LynxViewClient.onDestroy()`），Harmony 连带关闭 fd。边界：不
 返回 `file://` URI 与像素尺寸；产物可以直接交给 `AlbumUtils.saveToAlbum` 存回相册：
 
 ```ts
-import { albumUtils, screenshot } from '@lynx-app/native-bridge';
+import { albumUtils } from '@lynx-template/autolink-album-utils';
+import { screenshot } from '@lynx-template/autolink-screenshot';
 
 const card = await screenshot.capture({
   idSelector: 'demo-card', // 省略时截取整个 LynxView
@@ -662,7 +664,8 @@ attach 时 reject。
 调用时现查，旋转、折叠/展开、多窗口拖拽与配置变更后立即反映最新值：
 
 ```ts
-import { deviceInfo, display } from '@lynx-app/native-bridge';
+import { deviceInfo } from '@lynx-template/autolink-device-info';
+import { display } from '@lynx-template/autolink-display';
 
 const info = await deviceInfo.getInfo();
 // { model, manufacturer, osVersion, osApiLevel, appVersion, appBuild,
@@ -706,7 +709,7 @@ UIAbilityContext）时命令 reject。`setKeepScreenOn(true)` 覆盖视频播放
 toast，不排队。`success` / `error` / `info` 在 Android 和 iOS 上显示彩色圆形图标（`✓` / `✕` / `i`），HarmonyOS 以 `✓` / `✕` 文本前缀呈现（`info` 无前缀），`showIcon: false` 可关闭：
 
 ```ts
-import { toast } from '@lynx-app/native-bridge';
+import { toast } from '@lynx-template/autolink-toast';
 
 await toast.show('Saved', { type: 'success', durationMs: 2000 });
 await toast.info('Picked Apple');
@@ -734,12 +737,76 @@ toast.error('Network unreachable').catch(() => {});
 | `setBrightness(v)` | 窗口 `WindowManager.LayoutParams.screenBrightness` | `UIScreen.mainScreen.brightness = v` | `window.setWindowBrightness(v)` |
 | `setKeepScreenOn(b)` | `FLAG_KEEP_SCREEN_ON` add/clear | `UIApplication.idleTimerDisabled` | `window.setKeepScreenOn(b)` |
 
+### 运行时权限
+
+`Permissions` 提供跨端统一的运行时权限查询与申请，覆盖通知、相机、相册与麦克风。
+`check` 只读状态不弹窗；`request` 在未授权时弹出系统申请框并返回最终状态——用户拒绝
+**resolve** 为 `denied` 而不是 reject，只有参数非法或宿主未注册模块才 reject：
+
+```ts
+import { permissions } from '@lynx-template/autolink-permissions';
+
+const state = await permissions.check('notifications');
+// { status: 'granted' } | 'limited' | 'denied' | 'notDetermined' | 'restricted'
+
+const after = await permissions.request('camera');
+if (after.status === 'granted') { /* ... */ }
+```
+
+状态语义（`PermissionStatus`）：`granted` 已授权；`limited` 仅相册——Android 14+ 与
+iOS 14+ 的"部分照片"授权；`denied` 已拒绝；`notDetermined` 从未申请过（申请必弹窗）；
+`restricted` 受系统策略限制（家长控制 / MDM）。平台差异：**Android 无法区分「未申请」
+与「拒绝后不再询问」，从不返回 `notDetermined`**，`denied` 之后 `request` 仍可能弹窗；
+iOS 一旦 `denied` 只能去系统设置；HarmonyOS 同样把未授权统一报告为 `denied`。
+
+| 平台 | 实现 |
+| --- | --- |
+| Android | 运行时权限走无头 androidx Fragment 承接弹窗（宿主 Activity 需为 `FragmentActivity`，与 Biometric 相同）；通知在 13+ 走 `POST_NOTIFICATIONS`，12 及以下只读应用级通知开关；相册按系统版本映射 `READ_MEDIA_IMAGES` / `READ_MEDIA_VISUAL_USER_SELECTED`（34+，报告 `limited`）/ `READ_EXTERNAL_STORAGE`（24–32） |
+| iOS | 通知 `UNUserNotificationCenter`；相机 `AVCaptureDevice`；相册 `PHPhotoLibrary`（14+ 访问级别 API，可报告 `limited`）；麦克风 `AVAudioSession`；宿主 `Info.plist` 需声明对应 usage 描述键 |
+| HarmonyOS | 相机 / 相册 / 麦克风走 `abilityAccessCtrl`（entry 的 `requestPermissions` 需声明 `ohos.permission.CAMERA` / `READ_IMAGEVIDEO` / `MICROPHONE`）；通知走 `isNotificationEnabled` / `requestEnableNotification` 弹窗 |
+
+### 本地通知
+
+`LocalNotification` 通过系统通知中心发送本地通知（立即或 `delayMs` 延迟），并按 id 取消。
+**权限申请不在这个模块里**——先用 `permissions.request('notifications')` 申请；未授权时
+`notify` resolve 为 `permissionDenied`（不会静默丢弃后假装成功）：
+
+```ts
+import { localNotification } from '@lynx-template/autolink-local-notification';
+import { permissions } from '@lynx-template/autolink-permissions';
+
+await permissions.request('notifications');
+const outcome = await localNotification.notify({
+  id: 'order-1001',
+  title: '订单已发货',
+  body: '预计明天送达',
+  delayMs: 5000,        // 可选：延迟发送，0 / 缺省为立即
+  sound: true,          // 可选：默认播放系统通知音
+});
+// { success: true, code: 'success', message: '' }
+
+await localNotification.cancel('order-1001'); // 取消排期与已送达
+await localNotification.cancelAll();          // 清除本应用全部通知
+```
+
+`id` 由业务自定义且稳定：复用同一 id 会替换上一条；`delayMs` 上限 7 天。平台差异：
+Android 的延迟通知经 `AlarmManager` 排期，**App 进程被杀后仍会送达**（精确闹钟不可用时
+退化为窗口闹钟）；iOS 经 `UNNotificationRequest` 触发器排期，且前台时以横幅展示；
+HarmonyOS 的延迟通知是进程内定时器，**不保证跨进程存活**，`cancelAll` 也只覆盖本实例
+发送过的通知。
+
+| 平台 | 实现 |
+| --- | --- |
+| Android | 框架 `Notification.Builder` + 单一渠道 `lynx.local`；延迟经 `AlarmManager`（`ScheduledNotificationReceiver`，manifest 声明）；排期 id 存 `SharedPreferences`，进程重启后 `cancelAll` 仍能清掉待发闹钟 |
+| iOS | `UNUserNotificationCenter`：`addNotificationRequest` + `UNTimeIntervalNotificationTrigger`；`willPresent` delegate 使前台展示横幅（14+ banner/list/sound，13 alert/sound） |
+| HarmonyOS | `notificationManager.publish`（`SERVICE_INFORMATION` slot）+ 进程内 `setTimeout` 延迟；字符串 id 以确定性哈希映射为数字 id |
+
 ### 电量
 
 `Battery` 按需读取当前电量与充电状态，三端均免权限：
 
 ```ts
-import { battery } from '@lynx-app/native-bridge';
+import { battery } from '@lynx-template/autolink-battery';
 
 const info = await battery.getInfo();
 // { level: 0.85, charging: true }
@@ -764,7 +831,7 @@ const info = await battery.getInfo();
 业务不需要手动管理传感器开关：
 
 ```ts
-import { sensors } from '@lynx-app/native-bridge';
+import { sensors } from '@lynx-template/autolink-sensors';
 
 if (await sensors.available('compass')) {
   const stop = sensors.observe(
@@ -800,12 +867,12 @@ if (await sensors.available('compass')) {
 `destroy()` 反注册、iOS `-destroy`、HarmonyOS 模块挂载的 `LynxViewClient.onDestroy()`
 只移除该实例的 sensor callbacks）。
 
-### 共享 hooks
+### React hooks
 
-`@lynx-app/native-bridge` 还提供两个与原生能力配套的 React hooks：
+React 相关入口按需拆分，避免普通 Promise API 强制依赖 React：
 
-- `useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失的字段为 `undefined`，使用前自行校验）；
-- `useBackInterceptor(onEvent, enabled?)`：声明式注册返回拦截器，`enabled` 变化时自动注册/移除，且始终调用最新的 `onEvent`；拦截器仍遵循后进先出栈语义。
+- `@lynx-template/autolink-router/react#useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失字段为 `undefined`，使用前自行校验）；
+- `@lynx-app/native-host#useBackInterceptor(onEvent, enabled?)`：声明式注册页面宿主返回拦截器，`enabled` 变化时自动注册/移除，且始终调用最新的 `onEvent`；拦截器仍遵循后进先出栈语义。
 
 ### 返回拦截与进度
 
@@ -890,7 +957,7 @@ WebSocket 没有依赖关系。它在 Debug 和 Release 都会注册；Release �
 `wss://`，Debug 额外允许 `ws://` 用于局域网调试。
 
 ```ts
-import { webSocket } from '@lynx-app/native-bridge';
+import { webSocket } from '@lynx-template/autolink-websocket';
 
 function connectRealtime() {
   'background only';
@@ -968,6 +1035,11 @@ autolink/
 ├── haptics/       # Haptics（单击式触感反馈）
 ├── scanner/       # Scanner（全屏扫码 + 相册图片识码）
 ├── audio-player/  # AudioPlayer（本地文件音频播放 + 四种音频流）
+├── pressable-view/ # PressableView（原生按压反馈视图组件）
+├── screenshot/    # Screenshot（LynxView 截图为 Base64）
+├── webview-bridge/ # WebView 原生桥（Android/iOS；宿主直接引用其适配器）
+├── permissions/   # Permissions（统一运行时权限：通知 / 相机 / 相册 / 麦克风）
+├── local-notification/ # LocalNotification（本地通知：立即 / 延迟发送与取消）
 └── router/        # Router（应用内导航 + 系统 scheme 打开）
 ```
 
@@ -1038,7 +1110,7 @@ ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm nativ
 
 ## 原生实现位置
 
-- Autolink NativeModule 库（三端）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
 - Android 宿主：`nativemodule/` 下的 `AppRouteHandler.kt`（Router 的宿主导航）、`StatusBarModule.kt`、`BackModule.kt`，以及 `LynxPageActivity.kt`；Autolink Registry 只存在于 Gradle 生成目录；
 - iOS 宿主：`NativeModules/` 下的 `AppRouteHandler.swift`（Router 的宿主导航）与其他宿主模块、`LynxPageViewController.swift`；

@@ -3,11 +3,8 @@ import {
   type BackEvent,
   type BackPhase,
   backStack,
-  type RouteAnimation,
   readSafeAreaInsets,
-  router,
-  type StatusBarStyle,
-} from '@lynx-app/native-bridge';
+} from '@lynx-app/native-host';
 import {
   type ReactNode,
   runOnBackground,
@@ -23,6 +20,11 @@ import type {
   MainThread,
   Target,
 } from '@lynx-js/types';
+import {
+  type RouteAnimation,
+  router,
+  type StatusBarStyle,
+} from '@lynx-template/autolink-router';
 
 import './style.css';
 

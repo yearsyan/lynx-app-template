@@ -1,8 +1,8 @@
 # @lynx-template/autolink-router
 
 Autolinked Lynx native library that registers `Router` on Android, iOS and
-HarmonyOS hosts. Bundles keep consuming the JS API through
-`@lynx-app/native-bridge`.
+HarmonyOS hosts. The package root exports its Promise API; the optional
+`@lynx-template/autolink-router/react` entry exports `useRouteParams`.
 
 - **Android** (`android/`) — `open`/`close` delegate to a host-installed
   `LynxRouteHandler` (in-app `LynxPageActivity` navigation), while

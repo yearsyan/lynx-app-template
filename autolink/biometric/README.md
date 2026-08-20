@@ -2,8 +2,8 @@
 
 Autolinked Lynx native library that registers `Biometric` (system
 fingerprint / face prompt with optional device-credential fallback) on
-Android and iOS hosts. Bundles keep consuming the JS API through
-`@lynx-app/native-bridge`.
+Android and iOS hosts. The same package exports its validated `biometric`
+Promise API.
 
 - **Android** (`android/`) — `androidx.biometric.BiometricPrompt` compiled
   as a Gradle library project. The prompt is hosted by the current

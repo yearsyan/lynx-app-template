@@ -1,4 +1,4 @@
-import { readSafeAreaInsets } from '@lynx-app/native-bridge';
+import { readSafeAreaInsets } from '@lynx-app/native-host';
 import type { ReactNode } from '@lynx-js/react';
 import { useInitData } from '@lynx-js/react';
 

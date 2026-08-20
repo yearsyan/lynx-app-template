@@ -2,7 +2,7 @@
 
 Autolinked Lynx native library that registers `Haptics`
 (one-shot impact haptics, light / medium / heavy) on Android and iOS hosts.
-Bundles consume the JS API through `@lynx-app/native-bridge`.
+Bundles import `haptics` from this package root.
 
 - **Android** (`android/`) — `Vibrator` transport compiled as a Gradle
   library project and registered by `org.lynxsdk.lynx.library-build`. The

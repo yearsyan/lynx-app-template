@@ -21,7 +21,7 @@ if (isNativeBridgeAvailable()) {
 Web apps shipped to the `<module-webview>` element — either a workspace
 package in this repository or an external web project that vendors these
 files. Lynx bundles (`bundle/*`) intentionally do **not** depend on it: they
-talk to native modules through `@lynx-app/native-bridge` instead.
+talk to native modules through each selected Autolink package facade instead.
 
 The self-contained demo page in `bundle/main/src/pages/api-media.tsx` inlines
 the raw `window.__lynxNativeBridge` protocol on purpose — HTML embedded as a

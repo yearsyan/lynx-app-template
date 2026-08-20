@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Merged into the host app only while this Autolink module is enabled. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Exact alarms are best-effort: on Android 14+ the grant is off by
+         default and delayed notifications fall back to the inexact window. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <application>
+        <receiver
+            android:name=".ScheduledNotificationReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>

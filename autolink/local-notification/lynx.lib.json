@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.localnotification",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-local-notification.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

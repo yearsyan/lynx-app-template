@@ -1,5 +1,8 @@
-import { display, statusBar, toast } from '@lynx-app/native-bridge';
+import { statusBar } from '@lynx-app/native-host';
 import { useCallback, useState } from '@lynx-js/react';
+import { display } from '@lynx-template/autolink-display';
+import { localNotification } from '@lynx-template/autolink-local-notification';
+import { toast } from '@lynx-template/autolink-toast';
 
 import {
   ApiName,
@@ -142,6 +145,74 @@ export function BrightnessPage() {
           onTap={toggleKeepOn}
         />
         <ResultLine text={result} placeholder="读取或调整窗口亮度" />
+      </DemoCard>
+    </view>
+  );
+}
+
+export function LocalNotificationPage() {
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = useCallback((label: string, call: () => Promise<string>) => {
+    'background only';
+    call()
+      .then((text) => setResult(`${label} · ${text}`))
+      .catch((error: Error) => setResult(`${label} · ${error.message}`));
+  }, []);
+
+  const notify = useCallback(
+    (delayMs: number) => {
+      'background only';
+      run(delayMs === 0 ? '立即通知' : '5 秒定时', () =>
+        localNotification
+          .notify({
+            id: `demo-${delayMs}`,
+            title: delayMs === 0 ? 'Lynx 本地通知' : 'Lynx 定时通知',
+            body:
+              delayMs === 0
+                ? '来自 LocalNotification 模块的即时通知。'
+                : '这条通知在 5 秒前由 AlarmManager / 系统触发器排期。',
+            delayMs,
+          })
+          .then((outcome) =>
+            outcome.success ? '已发送（或已排期）' : outcome.code,
+          ),
+      );
+    },
+    [run],
+  );
+
+  return (
+    <view>
+      <ApiName name="localNotification.notify / cancel" />
+      <DemoCard
+        title="本地通知"
+        desc="通过系统通知中心发送通知：权限申请走 Permissions 模块；定时通知在 Android 用 AlarmManager 排期（App 被杀后仍会送达），HarmonyOS 为进程内定时。"
+      >
+        <DemoButton label="发送立即通知" primary onTap={() => notify(0)} />
+        <DemoButton label="发送 5 秒定时通知" onTap={() => notify(5000)} />
+        <DemoButton
+          label="取消定时通知"
+          onTap={() =>
+            run('取消', () =>
+              localNotification
+                .cancel('demo-5000')
+                .then(() => '已取消排期与已送达'),
+            )
+          }
+        />
+        <DemoButton
+          label="取消全部"
+          onTap={() =>
+            run('全部取消', () =>
+              localNotification.cancelAll().then(() => '已清除本应用通知'),
+            )
+          }
+        />
+        <ResultLine
+          text={result}
+          placeholder="先在「运行时权限」页申请通知权限"
+        />
       </DemoCard>
     </view>
   );

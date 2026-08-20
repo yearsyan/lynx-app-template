@@ -6,10 +6,16 @@ import {
   ClipboardPage,
   DeviceInfoPage,
   HapticsPage,
+  PermissionsPage,
   ScannerPage,
   SensorsPage,
 } from './api-device.js';
-import { BrightnessPage, StatusBarPage, ToastPage } from './api-interface.js';
+import {
+  BrightnessPage,
+  LocalNotificationPage,
+  StatusBarPage,
+  ToastPage,
+} from './api-interface.js';
 import {
   AlbumPage,
   AudioPlayerPage,
@@ -75,6 +81,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
           { key: 'toast', title: 'Toast 提示' },
           { key: 'statusbar', title: '状态栏样式' },
           { key: 'brightness', title: '屏幕亮度' },
+          { key: 'notification', title: '本地通知' },
         ],
       },
       {
@@ -88,6 +95,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
           { key: 'battery', title: '电池电量' },
           { key: 'sensors', title: '传感器' },
           { key: 'biometric', title: '生物认证' },
+          { key: 'permissions', title: '运行时权限' },
           { key: 'clipboard', title: '剪贴板' },
           { key: 'haptics', title: '振动反馈' },
           { key: 'scanner', title: '扫码' },
@@ -206,10 +214,12 @@ export const PAGES: Record<string, DemoPageEntry> = {
   toast: { title: 'Toast 提示', render: () => <ToastPage /> },
   statusbar: { title: '状态栏样式', render: () => <StatusBarPage /> },
   brightness: { title: '屏幕亮度', render: () => <BrightnessPage /> },
+  notification: { title: '本地通知', render: () => <LocalNotificationPage /> },
   deviceinfo: { title: '设备信息', render: () => <DeviceInfoPage /> },
   battery: { title: '电池电量', render: () => <BatteryPage /> },
   sensors: { title: '传感器', render: () => <SensorsPage /> },
   biometric: { title: '生物认证', render: () => <BiometricPage /> },
+  permissions: { title: '运行时权限', render: () => <PermissionsPage /> },
   clipboard: { title: '剪贴板', render: () => <ClipboardPage /> },
   haptics: { title: '振动反馈', render: () => <HapticsPage /> },
   scanner: { title: '扫码', render: () => <ScannerPage /> },

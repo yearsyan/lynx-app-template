@@ -1,7 +1,7 @@
 # @lynx-template/autolink-display
 
 Autolinked Lynx native library that registers `Display` on Android, iOS and
-HarmonyOS hosts. Bundles consume it through `@lynx-app/native-bridge#display`.
+HarmonyOS hosts. Bundles import `display` from this package root.
 
 All widths are **Lynx logical pixels** (Android dp, iOS points, HarmonyOS vp)
 — the same unit Lynx layout consumes — and are read on demand so rotation,

@@ -72,6 +72,39 @@
         // the Sensors native module; no runtime dialog is shown.
         "name": "ohos.permission.ACCELEROMETER"
       },
+      {
+        // User-granted permission prompted by the Permissions native module.
+        "name": "ohos.permission.CAMERA",
+        "reason": "$string:camera_permission",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        // User-granted permission prompted by the Permissions native module.
+        "name": "ohos.permission.MICROPHONE",
+        "reason": "$string:microphone_permission",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        // User-granted permission prompted by the Permissions native module.
+        "name": "ohos.permission.READ_IMAGEVIDEO",
+        "reason": "$string:photo_library_permission",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
     ],
     "extensionAbilities": [
       {

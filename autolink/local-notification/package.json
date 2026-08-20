@@ -1,0 +1,23 @@
+{
+  "name": "@lynx-template/autolink-local-notification",
+  "description": "Autolinked local-notification module for Lynx hosts (Android, iOS & HarmonyOS)",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raw": "./src/native.generated.ts"
+  },
+  "dependencies": {
+    "@lynx-app/native-runtime": "workspace:*"
+  },
+  "files": [
+    "android",
+    "ios",
+    "harmony",
+    "src",
+    "types",
+    "lynx.lib.json",
+    "README.md"
+  ]
+}

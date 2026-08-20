@@ -5,8 +5,8 @@
  * Android, a `content://`) source, typically the output of the FileSystem
  * or AlbumUtils modules. Commands use error-string acknowledgements;
  * state changes plus throttled progress arrive as `audioPlayer` global
- * events. High-level Promise and runtime validation live in
- * @lynx-app/native-bridge.
+ * events. The package's src/index.ts owns the high-level Promise API and
+ * runtime validation.
  *
  * @lynxmodule
  */

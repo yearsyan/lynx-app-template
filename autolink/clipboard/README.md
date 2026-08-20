@@ -1,8 +1,8 @@
 # @lynx-template/autolink-clipboard
 
 Autolinked Lynx native library that registers `Clipboard`
-(plain-text system clipboard) on Android and iOS hosts. Bundles keep
-consuming the JS API through `@lynx-app/native-bridge`.
+(plain-text system clipboard) on Android and iOS hosts. Bundles import the
+Promise API from `@lynx-template/autolink-clipboard`.
 
 - **Android** (`android/`) — `ClipboardManager` transport compiled as a
   Gradle library project and registered by `org.lynxsdk.lynx.library-build`.

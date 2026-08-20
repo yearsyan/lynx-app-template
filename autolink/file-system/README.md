@@ -1,7 +1,7 @@
 # @lynx-template/autolink-file-system
 
-Autolinked Android/iOS implementation of the `FileSystem` Lynx module consumed
-through `@lynx-app/native-bridge#fileSystem`. It combines the user-visible
+Autolinked Android/iOS implementation of the `FileSystem` Lynx module. Its
+package root exports the validated `fileSystem` Promise API. It combines the user-visible
 system file picker with URI-aware file operations, and operates on picker URIs
 rather than assuming they are ordinary file-system paths.
 

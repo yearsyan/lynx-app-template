@@ -13,8 +13,10 @@
     "@lynx-app/native-contracts": "workspace:*"
   },
   "devDependencies": {
-    "@lynx-app/native-bridge": "workspace:*",
+    "@lynx-app/native-host": "workspace:*",
     "@lynx-js/types": "catalog:",
+    "@lynx-template/autolink-device-info": "workspace:*",
+    "@lynx-template/autolink-haptics": "workspace:*",
     "typescript": "catalog:"
   },
   "private": true

@@ -40,7 +40,7 @@
     {
       "name": "Back",
       "interfaceName": "BackModule",
-      "declaration": "lib/native-contracts/src/host.ts",
+      "declaration": "lib/native-host/src/native.ts",
       "declarationName": "BackModule",
       "implementations": {
         "android": {
@@ -196,6 +196,42 @@
       }
     },
     {
+      "name": "LocalNotification",
+      "interfaceName": "LocalNotificationModule",
+      "declaration": "autolink/local-notification/types/platform-native-module.d.ts",
+      "declarationName": "LocalNotification",
+      "autolink": {
+        "directory": "local-notification",
+        "exportName": "LOCAL_NOTIFICATION_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/local-notification/android/src/main/java",
+          "fileName": "LocalNotificationModule.java"
+        },
+        "ios": "autolink/local-notification/ios/src/LocalNotificationModule.m",
+        "harmony": "autolink/local-notification/harmony/src/main/ets/LocalNotificationModule.ets"
+      }
+    },
+    {
+      "name": "Permissions",
+      "interfaceName": "PermissionsModule",
+      "declaration": "autolink/permissions/types/platform-native-module.d.ts",
+      "declarationName": "Permissions",
+      "autolink": {
+        "directory": "permissions",
+        "exportName": "PERMISSIONS_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/permissions/android/src/main/java",
+          "fileName": "PermissionsModule.java"
+        },
+        "ios": "autolink/permissions/ios/src/PermissionsModule.m",
+        "harmony": "autolink/permissions/harmony/src/main/ets/PermissionsModule.ets"
+      }
+    },
+    {
       "name": "Router",
       "interfaceName": "RouterModule",
       "declaration": "autolink/router/types/platform-native-module.d.ts",
@@ -288,7 +324,7 @@
     {
       "name": "StatusBar",
       "interfaceName": "StatusBarModule",
-      "declaration": "lib/native-contracts/src/host.ts",
+      "declaration": "lib/native-host/src/native.ts",
       "declarationName": "StatusBarModule",
       "implementations": {
         "android": {

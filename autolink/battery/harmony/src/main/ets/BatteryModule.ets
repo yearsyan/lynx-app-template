@@ -36,12 +36,12 @@ export class BatteryModule extends LynxModule {
     super(context, param);
   }
 
-  getInfo(callback: (resultJSON: string) => void): void {
+  getInfo(callback: (result: BatteryResult) => void): void {
     try {
-      callback(JSON.stringify(new BatteryResult(new BatteryValue())));
+      callback(new BatteryResult(new BatteryValue()));
     } catch (error) {
       const message = error instanceof Error ? error.message : JSON.stringify(error);
-      callback(JSON.stringify(new BatteryResult(null, message)));
+      callback(new BatteryResult(null, message));
     }
   }
 }

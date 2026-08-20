@@ -33,12 +33,7 @@
     @"charging" : @(charging),
   };
 
-  NSData *data = [NSJSONSerialization dataWithJSONObject:@{ @"value" : value }
-                                                 options:0
-                                                   error:nil];
-  callback(data ? [[NSString alloc] initWithData:data
-                                        encoding:NSUTF8StringEncoding]
-                : @"{\"error\":\"Battery serialization failed\"}");
+  callback(@{ @"value" : value });
 }
 
 @end

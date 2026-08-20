@@ -1,7 +1,7 @@
 # @lynx-template/autolink-toast
 
 Autolinked Lynx native library that registers `Toast` on Android and iOS
-hosts. Bundles consume it through `@lynx-app/native-bridge#toast`.
+hosts. Bundles import `toast` from this package root.
 
 `show(message, options)` renders the bubble **inside the app's own window**
 on both platforms — never through the system toast/notification pipeline —

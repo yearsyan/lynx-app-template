@@ -146,6 +146,26 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
+    case 'LocalNotification':
+      switch (methodName) {
+        case 'notify':
+          return 2;
+        case 'cancel':
+          return 2;
+        case 'cancelAll':
+          return 1;
+        default:
+          return -1;
+      }
+    case 'Permissions':
+      switch (methodName) {
+        case 'check':
+          return 2;
+        case 'request':
+          return 2;
+        default:
+          return -1;
+      }
     case 'Router':
       switch (methodName) {
         case 'open':

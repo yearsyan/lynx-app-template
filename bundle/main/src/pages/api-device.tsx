@@ -1,15 +1,18 @@
-import {
-  albumUtils,
-  battery,
-  biometric,
-  clipboard,
-  deviceInfo,
-  display,
-  haptics,
-  scanner,
-  sensors,
-} from '@lynx-app/native-bridge';
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
+import { albumUtils } from '@lynx-template/autolink-album-utils';
+import { battery } from '@lynx-template/autolink-battery';
+import { biometric } from '@lynx-template/autolink-biometric';
+import { clipboard } from '@lynx-template/autolink-clipboard';
+import { deviceInfo } from '@lynx-template/autolink-device-info';
+import { display } from '@lynx-template/autolink-display';
+import { haptics } from '@lynx-template/autolink-haptics';
+import {
+  type PermissionStatus,
+  type PermissionType,
+  permissions,
+} from '@lynx-template/autolink-permissions';
+import { scanner } from '@lynx-template/autolink-scanner';
+import { sensors } from '@lynx-template/autolink-sensors';
 
 import {
   ApiName,
@@ -454,6 +457,72 @@ export function ScannerPage() {
         <DemoButton label="打开相机扫码" primary onTap={scan} />
         <DemoButton label="从相册选图识别" onTap={scanFromAlbum} />
         <ResultLine text={result} placeholder="扫码结果展示在这里" />
+      </DemoCard>
+    </view>
+  );
+}
+
+const PERMISSION_ITEMS: {
+  type: PermissionType;
+  label: string;
+}[] = [
+  { type: 'notifications', label: '通知' },
+  { type: 'camera', label: '相机' },
+  { type: 'photoLibrary', label: '相册' },
+  { type: 'microphone', label: '麦克风' },
+];
+
+const PERMISSION_STATUS_TEXT: Record<PermissionStatus, string> = {
+  granted: '已授权',
+  limited: '部分授权',
+  denied: '已拒绝',
+  notDetermined: '未请求',
+  restricted: '受系统限制',
+};
+
+export function PermissionsPage() {
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = useCallback((label: string, call: () => Promise<string>) => {
+    'background only';
+    call()
+      .then((text) => setResult(`${label} · ${text}`))
+      .catch((error: Error) => setResult(`${label} · ${error.message}`));
+  }, []);
+
+  return (
+    <view>
+      <ApiName name="permissions.check / request" />
+      <DemoCard
+        title="运行时权限"
+        desc="统一的权限查询与申请：状态归一为已授权/部分授权/已拒绝/未请求/受限制。Android 无法区分「未请求」与「拒绝后不再询问」，因此 denied 后申请仍可能弹窗；iOS 拒绝后需去系统设置。"
+      >
+        {PERMISSION_ITEMS.map((item) => (
+          <DemoCard key={item.type} title={item.label}>
+            <DemoButton
+              label="查询状态"
+              primary
+              onTap={() =>
+                run(item.label, () =>
+                  permissions
+                    .check(item.type)
+                    .then((state) => PERMISSION_STATUS_TEXT[state.status]),
+                )
+              }
+            />
+            <DemoButton
+              label="弹出申请"
+              onTap={() =>
+                run(item.label, () =>
+                  permissions
+                    .request(item.type)
+                    .then((state) => PERMISSION_STATUS_TEXT[state.status]),
+                )
+              }
+            />
+          </DemoCard>
+        ))}
+        <ResultLine text={result} placeholder="查询或申请一项权限" />
       </DemoCard>
     </view>
   );

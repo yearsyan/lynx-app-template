@@ -1,8 +1,7 @@
 # @lynx-template/autolink-screenshot
 
 Autolinked Lynx native library that registers `Screenshot` on Android, iOS
-and HarmonyOS hosts. Bundles consume it through
-`@lynx-app/native-bridge#screenshot`.
+and HarmonyOS hosts. Bundles import `screenshot` from this package root.
 
 Both entry points encode into `<cache>/LynxImages/<uuid>-<name>.<ext>` and
 answer a JSON envelope `{ "value": { "uri", "width", "height" } }` or

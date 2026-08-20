@@ -1,0 +1,22 @@
+{
+  "name": "@lynx-app/native-host",
+  "description": "App-host NativeModules, native environment and ReactLynx hooks",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raw": "./src/native.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@lynx-app/native-runtime": "workspace:*",
+    "@lynx-js/react": "catalog:"
+  },
+  "devDependencies": {
+    "@lynx-js/types": "catalog:",
+    "typescript": "catalog:"
+  },
+  "private": true
+}

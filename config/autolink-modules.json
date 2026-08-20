@@ -32,8 +32,14 @@
       "name": "liquid-glass"
     },
     {
+      "name": "local-notification"
+    },
+    {
       "name": "mmkv",
       "label": "MMKV"
+    },
+    {
+      "name": "permissions"
     },
     {
       "name": "pressable-view"

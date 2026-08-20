@@ -31,7 +31,8 @@ function usage() {
   console.info(`usage: pnpm new:native-module <kebab-case-name> [--module-name <PascalName>]
 
 Scaffolds a Lynx Autolink NativeModule workspace package with matching
-Android, iOS and HarmonyOS stubs, a raw TypeScript contract, a
+Android, iOS and HarmonyOS stubs, a raw TypeScript contract, a handwritten
+Promise facade entry, a
 contracts/native-modules.json entry, official Autolink metadata, and a
 default-enabled entry in config/autolink-modules.json.
 The stubs export a single ping(message, callback) method so
@@ -48,6 +49,11 @@ function kebabToPascalCase(value) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
+}
+
+function kebabToCamelCase(value) {
+  const pascal = kebabToPascalCase(value);
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
 function pascalToScreamingSnake(value) {
@@ -134,6 +140,7 @@ async function main() {
   const packageSegment = name.replace(/-/g, '');
   const interfaceName = `${moduleName}Module`;
   const exportName = `${pascalToScreamingSnake(moduleName)}_MODULE_NAME`;
+  const facadeName = kebabToCamelCase(name);
 
   const contracts = JSON.parse(await readText(contractsFile, 'contracts'));
   const autolinkCatalog = JSON.parse(
@@ -158,6 +165,10 @@ async function main() {
         type: 'module',
         exports: {
           '.': './src/index.ts',
+          './raw': './src/native.generated.ts',
+        },
+        dependencies: {
+          '@lynx-app/native-runtime': 'workspace:*',
         },
         files: [
           'android',
@@ -194,13 +205,16 @@ async function main() {
     'README.md': `# autolink/${name}
 
 The \`${moduleName}\` NativeModule, scaffolded by \`pnpm new:native-module\`.
-The generated \`ping\` method echoes its message back through the standard
-result envelope; replace it with real functionality on every host.
+The generated \`ping\` method demonstrates a direct structured bridge value,
+while \`src/index.ts\` owns its Promise facade; replace both with real
+functionality without moving handwritten TypeScript out of this package.
 
 - Android: \`android/src/main/java/com/lynxapp/autolink/${packageSegment}/${interfaceName}.java\`
 - iOS: \`ios/src/${interfaceName}.m\`
 - HarmonyOS: \`harmony/src/main/ets/${interfaceName}.ets\` (source HAR, autolink-registered)
 - Raw TypeScript contract: \`types/platform-native-module.d.ts\`
+- Generated raw facade: \`src/native.generated.ts\`
+- Handwritten Promise/domain facade: \`src/index.ts\`
 
 Keep the three implementations and the contract in sync —
 \`pnpm native:contracts:check\` validates method names and arity.
@@ -208,14 +222,45 @@ Keep the three implementations and the contract in sync —
     'types/platform-native-module.d.ts': `/**
  * Raw ${moduleName} NativeModule transport contract.
  *
- * The native API intentionally keeps callbacks; high-level Promise and
- * runtime validation live in @lynx-app/native-bridge.
+ * The native API intentionally keeps callbacks; this package's src/index.ts
+ * owns the high-level Promise API and runtime validation.
  *
  * @lynxmodule
  */
 export declare class ${moduleName} {
-  ping(message: string, callback: (resultJSON: string) => void): void;
+  ping(message: string, callback: (value: string) => void): void;
 }
+`,
+    'src/index.ts': `import { requireNativeModule } from '@lynx-app/native-runtime';
+import { ${exportName} } from './native.generated.js';
+
+export * from './native.generated.js';
+
+function require${interfaceName}() {
+  'background only';
+  return requireNativeModule(${exportName});
+}
+
+/** Promise and validation facade colocated with the native implementation. */
+export const ${facadeName} = {
+  ping(message: string): Promise<string> {
+    'background only';
+    return new Promise((resolve, reject) => {
+      try {
+        require${interfaceName}().ping(message, (value) => {
+          'background only';
+          if (typeof value !== 'string') {
+            reject(new Error('${moduleName} returned an invalid value'));
+            return;
+          }
+          resolve(value);
+        });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  },
+};
 `,
     'android/build.gradle.kts': `plugins {
     id("com.android.library")
@@ -246,13 +291,9 @@ import com.lynx.jsbridge.LynxNativeModule;
 import com.lynx.react.bridge.Callback;
 import com.lynx.tasm.behavior.LynxContext;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
 /**
  * ${moduleName} scaffolded by pnpm new:native-module. ping echoes its
- * message back through the standard result envelope; replace it with real
- * functionality.
+ * message as a direct bridge value; replace it with real functionality.
  */
 @LynxNativeModule(name = ${interfaceName}.NAME)
 public final class ${interfaceName} extends LynxContextModule {
@@ -264,13 +305,7 @@ public final class ${interfaceName} extends LynxContextModule {
 
     @LynxMethod
     public void ping(String message, Callback callback) {
-        try {
-            JSONObject result = new JSONObject();
-            result.put("value", message);
-            callback.invoke(result.toString());
-        } catch (JSONException error) {
-            callback.invoke("{\\"error\\":\\"${moduleName} serialization failed\\"}");
-        }
+        callback.invoke(message == null ? "" : message);
     }
 }
 `,
@@ -319,12 +354,12 @@ NS_ASSUME_NONNULL_END
   };
 }
 
+- (instancetype)initWithLynxContext:(LynxContext *)context {
+  return [super init];
+}
+
 - (void)ping:(NSString *)message callback:(LynxCallbackBlock)callback {
-  NSDictionary<NSString *, id> *value = @{ @"value" : message ?: @"" };
-  NSData *data = [NSJSONSerialization dataWithJSONObject:value options:0 error:nil];
-  callback(data ? [[NSString alloc] initWithData:data
-                                        encoding:NSUTF8StringEncoding]
-               : @"{\\"error\\":\\"${moduleName} serialization failed\\"}");
+  callback(message ?: @"");
 }
 
 @end
@@ -369,8 +404,8 @@ export class ${interfaceName} extends LynxModule {
     super(context, param);
   }
 
-  ping(message: string, callback: (resultJSON: string) => void): void {
-    callback(JSON.stringify({ value: message }));
+  ping(message: string, callback: (value: string) => void): void {
+    callback(message);
   }
 }
 `,
@@ -445,7 +480,7 @@ export class ${interfaceName} extends LynxModule {
 
   // All hosts discover the package from lynx.lib.json through official
   // Android, iOS and HarmonyOS Autolink tooling.
-  // Generates autolink/<name>/src/index.ts and the aggregated registries.
+  // Generates autolink/<name>/src/native.generated.ts and the registries.
   const generated = spawnSync(
     process.execPath,
     [join(repositoryDirectory, 'scripts/generate-native-contracts.mjs')],

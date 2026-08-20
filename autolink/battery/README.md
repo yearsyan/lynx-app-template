@@ -1,10 +1,10 @@
 # @lynx-template/autolink-battery
 
 Autolinked Lynx native library that registers `Battery` on Android and iOS
-hosts. Bundles consume it through `@lynx-app/native-bridge#battery`.
+hosts. Bundles import `battery` from `@lynx-template/autolink-battery`.
 
-`getInfo` returns a JSON envelope `{ "value": { … } }` (or `{ "error": … }`)
-with:
+`getInfo` returns a structured bridge object `{ value: { … } }` (or
+`{ error: … }`) without JSON serialization, with:
 
 | Field | Android | iOS |
 | --- | --- | --- |

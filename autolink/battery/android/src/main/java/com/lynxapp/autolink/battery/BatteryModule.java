@@ -11,10 +11,8 @@ import com.lynx.jsbridge.LynxContextModule;
 import com.lynx.jsbridge.LynxMethod;
 import com.lynx.jsbridge.LynxNativeModule;
 import com.lynx.react.bridge.Callback;
+import com.lynx.react.bridge.JavaOnlyMap;
 import com.lynx.tasm.behavior.LynxContext;
-
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * On-demand battery state exported to Lynx as Battery. Reads the sticky
@@ -38,23 +36,25 @@ public final class BatteryModule extends LynxContextModule {
         }
         Intent battery = context.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         try {
-            JSONObject value = new JSONObject();
+            JavaOnlyMap value = new JavaOnlyMap();
             if (battery == null) {
-                value.put("level", JSONObject.NULL);
-                value.put("charging", false);
+                value.putNull("level");
+                value.putBoolean("charging", false);
             } else {
                 int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
                 int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                value.put("level", level >= 0 && scale > 0
-                        ? Math.min(1.0, level / (double) scale)
-                        : JSONObject.NULL);
+                if (level >= 0 && scale > 0) {
+                    value.putDouble("level", Math.min(1.0, level / (double) scale));
+                } else {
+                    value.putNull("level");
+                }
                 int status = battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                value.put("charging", status == BatteryManager.BATTERY_STATUS_CHARGING
+                value.putBoolean("charging", status == BatteryManager.BATTERY_STATUS_CHARGING
                         || status == BatteryManager.BATTERY_STATUS_FULL);
             }
-            JSONObject result = new JSONObject();
-            result.put("value", value);
-            callback.invoke(result.toString());
+            JavaOnlyMap result = new JavaOnlyMap();
+            result.putMap("value", value);
+            callback.invoke(result);
         } catch (Throwable error) {
             callback.invoke(error(messageOf(error, "Unable to read battery information")));
         }
@@ -70,14 +70,10 @@ public final class BatteryModule extends LynxContextModule {
         return mContext != null ? mContext.getApplicationContext() : null;
     }
 
-    private static String error(String message) {
-        try {
-            JSONObject result = new JSONObject();
-            result.put("error", message);
-            return result.toString();
-        } catch (JSONException ignored) {
-            return "{\"error\":\"Battery serialization failed\"}";
-        }
+    private static JavaOnlyMap error(String message) {
+        JavaOnlyMap result = new JavaOnlyMap();
+        result.putString("error", message);
+        return result;
     }
 
     private static String messageOf(Throwable error, String fallback) {

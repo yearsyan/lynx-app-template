@@ -238,8 +238,11 @@ function generateTypeScript(contract) {
   const autolinkModules = contract.modules.filter(
     (module) => module.autolink !== undefined,
   );
+  // Import statements must be sorted by package specifier (not module
+  // name) to stay biome organize-imports clean: autolink-local-notification
+  // sorts before autolink-mmkv even though LocalNotification > KV.
   autolinkModules.sort((left, right) =>
-    left.interfaceName.localeCompare(right.interfaceName),
+    left.autolink.directory.localeCompare(right.autolink.directory),
   );
   const hostModules = contract.modules.filter(
     (module) => module.autolink === undefined,
@@ -252,14 +255,16 @@ function generateTypeScript(contract) {
     '// Run `pnpm native:contracts:generate` after changing a declaration.',
     '',
   ];
-  for (const module of autolinkModules) {
-    lines.push(
-      `import type { ${module.interfaceName} } from '@lynx-template/autolink-${module.autolink.directory}';`,
-    );
-  }
+  // '@lynx-app/native-host/raw' sorts before every '@lynx-template/autolink-*'
+  // specifier, so the host import is emitted first to stay biome-clean.
   if (hostModules.length > 0) {
     lines.push(
-      `import type { ${hostModules.map((module) => module.interfaceName).join(', ')} } from './host.js';`,
+      `import type { ${hostModules.map((module) => module.interfaceName).join(', ')} } from '@lynx-app/native-host/raw';`,
+    );
+  }
+  for (const module of autolinkModules) {
+    lines.push(
+      `import type { ${module.interfaceName} } from '@lynx-template/autolink-${module.autolink.directory}/raw';`,
     );
   }
   lines.push('', 'export type {');
@@ -320,9 +325,18 @@ function generateTypeScript(contract) {
   return lines.join('\n');
 }
 
-function generateAutolinkEntry(module) {
+function generateAutolinkRawEntry(module) {
   return `// Generated from contracts/native-modules.json. Do not edit.
-export type { ${module.name} as ${module.interfaceName} } from '../types/platform-native-module.js';
+import '@lynx-app/native-runtime';
+import type { ${module.name} as Raw${module.interfaceName} } from '../types/platform-native-module.js';
+
+export type ${module.interfaceName} = Raw${module.interfaceName};
+
+declare module '@lynx-app/native-runtime' {
+  interface NativeModuleRegistry {
+    ${module.name}?: Raw${module.interfaceName};
+  }
+}
 
 /** Name the native hosts register this module under. */
 export const ${module.autolink.exportName} = '${module.name}' as const;
@@ -345,22 +359,35 @@ async function nativeContractsPackageOutput(contract) {
     packageJson.dependencies,
     'lib/native-contracts/package.json#dependencies',
   );
-  const dependencies = {};
-  for (const [name, version] of Object.entries(existing)) {
-    if (!name.startsWith('@lynx-template/autolink-')) {
-      dependencies[name] = version;
-    }
-  }
+  const autolinkDependencies = {};
   for (const module of contract.modules) {
     if (module.autolink === undefined) continue;
-    dependencies[`@lynx-template/autolink-${module.autolink.directory}`] =
-      'workspace:*';
+    autolinkDependencies[
+      `@lynx-template/autolink-${module.autolink.directory}`
+    ] = 'workspace:*';
   }
-  packageJson.dependencies = Object.fromEntries(
-    Object.entries(dependencies).sort(([left], [right]) =>
-      left < right ? -1 : left > right ? 1 : 0,
+  const otherDependencies = {};
+  for (const [name, version] of Object.entries(existing)) {
+    if (!name.startsWith('@lynx-template/autolink-')) {
+      otherDependencies[name] = version;
+    }
+  }
+  // Autolink entries first (sorted by package name), then everything else:
+  // renaming the workspace scope (create-lynx-app rewrites @lynx-template)
+  // must not change the relative order of the two groups, or the template's
+  // committed manifest would drift from the scaffold's regenerated one.
+  packageJson.dependencies = {
+    ...Object.fromEntries(
+      Object.entries(autolinkDependencies).sort(([left], [right]) =>
+        left < right ? -1 : left > right ? 1 : 0,
+      ),
     ),
-  );
+    ...Object.fromEntries(
+      Object.entries(otherDependencies).sort(([left], [right]) =>
+        left < right ? -1 : left > right ? 1 : 0,
+      ),
+    ),
+  };
   return {
     path: nativeContractsPackageFile,
     content: `${JSON.stringify(packageJson, null, 2)}\n`,
@@ -411,9 +438,9 @@ function generatedOutputs(contract, platforms) {
         repositoryDirectory,
         'autolink',
         module.autolink.directory,
-        'src/index.ts',
+        'src/native.generated.ts',
       ),
-      content: generateAutolinkEntry(module),
+      content: generateAutolinkRawEntry(module),
     });
   }
   return outputs;
@@ -733,7 +760,7 @@ function printHelp() {
   console.info(`usage: node scripts/generate-native-contracts.mjs [--check]
 
 Aggregate per-package TypeScript NativeModule declarations, generate the
-registry and Autolink exports, then validate enabled native implementations.
+registry and raw Autolink facades, then validate enabled native implementations.
 
 options:
   --check  fail when generated files or native implementations have drifted

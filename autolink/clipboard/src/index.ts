@@ -1,5 +1,32 @@
-// Generated from contracts/native-modules.json. Do not edit.
-export type { Clipboard as ClipboardModule } from '../types/platform-native-module.js';
+import {
+  completeNativeCall,
+  requireNativeModule,
+} from '@lynx-app/native-runtime';
+import { CLIPBOARD_MODULE_NAME } from './native.generated.js';
 
-/** Name the native hosts register this module under. */
-export const CLIPBOARD_MODULE_NAME = 'Clipboard' as const;
+export * from './native.generated.js';
+
+function requireClipboardModule() {
+  'background only';
+  return requireNativeModule(CLIPBOARD_MODULE_NAME);
+}
+
+/** System clipboard for plain text. */
+export const clipboard = {
+  setString(text: string): Promise<void> {
+    'background only';
+    return completeNativeCall((callback) =>
+      requireClipboardModule().setString(text, callback),
+    );
+  },
+
+  getString(): Promise<string | null> {
+    'background only';
+    return new Promise((resolve) => {
+      requireClipboardModule().getString((text) => {
+        'background only';
+        resolve(typeof text === 'string' ? text : null);
+      });
+    });
+  },
+};

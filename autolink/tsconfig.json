@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.lynx.json",
+  "compilerOptions": {
+    "types": ["@lynx-js/types"]
+  },
+  "include": ["*/src/**/*.ts", "*/src/**/*.tsx"]
+}

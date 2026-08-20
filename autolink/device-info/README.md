@@ -1,7 +1,7 @@
 # @lynx-template/autolink-device-info
 
 Autolinked Lynx native library that registers `DeviceInfo` on Android and
-iOS hosts. Bundles consume it through `@lynx-app/native-bridge#deviceInfo`.
+iOS hosts. Bundles import `deviceInfo` from this package root.
 
 `getInfo` returns a JSON envelope `{ "value": { … } }` (or `{ "error": … }`)
 with:

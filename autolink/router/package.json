@@ -5,7 +5,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./raw": "./src/native.generated.ts",
+    "./react": "./src/react.ts"
+  },
+  "dependencies": {
+    "@lynx-app/native-runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "@lynx-js/react": "^0.123.0"
+  },
+  "devDependencies": {
+    "@lynx-js/react": "catalog:"
   },
   "files": [
     "android",

@@ -1,8 +1,7 @@
 # @lynx-template/autolink-mmkv
 
-Autolinked Lynx native library that registers `KV` (MMKV-backed
-string storage) on Android and iOS hosts. Bundles consume the JS API through
-`@lynx-app/native-bridge`.
+Autolinked Lynx native library that registers `KV` (MMKV-backed string
+storage) on Android and iOS hosts. Bundles import `kv` from this package root.
 
 - **Android** (`android/`) — depends on `com.tencent:mmkv` and initializes it
   on first module construction, so hosts no longer call

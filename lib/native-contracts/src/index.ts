@@ -1,24 +1,26 @@
 // Generated from per-package NativeModule declarations. Do not edit.
 // Run `pnpm native:contracts:generate` after changing a declaration.
 
-import type { AlbumUtilsModule } from '@lynx-template/autolink-album-utils';
-import type { AudioPlayerModule } from '@lynx-template/autolink-audio-player';
-import type { BatteryModule } from '@lynx-template/autolink-battery';
-import type { BiometricModule } from '@lynx-template/autolink-biometric';
-import type { ClipboardModule } from '@lynx-template/autolink-clipboard';
-import type { DeviceInfoModule } from '@lynx-template/autolink-device-info';
-import type { DisplayModule } from '@lynx-template/autolink-display';
-import type { FileSystemModule } from '@lynx-template/autolink-file-system';
-import type { HapticsModule } from '@lynx-template/autolink-haptics';
-import type { KVModule } from '@lynx-template/autolink-mmkv';
-import type { RouterModule } from '@lynx-template/autolink-router';
-import type { ScannerModule } from '@lynx-template/autolink-scanner';
-import type { ScreenshotModule } from '@lynx-template/autolink-screenshot';
-import type { SecureStorageModule } from '@lynx-template/autolink-secure-storage';
-import type { SensorsModule } from '@lynx-template/autolink-sensors';
-import type { ToastModule } from '@lynx-template/autolink-toast';
-import type { WebSocketModule } from '@lynx-template/autolink-websocket';
-import type { BackModule, StatusBarModule } from './host.js';
+import type { BackModule, StatusBarModule } from '@lynx-app/native-host/raw';
+import type { AlbumUtilsModule } from '@lynx-template/autolink-album-utils/raw';
+import type { AudioPlayerModule } from '@lynx-template/autolink-audio-player/raw';
+import type { BatteryModule } from '@lynx-template/autolink-battery/raw';
+import type { BiometricModule } from '@lynx-template/autolink-biometric/raw';
+import type { ClipboardModule } from '@lynx-template/autolink-clipboard/raw';
+import type { DeviceInfoModule } from '@lynx-template/autolink-device-info/raw';
+import type { DisplayModule } from '@lynx-template/autolink-display/raw';
+import type { FileSystemModule } from '@lynx-template/autolink-file-system/raw';
+import type { HapticsModule } from '@lynx-template/autolink-haptics/raw';
+import type { LocalNotificationModule } from '@lynx-template/autolink-local-notification/raw';
+import type { KVModule } from '@lynx-template/autolink-mmkv/raw';
+import type { PermissionsModule } from '@lynx-template/autolink-permissions/raw';
+import type { RouterModule } from '@lynx-template/autolink-router/raw';
+import type { ScannerModule } from '@lynx-template/autolink-scanner/raw';
+import type { ScreenshotModule } from '@lynx-template/autolink-screenshot/raw';
+import type { SecureStorageModule } from '@lynx-template/autolink-secure-storage/raw';
+import type { SensorsModule } from '@lynx-template/autolink-sensors/raw';
+import type { ToastModule } from '@lynx-template/autolink-toast/raw';
+import type { WebSocketModule } from '@lynx-template/autolink-websocket/raw';
 
 export type {
   AlbumUtilsModule,
@@ -32,6 +34,8 @@ export type {
   FileSystemModule,
   HapticsModule,
   KVModule,
+  LocalNotificationModule,
+  PermissionsModule,
   RouterModule,
   ScannerModule,
   ScreenshotModule,
@@ -140,6 +144,21 @@ export const NATIVE_MODULE_CONTRACT = {
       contains: { name: 'contains', arity: 2 },
     },
   },
+  LocalNotification: {
+    name: 'LocalNotification',
+    methods: {
+      notify: { name: 'notify', arity: 2 },
+      cancel: { name: 'cancel', arity: 2 },
+      cancelAll: { name: 'cancelAll', arity: 1 },
+    },
+  },
+  Permissions: {
+    name: 'Permissions',
+    methods: {
+      check: { name: 'check', arity: 2 },
+      request: { name: 'request', arity: 2 },
+    },
+  },
   Router: {
     name: 'Router',
     methods: {
@@ -213,6 +232,8 @@ export const NATIVE_MODULE_NAMES = {
   FileSystem: NATIVE_MODULE_CONTRACT.FileSystem.name,
   Haptics: NATIVE_MODULE_CONTRACT.Haptics.name,
   KV: NATIVE_MODULE_CONTRACT.KV.name,
+  LocalNotification: NATIVE_MODULE_CONTRACT.LocalNotification.name,
+  Permissions: NATIVE_MODULE_CONTRACT.Permissions.name,
   Router: NATIVE_MODULE_CONTRACT.Router.name,
   Scanner: NATIVE_MODULE_CONTRACT.Scanner.name,
   Screenshot: NATIVE_MODULE_CONTRACT.Screenshot.name,
@@ -290,6 +311,15 @@ export const NATIVE_MODULE_METHODS = {
     clear: NATIVE_MODULE_CONTRACT.KV.methods.clear.name,
     contains: NATIVE_MODULE_CONTRACT.KV.methods.contains.name,
   },
+  LocalNotification: {
+    notify: NATIVE_MODULE_CONTRACT.LocalNotification.methods.notify.name,
+    cancel: NATIVE_MODULE_CONTRACT.LocalNotification.methods.cancel.name,
+    cancelAll: NATIVE_MODULE_CONTRACT.LocalNotification.methods.cancelAll.name,
+  },
+  Permissions: {
+    check: NATIVE_MODULE_CONTRACT.Permissions.methods.check.name,
+    request: NATIVE_MODULE_CONTRACT.Permissions.methods.request.name,
+  },
   Router: {
     open: NATIVE_MODULE_CONTRACT.Router.methods.open.name,
     close: NATIVE_MODULE_CONTRACT.Router.methods.close.name,
@@ -343,6 +373,8 @@ export interface NativeModuleRegistry {
   FileSystem?: FileSystemModule;
   Haptics?: HapticsModule;
   KV?: KVModule;
+  LocalNotification?: LocalNotificationModule;
+  Permissions?: PermissionsModule;
   Router?: RouterModule;
   Scanner?: ScannerModule;
   Screenshot?: ScreenshotModule;

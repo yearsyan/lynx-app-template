@@ -11,8 +11,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@lynx-app/native-host": "workspace:*",
     "@lynx-js/react": "catalog:",
-    "@lynx-app/native-bridge": "workspace:*"
+    "@lynx-template/autolink-router": "workspace:*"
   },
   "devDependencies": {
     "@lynx-js/types": "catalog:",

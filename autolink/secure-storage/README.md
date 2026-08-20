@@ -14,10 +14,11 @@ HAR, registered globally by the official HarmonyOS Hvigor Autolink provider.
 
 The raw method signatures are defined in `types/platform-native-module.d.ts`.
 `contracts/native-modules.json` maps that declaration to the native
-implementations, and `src/index.ts` is generated from the mapping.
+implementations, `src/native.generated.ts` is generated from the mapping, and
+the handwritten `src/index.ts` owns validation and the Promise API.
 
 ## Usage
 
 ```ts
-import { secureStorage } from '@lynx-app/native-bridge';
+import { secureStorage } from '@lynx-template/autolink-secure-storage';
 ```

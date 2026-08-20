@@ -51,9 +51,13 @@ PODS:
     - Lynx
   - lynx-app-liquid-glass (1.0.0):
     - Lynx
+  - lynx-app-local-notification (1.0.0):
+    - Lynx
   - lynx-app-mmkv (1.0.0):
     - Lynx
     - MMKV (= 2.4.1)
+  - lynx-app-permissions (1.0.0):
+    - Lynx
   - lynx-app-pressable-view (1.0.0):
     - Lynx
   - lynx-app-router (1.0.0):
@@ -234,7 +238,9 @@ DEPENDENCIES:
   - lynx-app-file-system (from `/Users/u/workspace/lynx-template/autolink/file-system/ios`)
   - lynx-app-haptics (from `/Users/u/workspace/lynx-template/autolink/haptics/ios`)
   - lynx-app-liquid-glass (from `/Users/u/workspace/lynx-template/autolink/liquid-glass/ios`)
+  - lynx-app-local-notification (from `/Users/u/workspace/lynx-template/autolink/local-notification/ios`)
   - lynx-app-mmkv (from `/Users/u/workspace/lynx-template/autolink/mmkv/ios`)
+  - lynx-app-permissions (from `/Users/u/workspace/lynx-template/autolink/permissions/ios`)
   - lynx-app-pressable-view (from `/Users/u/workspace/lynx-template/autolink/pressable-view/ios`)
   - lynx-app-router (from `/Users/u/workspace/lynx-template/autolink/router/ios`)
   - lynx-app-scanner (from `/Users/u/workspace/lynx-template/autolink/scanner/ios`)
@@ -299,8 +305,12 @@ EXTERNAL SOURCES:
     :path: "/Users/u/workspace/lynx-template/autolink/haptics/ios"
   lynx-app-liquid-glass:
     :path: "/Users/u/workspace/lynx-template/autolink/liquid-glass/ios"
+  lynx-app-local-notification:
+    :path: "/Users/u/workspace/lynx-template/autolink/local-notification/ios"
   lynx-app-mmkv:
     :path: "/Users/u/workspace/lynx-template/autolink/mmkv/ios"
+  lynx-app-permissions:
+    :path: "/Users/u/workspace/lynx-template/autolink/permissions/ios"
   lynx-app-pressable-view:
     :path: "/Users/u/workspace/lynx-template/autolink/pressable-view/ios"
   lynx-app-router:
@@ -337,7 +347,9 @@ SPEC CHECKSUMS:
   lynx-app-file-system: 6d54f5949461556a89bae0b94e3c5addb147173d
   lynx-app-haptics: 837ff778e906de9ac37005abd56e16f6c4defd8d
   lynx-app-liquid-glass: a1ac49d30156ec1090d75e8f659b4967aea5a92a
+  lynx-app-local-notification: 3c937479e89775636f747254999a68ca19c67d6c
   lynx-app-mmkv: 7860d1659d1f824fdfa88825b8bcf21e42b4f96d
+  lynx-app-permissions: 8d5a05c103f8775fbaa2ee59c481c6b94df48868
   lynx-app-pressable-view: ac456194dfd4269ad11a5b5694d14d363a2c2f6b
   lynx-app-router: c0be761ca8cac8e62ce35f85a66996bdd755c831
   lynx-app-scanner: f0bfb08d9c677a52176b74a9fe9d78328f6bbf7c

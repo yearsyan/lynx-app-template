@@ -1,4 +1,4 @@
-import { useBackInterceptor } from '@lynx-app/native-bridge';
+import { useBackInterceptor } from '@lynx-app/native-host';
 
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
