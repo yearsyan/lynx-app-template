@@ -1,14 +1,10 @@
-import {
-  completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { KV_MODULE_NAME } from './native.generated.js';
+import { completeNativeCall, requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
 function requireKVModule() {
   'background only';
-  return requireNativeModule(KV_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function validateKey(key: string): void {

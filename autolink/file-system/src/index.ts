@@ -2,11 +2,8 @@ import {
   decodeNativeEnvelope,
   decodeNativeValue,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import {
-  FILE_SYSTEM_MODULE_NAME,
-  type FileSystemModule,
-} from './native.generated.js';
+} from './bridge.generated.js';
+import type { FileSystemModule } from './native.generated.js';
 
 export * from './native.generated.js';
 
@@ -62,7 +59,7 @@ const MAX_PICKER_SELECTION = 50;
 
 function requireFileSystem(): FileSystemModule {
   'background only';
-  return requireNativeModule(FILE_SYSTEM_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function normalizeURI(uri: string): string {

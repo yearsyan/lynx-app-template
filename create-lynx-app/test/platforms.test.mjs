@@ -254,6 +254,36 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
       expectedPackageNames(expected),
     );
 
+    // Every Autolink package resolves its own NativeModule through generated
+    // code; generated apps must not retain the former central runtime package.
+    await doesNotExist(join(projectDirectory, 'lib/native-runtime'));
+    const mmkvPackageJson = JSON.parse(
+      await readFile(
+        join(projectDirectory, 'autolink/mmkv/package.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(mmkvPackageJson.dependencies, undefined);
+    const mmkvBridge = await readFile(
+      join(projectDirectory, 'autolink/mmkv/src/bridge.generated.ts'),
+      'utf8',
+    );
+    assert.match(mmkvBridge, /NativeModules\[KV_MODULE_NAME\]/);
+    assert.doesNotMatch(mmkvBridge, /native-runtime/);
+    for (const moduleName of ['battery', 'local-notification', 'permissions']) {
+      const structuredBridge = await readFile(
+        join(
+          projectDirectory,
+          'autolink',
+          moduleName,
+          'src/bridge.generated.ts',
+        ),
+        'utf8',
+      );
+      assert.match(structuredBridge, /validateNativeEnvelope/);
+      assert.doesNotMatch(structuredBridge, /JSON\.|decodeNative/);
+    }
+
     // Selection controls native discovery, not source retention: a generated
     // project can enable another module later without re-scaffolding.
     await readFile(
@@ -291,6 +321,51 @@ test('Harmony-only none selection retains Router but not WebView bridge', async 
     assert.deepEqual(directAutolinkDependencies(packageJson), [
       '@fixture/autolink-router',
     ]);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test('new NativeModule scaffolds a package-local generated bridge', async () => {
+  const temporaryDirectory = await mkdtemp(
+    join(tmpdir(), 'lynx-template-new-native-module-'),
+  );
+  const projectDirectory = join(temporaryDirectory, 'fixture');
+  try {
+    await copyTemplate(templateDirectory, projectDirectory, fixtureTokens());
+    await mkdir(join(projectDirectory, 'node_modules'), { recursive: true });
+    await symlink(
+      join(repositoryDirectory, 'node_modules/typescript'),
+      join(projectDirectory, 'node_modules/typescript'),
+      'dir',
+    );
+
+    await execFileAsync(
+      process.execPath,
+      ['scripts/create-native-module.mjs', 'echo-sample'],
+      { cwd: projectDirectory },
+    );
+
+    const packageJson = JSON.parse(
+      await readFile(
+        join(projectDirectory, 'autolink/echo-sample/package.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(packageJson.dependencies, undefined);
+    assert.equal(packageJson.exports['./raw'], './src/native.generated.ts');
+    const bridge = await readFile(
+      join(projectDirectory, 'autolink/echo-sample/src/bridge.generated.ts'),
+      'utf8',
+    );
+    assert.match(bridge, /NativeModules\[ECHO_SAMPLE_MODULE_NAME\]/);
+    assert.doesNotMatch(bridge, /native-runtime/);
+    assert.doesNotMatch(bridge, /JSON\.|decodeNative/);
+    const facade = await readFile(
+      join(projectDirectory, 'autolink/echo-sample/src/index.ts'),
+      'utf8',
+    );
+    assert.match(facade, /from '\.\/bridge\.generated\.js'/);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

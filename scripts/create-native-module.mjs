@@ -167,9 +167,6 @@ async function main() {
           '.': './src/index.ts',
           './raw': './src/native.generated.ts',
         },
-        dependencies: {
-          '@lynx-app/native-runtime': 'workspace:*',
-        },
         files: [
           'android',
           'ios',
@@ -214,6 +211,7 @@ functionality without moving handwritten TypeScript out of this package.
 - HarmonyOS: \`harmony/src/main/ets/${interfaceName}.ets\` (source HAR, autolink-registered)
 - Raw TypeScript contract: \`types/platform-native-module.d.ts\`
 - Generated raw facade: \`src/native.generated.ts\`
+- Generated package-local bridge helpers: \`src/bridge.generated.ts\`
 - Handwritten Promise/domain facade: \`src/index.ts\`
 
 Keep the three implementations and the contract in sync —
@@ -231,14 +229,13 @@ export declare class ${moduleName} {
   ping(message: string, callback: (value: string) => void): void;
 }
 `,
-    'src/index.ts': `import { requireNativeModule } from '@lynx-app/native-runtime';
-import { ${exportName} } from './native.generated.js';
+    'src/index.ts': `import { requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
 function require${interfaceName}() {
   'background only';
-  return requireNativeModule(${exportName});
+  return requireNativeModule();
 }
 
 /** Promise and validation facade colocated with the native implementation. */
@@ -480,7 +477,7 @@ export class ${interfaceName} extends LynxModule {
 
   // All hosts discover the package from lynx.lib.json through official
   // Android, iOS and HarmonyOS Autolink tooling.
-  // Generates autolink/<name>/src/native.generated.ts and the registries.
+  // Generates package-local native/bridge facades and the aggregate registries.
   const generated = spawnSync(
     process.execPath,
     [join(repositoryDirectory, 'scripts/generate-native-contracts.mjs')],

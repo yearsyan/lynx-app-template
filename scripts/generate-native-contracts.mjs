@@ -29,6 +29,10 @@ const generatedHarmonyContractFile = join(
   repositoryDirectory,
   'app/harmonyApp/entry/src/main/ets/contracts/NativeModuleContracts.ets',
 );
+const generatedNativeHostBridgeFile = join(
+  repositoryDirectory,
+  'lib/native-host/src/bridge.generated.ts',
+);
 
 class ContractError extends Error {
   constructor(message) {
@@ -234,6 +238,80 @@ async function attachDeclarationMethods(contract) {
   return contract;
 }
 
+const GENERATED_AUTOLINK_BRIDGE_HELPERS = new Set([
+  'completeNativeCall',
+  'decodeNativeEnvelope',
+  'decodeNativeValue',
+  'requireNativeModule',
+  'validateNativeEnvelope',
+]);
+
+async function attachAutolinkBridgeHelpers(contract) {
+  for (const module of contract.modules) {
+    if (module.autolink === undefined) continue;
+    const path = join(
+      repositoryDirectory,
+      'autolink',
+      module.autolink.directory,
+      'src/index.ts',
+    );
+    let content;
+    try {
+      content = await readFile(path, 'utf8');
+    } catch (error) {
+      throw new ContractError(
+        `cannot read ${repositoryRelative(path)}: ${errorMessage(error)}`,
+      );
+    }
+    const sourceFile = ts.createSourceFile(
+      path,
+      content,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    );
+    if (sourceFile.parseDiagnostics.length > 0) {
+      const diagnostic = sourceFile.parseDiagnostics[0];
+      throw new ContractError(
+        `${repositoryRelative(path)} cannot be parsed: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`,
+      );
+    }
+
+    const helpers = new Set();
+    for (const statement of sourceFile.statements) {
+      if (
+        !ts.isImportDeclaration(statement) ||
+        !ts.isStringLiteral(statement.moduleSpecifier) ||
+        statement.moduleSpecifier.text !== './bridge.generated.js'
+      ) {
+        continue;
+      }
+      const bindings = statement.importClause?.namedBindings;
+      if (bindings === undefined || !ts.isNamedImports(bindings)) {
+        throw new ContractError(
+          `${repositoryRelative(path)} must use named imports from ./bridge.generated.js`,
+        );
+      }
+      for (const element of bindings.elements) {
+        const helper = (element.propertyName ?? element.name).text;
+        if (!GENERATED_AUTOLINK_BRIDGE_HELPERS.has(helper)) {
+          throw new ContractError(
+            `${repositoryRelative(path)} imports unknown generated bridge helper ${helper}`,
+          );
+        }
+        helpers.add(helper);
+      }
+    }
+    if (!helpers.has('requireNativeModule')) {
+      throw new ContractError(
+        `${repositoryRelative(path)} must import requireNativeModule from ./bridge.generated.js`,
+      );
+    }
+    module.bridgeHelpers = helpers;
+  }
+  return contract;
+}
+
 function generateTypeScript(contract) {
   const autolinkModules = contract.modules.filter(
     (module) => module.autolink !== undefined,
@@ -317,30 +395,200 @@ function generateTypeScript(contract) {
     '',
   );
 
-  lines.push('export interface NativeModuleRegistry {');
-  for (const module of contract.modules) {
-    lines.push(`  ${module.name}?: ${module.interfaceName};`);
-  }
-  lines.push('}', '');
   return lines.join('\n');
 }
 
 function generateAutolinkRawEntry(module) {
   return `// Generated from contracts/native-modules.json. Do not edit.
-import '@lynx-app/native-runtime';
 import type { ${module.name} as Raw${module.interfaceName} } from '../types/platform-native-module.js';
 
 export type ${module.interfaceName} = Raw${module.interfaceName};
 
-declare module '@lynx-app/native-runtime' {
-  interface NativeModuleRegistry {
-    ${module.name}?: Raw${module.interfaceName};
-  }
-}
-
 /** Name the native hosts register this module under. */
 export const ${module.autolink.exportName} = '${module.name}' as const;
 `;
+}
+
+function generateAutolinkBridgeEntry(module) {
+  const helpers = module.bridgeHelpers;
+  const singleLineImport = `import { ${module.autolink.exportName}, type ${module.interfaceName} } from './native.generated.js';`;
+  const importStatement =
+    singleLineImport.length <= 80
+      ? singleLineImport
+      : `import {
+  ${module.autolink.exportName},
+  type ${module.interfaceName},
+} from './native.generated.js';`;
+  const singleLineInvalidError = `          reject(new Error('${module.name} returned an invalid error value'));`;
+  const invalidErrorStatement =
+    singleLineInvalidError.length <= 80
+      ? singleLineInvalidError
+      : `          reject(
+            new Error('${module.name} returned an invalid error value'),
+          );`;
+  const completionBlock = helpers.has('completeNativeCall')
+    ? `
+/** Convert the native error-string callback convention to a Promise. */
+export function completeNativeCall(
+  action: (callback: (error: string) => void) => void,
+): Promise<void> {
+  'background only';
+  return new Promise((resolve, reject) => {
+    try {
+      action((error) => {
+        'background only';
+        if (typeof error !== 'string') {
+${invalidErrorStatement}
+          return;
+        }
+        if (error.length > 0) {
+          reject(new Error(error));
+        } else {
+          resolve();
+        }
+      });
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+`
+    : '';
+  const decodeValueBlock =
+    helpers.has('decodeNativeValue') || helpers.has('decodeNativeEnvelope')
+      ? `
+/** Accept structured bridge values and legacy JSON strings during migration. */
+export function decodeNativeValue(value: unknown, source: string): unknown {
+  'background only';
+  if (typeof value !== 'string') {
+    return value;
+  }
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    throw new Error(\`\${source} returned invalid JSON\`);
+  }
+}
+`
+      : '';
+  const envelopeBlock =
+    helpers.has('validateNativeEnvelope') || helpers.has('decodeNativeEnvelope')
+      ? `
+export interface NativeResultEnvelope {
+  error?: unknown;
+  value?: unknown;
+}
+
+/** Validate the common structured { value, error } result envelope. */
+export function validateNativeEnvelope(
+  value: unknown,
+  source: string,
+): NativeResultEnvelope {
+  'background only';
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(\`\${source} returned an invalid result\`);
+  }
+  return value as NativeResultEnvelope;
+}
+`
+      : '';
+  const decodeEnvelopeBlock = helpers.has('decodeNativeEnvelope')
+    ? `
+/** Decode a legacy JSON value, then validate its result envelope. */
+export function decodeNativeEnvelope(
+  value: unknown,
+  source: string,
+): NativeResultEnvelope {
+  'background only';
+  return validateNativeEnvelope(decodeNativeValue(value, source), source);
+}
+`
+    : '';
+  return `// Generated from contracts/native-modules.json. Do not edit.
+${importStatement}
+
+/** Resolve this package's native module without a central runtime registry. */
+export function requireNativeModule(): ${module.interfaceName} {
+  'background only';
+  const nativeModule = NativeModules[${module.autolink.exportName}] as
+    | ${module.interfaceName}
+    | null
+    | undefined;
+  if (nativeModule === undefined || nativeModule === null) {
+    throw new Error('${module.name} is not registered by the host');
+  }
+  return nativeModule;
+}
+${completionBlock}${decodeValueBlock}${envelopeBlock}${decodeEnvelopeBlock}`;
+}
+
+function hostModuleExportName(module) {
+  return `${module.name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}_MODULE_NAME`;
+}
+
+function generateNativeHostBridge(contract) {
+  const modules = contract.modules
+    .filter((module) => module.autolink === undefined)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const imports = [];
+  for (const module of modules) {
+    imports.push(`  ${hostModuleExportName(module)},`);
+    imports.push(`  type ${module.interfaceName},`);
+  }
+  const lines = [
+    '// Generated from contracts/native-modules.json. Do not edit.',
+    'import {',
+    ...imports,
+    "} from './native.js';",
+    '',
+  ];
+  for (const module of modules) {
+    const functionName = `require${module.interfaceName}`;
+    const exportName = hostModuleExportName(module);
+    lines.push(
+      `/** Resolve the host-owned ${module.name} module for the current LynxView. */`,
+      `export function ${functionName}(): ${module.interfaceName} {`,
+      "  'background only';",
+      `  const nativeModule = NativeModules[${exportName}] as`,
+      `    | ${module.interfaceName}`,
+      '    | null',
+      '    | undefined;',
+      '  if (nativeModule === undefined || nativeModule === null) {',
+      `    throw new Error('${module.name} is not registered by the host');`,
+      '  }',
+      '  return nativeModule;',
+      '}',
+      '',
+    );
+  }
+  lines.push(
+    "/** Convert the host modules' error-string callback convention to a Promise. */",
+    'export function completeNativeCall(',
+    '  action: (callback: (error: string) => void) => void,',
+    '): Promise<void> {',
+    "  'background only';",
+    '  return new Promise((resolve, reject) => {',
+    '    try {',
+    '      action((error) => {',
+    "        'background only';",
+    "        if (typeof error !== 'string') {",
+    "          reject(new Error('Native host call returned an invalid error value'));",
+    '          return;',
+    '        }',
+    '        if (error.length > 0) {',
+    '          reject(new Error(error));',
+    '        } else {',
+    '          resolve();',
+    '        }',
+    '      });',
+    '    } catch (error) {',
+    '      reject(error instanceof Error ? error : new Error(String(error)));',
+    '    }',
+    '  });',
+    '}',
+    '',
+  );
+  return lines.join('\n');
 }
 
 // The generated registry imports every autolink package, so each one must be
@@ -424,6 +672,10 @@ function generateHarmonyContract(contract) {
 function generatedOutputs(contract, platforms) {
   const outputs = [
     { path: generatedContractFile, content: generateTypeScript(contract) },
+    {
+      path: generatedNativeHostBridgeFile,
+      content: generateNativeHostBridge(contract),
+    },
   ];
   if (platforms.includes('harmony')) {
     outputs.push({
@@ -441,6 +693,15 @@ function generatedOutputs(contract, platforms) {
         'src/native.generated.ts',
       ),
       content: generateAutolinkRawEntry(module),
+    });
+    outputs.push({
+      path: join(
+        repositoryDirectory,
+        'autolink',
+        module.autolink.directory,
+        'src/bridge.generated.ts',
+      ),
+      content: generateAutolinkBridgeEntry(module),
     });
   }
   return outputs;
@@ -760,7 +1021,8 @@ function printHelp() {
   console.info(`usage: node scripts/generate-native-contracts.mjs [--check]
 
 Aggregate per-package TypeScript NativeModule declarations, generate the
-registry and raw Autolink facades, then validate enabled native implementations.
+registry and package-local Autolink facades/bridges, then validate enabled
+native implementations.
 
 options:
   --check  fail when generated files or native implementations have drifted
@@ -779,9 +1041,11 @@ async function main(args = process.argv.slice(2)) {
   }
 
   try {
-    const contract = await attachDeclarationMethods(
-      parseContract(
-        await readJSON(contractFile, 'contracts/native-modules.json'),
+    const contract = await attachAutolinkBridgeHelpers(
+      await attachDeclarationMethods(
+        parseContract(
+          await readJSON(contractFile, 'contracts/native-modules.json'),
+        ),
       ),
     );
     const packageJson = await readJSON(packageFile, 'package.json');

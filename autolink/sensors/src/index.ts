@@ -8,8 +8,7 @@ import {
   completeNativeCall,
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { SENSORS_MODULE_NAME } from './native.generated.js';
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -64,7 +63,7 @@ let listeningForEvents = false;
 
 function requireSensorsModule() {
   'background only';
-  return requireNativeModule(SENSORS_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function installEventListener(): void {

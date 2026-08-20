@@ -3,10 +3,9 @@
  * Permissions module (notifications, camera, photo library, microphone).
  */
 import {
-  decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { PERMISSIONS_MODULE_NAME } from './native.generated.js';
+  validateNativeEnvelope,
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -57,7 +56,7 @@ const KNOWN_STATUSES: readonly PermissionStatus[] = [
 
 function requirePermissionsModule() {
   'background only';
-  return requireNativeModule(PERMISSIONS_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function assertType(type: PermissionType): void {
@@ -76,7 +75,7 @@ interface PermissionsEnvelope {
 
 function parseState(result: unknown): PermissionState {
   'background only';
-  const parsed = decodeNativeEnvelope(
+  const parsed = validateNativeEnvelope(
     result,
     'Permissions',
   ) as PermissionsEnvelope;

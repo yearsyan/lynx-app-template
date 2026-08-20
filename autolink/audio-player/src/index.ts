@@ -7,8 +7,7 @@
 import {
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { AUDIO_PLAYER_MODULE_NAME } from './native.generated.js';
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -111,7 +110,7 @@ let listeningForEvents = false;
 
 function requireAudioPlayerModule() {
   'background only';
-  return requireNativeModule(AUDIO_PLAYER_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function installEventListener(): void {

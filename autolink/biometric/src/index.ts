@@ -5,8 +5,7 @@
 import {
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { BIOMETRIC_MODULE_NAME } from './native.generated.js';
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -139,7 +138,7 @@ interface BiometricEnvelope {
 
 function requireBiometricModule() {
   'background only';
-  return requireNativeModule(BIOMETRIC_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function decodeEnvelope(result: unknown): BiometricEnvelope {

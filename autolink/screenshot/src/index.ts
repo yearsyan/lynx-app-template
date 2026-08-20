@@ -1,11 +1,8 @@
 import {
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import {
-  SCREENSHOT_MODULE_NAME,
-  type ScreenshotModule,
-} from './native.generated.js';
+} from './bridge.generated.js';
+import type { ScreenshotModule } from './native.generated.js';
 
 export * from './native.generated.js';
 
@@ -53,7 +50,7 @@ const MAX_FILE_NAME_LENGTH = 120;
 
 function requireScreenshotModule(): ScreenshotModule {
   'background only';
-  return requireNativeModule(SCREENSHOT_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function normalizeRequest(

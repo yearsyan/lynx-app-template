@@ -360,27 +360,3 @@ export const NATIVE_MODULE_METHODS = {
 export type NativeModuleName = keyof typeof NATIVE_MODULE_CONTRACT;
 export type NativeMethodName<Name extends NativeModuleName> =
   keyof (typeof NATIVE_MODULE_METHODS)[Name] & string;
-
-export interface NativeModuleRegistry {
-  AlbumUtils?: AlbumUtilsModule;
-  AudioPlayer?: AudioPlayerModule;
-  Back?: BackModule;
-  Battery?: BatteryModule;
-  Biometric?: BiometricModule;
-  Clipboard?: ClipboardModule;
-  DeviceInfo?: DeviceInfoModule;
-  Display?: DisplayModule;
-  FileSystem?: FileSystemModule;
-  Haptics?: HapticsModule;
-  KV?: KVModule;
-  LocalNotification?: LocalNotificationModule;
-  Permissions?: PermissionsModule;
-  Router?: RouterModule;
-  Scanner?: ScannerModule;
-  Screenshot?: ScreenshotModule;
-  Sensors?: SensorsModule;
-  SecureStorage?: SecureStorageModule;
-  StatusBar?: StatusBarModule;
-  Toast?: ToastModule;
-  WebSocket?: WebSocketModule;
-}

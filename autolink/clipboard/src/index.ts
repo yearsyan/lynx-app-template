@@ -1,14 +1,10 @@
-import {
-  completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { CLIPBOARD_MODULE_NAME } from './native.generated.js';
+import { completeNativeCall, requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
 function requireClipboardModule() {
   'background only';
-  return requireNativeModule(CLIPBOARD_MODULE_NAME);
+  return requireNativeModule();
 }
 
 /** System clipboard for plain text. */

@@ -3,8 +3,7 @@
  * iOS Keychain and HarmonyOS HUKS. Not a general-purpose store: values are
  * limited to short strings such as tokens and session payloads.
  */
-import { requireNativeModule } from '@lynx-app/native-runtime';
-import { SECURE_STORAGE_MODULE_NAME } from './native.generated.js';
+import { requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -13,7 +12,7 @@ const MAX_VALUE_LENGTH = 64 * 1024;
 
 function requireSecureStorageModule() {
   'background only';
-  return requireNativeModule(SECURE_STORAGE_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function validateKey(key: string): void {

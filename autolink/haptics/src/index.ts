@@ -1,8 +1,4 @@
-import {
-  completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { HAPTICS_MODULE_NAME } from './native.generated.js';
+import { completeNativeCall, requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -18,7 +14,7 @@ function normalizeHapticImpact(style: HapticImpact): HapticImpact {
 
 function requireHapticsModule() {
   'background only';
-  return requireNativeModule(HAPTICS_MODULE_NAME);
+  return requireNativeModule();
 }
 
 /** One-shot haptic feedback. */

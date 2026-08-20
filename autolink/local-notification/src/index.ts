@@ -5,10 +5,9 @@
  */
 import {
   completeNativeCall,
-  decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { LOCAL_NOTIFICATION_MODULE_NAME } from './native.generated.js';
+  validateNativeEnvelope,
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -57,7 +56,7 @@ const KNOWN_CODES: readonly NotifyOutcomeCode[] = [
 
 function requireLocalNotificationModule() {
   'background only';
-  return requireNativeModule(LOCAL_NOTIFICATION_MODULE_NAME);
+  return requireNativeModule();
 }
 
 interface NotifyEnvelope {
@@ -67,7 +66,7 @@ interface NotifyEnvelope {
 
 function parseOutcome(result: unknown): NotifyOutcome {
   'background only';
-  const parsed = decodeNativeEnvelope(
+  const parsed = validateNativeEnvelope(
     result,
     'LocalNotification',
   ) as NotifyEnvelope;

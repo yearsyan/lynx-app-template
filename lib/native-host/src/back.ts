@@ -1,9 +1,5 @@
-import {
-  completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
 import { useEffect, useRef } from '@lynx-js/react';
-import { BACK_MODULE_NAME } from './native.js';
+import { completeNativeCall, requireBackModule } from './bridge.generated.js';
 
 export type BackPlatform = 'android' | 'ios' | 'harmony';
 export type BackPhase = 'start' | 'progress' | 'cancel' | 'commit';
@@ -30,11 +26,6 @@ export interface BackInterceptorRegistration {
 }
 
 export const BACK_EVENT = 'back';
-
-function requireBackModule() {
-  'background only';
-  return requireNativeModule(BACK_MODULE_NAME);
-}
 
 function isBackEvent(value: unknown): value is BackEvent {
   'background only';

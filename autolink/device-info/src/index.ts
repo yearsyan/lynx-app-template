@@ -1,8 +1,7 @@
 import {
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { DEVICE_INFO_MODULE_NAME } from './native.generated.js';
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -32,7 +31,7 @@ interface DeviceInfoResult {
 
 function requireDeviceInfoModule() {
   'background only';
-  return requireNativeModule(DEVICE_INFO_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function decodeDeviceInfo(value: unknown): DeviceInfo {

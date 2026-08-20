@@ -5,8 +5,7 @@
 import {
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { SCANNER_MODULE_NAME } from './native.generated.js';
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -96,7 +95,7 @@ interface ScannerEnvelope {
 
 function requireScannerModule() {
   'background only';
-  return requireNativeModule(SCANNER_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function decodeEnvelope(result: unknown): ScannerEnvelope {

@@ -9,9 +9,6 @@
     "./raw": "./src/native.generated.ts",
     "./react": "./src/react.ts"
   },
-  "dependencies": {
-    "@lynx-app/native-runtime": "workspace:*"
-  },
   "peerDependencies": {
     "@lynx-js/react": "^0.123.0"
   },

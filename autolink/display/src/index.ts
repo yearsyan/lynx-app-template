@@ -6,8 +6,8 @@ import {
   completeNativeCall,
   decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { DISPLAY_MODULE_NAME, type DisplayModule } from './native.generated.js';
+} from './bridge.generated.js';
+import type { DisplayModule } from './native.generated.js';
 
 export * from './native.generated.js';
 
@@ -18,7 +18,7 @@ interface DisplayResult {
 
 function requireDisplayModule(): DisplayModule {
   'background only';
-  return requireNativeModule(DISPLAY_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function queryWidth(

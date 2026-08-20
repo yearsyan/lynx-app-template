@@ -1,8 +1,4 @@
-import {
-  completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { ROUTER_MODULE_NAME } from './native.generated.js';
+import { completeNativeCall, requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -43,7 +39,7 @@ function normalizeRouteAnimation(animation: RouteAnimation): RouteAnimation {
 
 function requireRouterModule() {
   'background only';
-  return requireNativeModule(ROUTER_MODULE_NAME);
+  return requireNativeModule();
 }
 
 export const router = {

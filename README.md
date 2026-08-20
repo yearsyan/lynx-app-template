@@ -39,9 +39,8 @@
 │   └── main         # 默认 Lynx bundle
 ├── contracts        # NativeModule 名称、声明文件与三端实现的映射元数据
 ├── lib              # bundles 共享的基础库 workspace packages
-│   ├── native-contracts # 聚合各 Autolink 包原始类型的生成注册表
-│   ├── native-host  # Back、StatusBar、安全区等页面宿主能力
-│   └── native-runtime # Autolink facade 共用的最小桥接原语
+│   ├── native-contracts # 聚合原始类型、模块名与 RPC 方法白名单
+│   └── native-host  # Back、StatusBar、安全区等页面宿主能力
 └── scripts          # 原生配置、bundle 创建与发布同步脚本
 ```
 

@@ -4,11 +4,7 @@
  * keep the app's custom styling in any system theme and do not require
  * notification permission.
  */
-import {
-  completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { TOAST_MODULE_NAME } from './native.generated.js';
+import { completeNativeCall, requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -46,7 +42,7 @@ const COLOR_PATTERN = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 function requireToastModule() {
   'background only';
-  return requireNativeModule(TOAST_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function validateColor(

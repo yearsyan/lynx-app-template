@@ -1,8 +1,7 @@
 import {
-  decodeNativeEnvelope,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { BATTERY_MODULE_NAME } from './native.generated.js';
+  validateNativeEnvelope,
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -21,7 +20,7 @@ interface BatteryResult {
 
 function requireBatteryModule() {
   'background only';
-  return requireNativeModule(BATTERY_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function decodeBatteryInfo(value: unknown): BatteryInfo {
@@ -47,7 +46,7 @@ export const battery = {
       requireBatteryModule().getInfo((resultValue) => {
         'background only';
         try {
-          const result = decodeNativeEnvelope(
+          const result = validateNativeEnvelope(
             resultValue,
             'Battery',
           ) as BatteryResult;

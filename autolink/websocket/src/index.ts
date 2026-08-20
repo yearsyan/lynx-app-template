@@ -4,8 +4,7 @@
  * The transport is implemented by each native host and intentionally does not
  * depend on Lynx DevTool's private WebSocket module.
  */
-import { requireNativeModule } from '@lynx-app/native-runtime';
-import { WEBSOCKET_MODULE_NAME } from './native.generated.js';
+import { requireNativeModule } from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -76,7 +75,7 @@ let listeningForEvents = false;
 
 function requireWebSocketModule() {
   'background only';
-  return requireNativeModule(WEBSOCKET_MODULE_NAME);
+  return requireNativeModule();
 }
 
 function invoke(

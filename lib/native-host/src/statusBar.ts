@@ -1,8 +1,7 @@
 import {
   completeNativeCall,
-  requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { STATUS_BAR_MODULE_NAME } from './native.js';
+  requireStatusBarModule,
+} from './bridge.generated.js';
 
 export type StatusBarStyle = 'dark-content' | 'light-content';
 
@@ -12,11 +11,6 @@ export function normalizeStatusBarStyle(style: StatusBarStyle): StatusBarStyle {
     throw new Error(`Invalid status bar style: ${String(style)}`);
   }
   return style;
-}
-
-function requireStatusBarModule() {
-  'background only';
-  return requireNativeModule(STATUS_BAR_MODULE_NAME);
 }
 
 /** Controls the foreground color of the current native status bar. */

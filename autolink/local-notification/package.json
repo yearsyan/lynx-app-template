@@ -8,9 +8,6 @@
     ".": "./src/index.ts",
     "./raw": "./src/native.generated.ts"
   },
-  "dependencies": {
-    "@lynx-app/native-runtime": "workspace:*"
-  },
   "files": [
     "android",
     "ios",

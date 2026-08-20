@@ -2,8 +2,7 @@ import {
   completeNativeCall,
   decodeNativeValue,
   requireNativeModule,
-} from '@lynx-app/native-runtime';
-import { ALBUM_UTILS_MODULE_NAME } from './native.generated.js';
+} from './bridge.generated.js';
 
 export * from './native.generated.js';
 
@@ -72,7 +71,7 @@ function completePicker(
 
 function requireAlbumUtilsModule() {
   'background only';
-  return requireNativeModule(ALBUM_UTILS_MODULE_NAME);
+  return requireNativeModule();
 }
 
 /** Picks images from the system album and saves image URIs back into it. */

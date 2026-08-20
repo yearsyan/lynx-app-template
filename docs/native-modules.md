@@ -4,9 +4,10 @@
 
 原生能力按功能纵向封装：每个 `autolink/*` 包同时拥有三端实现、原始 TypeScript
 调用契约、生成的 raw facade，以及手写的 Promise API、参数校验、返回值解码和事件
-生命周期；需要 React 的能力通过包内 `/react` 子路径导出 hooks。`lib/native-runtime`
-只保留模块解析、callback 转 Promise 和结构化值/旧 JSON 兼容解码等通用原语，
-`lib/native-host` 则拥有 Back、StatusBar 和安全区等页面宿主能力。
+生命周期；需要 React 的能力通过包内 `/react` 子路径导出 hooks。每个包的
+`bridge.generated.ts` 按 facade 的实际使用情况生成该模块专用的 resolver、callback 转
+Promise 和结构化值/旧 JSON 兼容解码，不依赖中心 runtime 包。`lib/native-host` 则拥有
+Back、StatusBar 和安全区等页面宿主能力，并生成自己的宿主模块 resolver。
 Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
 
 - `KV`：以 MMKV 保存字符串；JSON 编解码由共享 TypeScript 层完成；
@@ -50,15 +51,18 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 
 `contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
 映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
-`@lynx-app/native-contracts` 的模块名、方法白名单、参数个数和类型注册表，同时在每个
-Autolink 包生成 `src/native.generated.ts`。包根入口 `src/index.ts` 是手写 facade，
-生成器不会覆盖；原始类型与模块名通过 `/raw` 子路径提供。聚合注册表只用于合同检查和
-WebView RPC 白名单，业务 bundle 直接依赖所使用的 Autolink 包。
+`@lynx-app/native-contracts` 的模块名、方法白名单、参数个数和原始类型聚合，同时在每个
+Autolink 包生成 `src/native.generated.ts`（raw 类型/模块名）和
+`src/bridge.generated.ts`（包内桥接辅助函数）。包根入口 `src/index.ts` 是手写 facade，
+生成器不会覆盖；原始类型与模块名通过 `/raw` 子路径提供，内部桥接辅助函数不属于公开
+exports。聚合注册表只用于合同检查和 WebView RPC 白名单，业务 bundle 直接依赖所使用的
+Autolink 包。
 
 原生方法仍可使用 callback ABI，Promise 在所属包的 facade 内完成。返回值优先使用
 NativeModule 可直接传输的对象/数组；尚未迁移的三端实现可以继续返回 JSON 字符串，
-`decodeNativeValue` / `decodeNativeEnvelope` 同时接受两种形式。无论传输形式如何，模块
-自己的 facade 都必须做运行时校验，不能把原生返回值仅靠 TypeScript 断言交给业务层。
+每个包生成的 `decodeNativeValue` / `decodeNativeEnvelope` 同时接受两种形式。无论传输
+形式如何，模块自己的 facade 都必须做运行时校验，不能把原生返回值仅靠 TypeScript
+断言交给业务层。
 
 `pnpm native:contracts:check` 除了检查生成物，还会核对
 `package.json#nativeApp.platforms` 中启用平台的原生实现：Android 的
