@@ -17,13 +17,9 @@ import {
 const scriptPath = fileURLToPath(import.meta.url);
 const contractFile = join(repositoryDirectory, 'contracts/native-modules.json');
 const packageFile = join(repositoryDirectory, 'package.json');
-const nativeContractsPackageFile = join(
+const generatedWebviewContractFile = join(
   repositoryDirectory,
-  'lib/native-contracts/package.json',
-);
-const generatedContractFile = join(
-  repositoryDirectory,
-  'lib/native-contracts/src/index.ts',
+  'autolink/webview-bridge/src/contracts.generated.ts',
 );
 const generatedHarmonyContractFile = join(
   repositoryDirectory,
@@ -312,47 +308,13 @@ async function attachAutolinkBridgeHelpers(contract) {
   return contract;
 }
 
-function generateTypeScript(contract) {
-  const autolinkModules = contract.modules.filter(
-    (module) => module.autolink !== undefined,
-  );
-  // Import statements must be sorted by package specifier (not module
-  // name) to stay biome organize-imports clean: autolink-local-notification
-  // sorts before autolink-mmkv even though LocalNotification > KV.
-  autolinkModules.sort((left, right) =>
-    left.autolink.directory.localeCompare(right.autolink.directory),
-  );
-  const hostModules = contract.modules.filter(
-    (module) => module.autolink === undefined,
-  );
-  hostModules.sort((left, right) =>
-    left.interfaceName.localeCompare(right.interfaceName),
-  );
+function generateWebviewContract(contract) {
   const lines = [
     '// Generated from per-package NativeModule declarations. Do not edit.',
     '// Run `pnpm native:contracts:generate` after changing a declaration.',
     '',
+    'export const NATIVE_MODULE_CONTRACT = {',
   ];
-  // '@lynx-app/native-host/raw' sorts before every '@lynx-template/autolink-*'
-  // specifier, so the host import is emitted first to stay biome-clean.
-  if (hostModules.length > 0) {
-    lines.push(
-      `import type { ${hostModules.map((module) => module.interfaceName).join(', ')} } from '@lynx-app/native-host/raw';`,
-    );
-  }
-  for (const module of autolinkModules) {
-    lines.push(
-      `import type { ${module.interfaceName} } from '@lynx-template/autolink-${module.autolink.directory}/raw';`,
-    );
-  }
-  lines.push('', 'export type {');
-  const exportedModules = [...contract.modules].sort((left, right) =>
-    left.interfaceName.localeCompare(right.interfaceName),
-  );
-  for (const module of exportedModules) {
-    lines.push(`  ${module.interfaceName},`);
-  }
-  lines.push('};', '', 'export const NATIVE_MODULE_CONTRACT = {');
   for (const module of contract.modules) {
     lines.push(`  ${module.name}: {`);
     lines.push(`    name: '${module.name}',`);
@@ -591,57 +553,6 @@ function generateNativeHostBridge(contract) {
   return lines.join('\n');
 }
 
-// The generated registry imports every autolink package, so each one must be
-// a declared dependency of @lynx-app/native-contracts; pnpm's strict linker
-// does not tolerate imports that only resolve through hoisting. Rebuild the
-// dependencies here so adding a module can never leave the manifest behind.
-async function nativeContractsPackageOutput(contract) {
-  const packageJson = requireRecord(
-    await readJSON(
-      nativeContractsPackageFile,
-      'lib/native-contracts/package.json',
-    ),
-    'lib/native-contracts/package.json',
-  );
-  const existing = requireRecord(
-    packageJson.dependencies,
-    'lib/native-contracts/package.json#dependencies',
-  );
-  const autolinkDependencies = {};
-  for (const module of contract.modules) {
-    if (module.autolink === undefined) continue;
-    autolinkDependencies[
-      `@lynx-template/autolink-${module.autolink.directory}`
-    ] = 'workspace:*';
-  }
-  const otherDependencies = {};
-  for (const [name, version] of Object.entries(existing)) {
-    if (!name.startsWith('@lynx-template/autolink-')) {
-      otherDependencies[name] = version;
-    }
-  }
-  // Autolink entries first (sorted by package name), then everything else:
-  // renaming the workspace scope (create-lynx-app rewrites @lynx-template)
-  // must not change the relative order of the two groups, or the template's
-  // committed manifest would drift from the scaffold's regenerated one.
-  packageJson.dependencies = {
-    ...Object.fromEntries(
-      Object.entries(autolinkDependencies).sort(([left], [right]) =>
-        left < right ? -1 : left > right ? 1 : 0,
-      ),
-    ),
-    ...Object.fromEntries(
-      Object.entries(otherDependencies).sort(([left], [right]) =>
-        left < right ? -1 : left > right ? 1 : 0,
-      ),
-    ),
-  };
-  return {
-    path: nativeContractsPackageFile,
-    content: `${JSON.stringify(packageJson, null, 2)}\n`,
-  };
-}
-
 function generateHarmonyContract(contract) {
   const lines = [
     '// Generated from contracts/native-modules.json. Do not edit.',
@@ -671,7 +582,10 @@ function generateHarmonyContract(contract) {
 
 function generatedOutputs(contract, platforms) {
   const outputs = [
-    { path: generatedContractFile, content: generateTypeScript(contract) },
+    {
+      path: generatedWebviewContractFile,
+      content: generateWebviewContract(contract),
+    },
     {
       path: generatedNativeHostBridgeFile,
       content: generateNativeHostBridge(contract),
@@ -1021,8 +935,8 @@ function printHelp() {
   console.info(`usage: node scripts/generate-native-contracts.mjs [--check]
 
 Aggregate per-package TypeScript NativeModule declarations, generate the
-registry and package-local Autolink facades/bridges, then validate enabled
-native implementations.
+WebView RPC contract and package-local Autolink facades/bridges, then validate
+enabled native implementations.
 
 options:
   --check  fail when generated files or native implementations have drifted
@@ -1052,7 +966,6 @@ async function main(args = process.argv.slice(2)) {
     const platforms = enabledNativePlatforms(packageJson);
     await validateNativeImplementations(contract, platforms);
     const outputs = generatedOutputs(contract, platforms);
-    outputs.push(await nativeContractsPackageOutput(contract));
 
     if (args.includes('--check')) {
       const stale = await checkOutputs(outputs);

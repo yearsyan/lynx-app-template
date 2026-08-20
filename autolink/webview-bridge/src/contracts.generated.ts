@@ -1,51 +1,6 @@
 // Generated from per-package NativeModule declarations. Do not edit.
 // Run `pnpm native:contracts:generate` after changing a declaration.
 
-import type { BackModule, StatusBarModule } from '@lynx-app/native-host/raw';
-import type { AlbumUtilsModule } from '@lynx-template/autolink-album-utils/raw';
-import type { AudioPlayerModule } from '@lynx-template/autolink-audio-player/raw';
-import type { BatteryModule } from '@lynx-template/autolink-battery/raw';
-import type { BiometricModule } from '@lynx-template/autolink-biometric/raw';
-import type { ClipboardModule } from '@lynx-template/autolink-clipboard/raw';
-import type { DeviceInfoModule } from '@lynx-template/autolink-device-info/raw';
-import type { DisplayModule } from '@lynx-template/autolink-display/raw';
-import type { FileSystemModule } from '@lynx-template/autolink-file-system/raw';
-import type { HapticsModule } from '@lynx-template/autolink-haptics/raw';
-import type { LocalNotificationModule } from '@lynx-template/autolink-local-notification/raw';
-import type { KVModule } from '@lynx-template/autolink-mmkv/raw';
-import type { PermissionsModule } from '@lynx-template/autolink-permissions/raw';
-import type { RouterModule } from '@lynx-template/autolink-router/raw';
-import type { ScannerModule } from '@lynx-template/autolink-scanner/raw';
-import type { ScreenshotModule } from '@lynx-template/autolink-screenshot/raw';
-import type { SecureStorageModule } from '@lynx-template/autolink-secure-storage/raw';
-import type { SensorsModule } from '@lynx-template/autolink-sensors/raw';
-import type { ToastModule } from '@lynx-template/autolink-toast/raw';
-import type { WebSocketModule } from '@lynx-template/autolink-websocket/raw';
-
-export type {
-  AlbumUtilsModule,
-  AudioPlayerModule,
-  BackModule,
-  BatteryModule,
-  BiometricModule,
-  ClipboardModule,
-  DeviceInfoModule,
-  DisplayModule,
-  FileSystemModule,
-  HapticsModule,
-  KVModule,
-  LocalNotificationModule,
-  PermissionsModule,
-  RouterModule,
-  ScannerModule,
-  ScreenshotModule,
-  SecureStorageModule,
-  SensorsModule,
-  StatusBarModule,
-  ToastModule,
-  WebSocketModule,
-};
-
 export const NATIVE_MODULE_CONTRACT = {
   AlbumUtils: {
     name: 'AlbumUtils',

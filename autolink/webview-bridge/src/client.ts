@@ -16,15 +16,15 @@
  * below rejects with `NativeBridgeUnavailableError`.
  */
 
+import type { StatusBarStyle } from '@lynx-app/native-host';
+import type { DeviceInfo } from '@lynx-template/autolink-device-info';
+import type { HapticImpact } from '@lynx-template/autolink-haptics';
 import {
   NATIVE_MODULE_METHODS,
   NATIVE_MODULE_NAMES,
   type NativeMethodName,
   type NativeModuleName,
-} from '@lynx-app/native-contracts';
-import type { StatusBarStyle } from '@lynx-app/native-host';
-import type { DeviceInfo } from '@lynx-template/autolink-device-info';
-import type { HapticImpact } from '@lynx-template/autolink-haptics';
+} from './contracts.generated.js';
 
 interface NativeBridgeGlobal {
   invoke(module: string, method: string, args?: unknown[]): Promise<unknown[]>;

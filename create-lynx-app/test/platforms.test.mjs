@@ -257,6 +257,8 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     // Every Autolink package resolves its own NativeModule through generated
     // code; generated apps must not retain the former central runtime package.
     await doesNotExist(join(projectDirectory, 'lib/native-runtime'));
+    await doesNotExist(join(projectDirectory, 'lib/native-contracts'));
+    await doesNotExist(join(projectDirectory, 'lib/webview-bridge'));
     const mmkvPackageJson = JSON.parse(
       await readFile(
         join(projectDirectory, 'autolink/mmkv/package.json'),
@@ -270,6 +272,27 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     );
     assert.match(mmkvBridge, /NativeModules\[KV_MODULE_NAME\]/);
     assert.doesNotMatch(mmkvBridge, /native-runtime/);
+    const webviewPackageJson = JSON.parse(
+      await readFile(
+        join(projectDirectory, 'autolink/webview-bridge/package.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(webviewPackageJson.exports['./client'], './src/client.ts');
+    const webviewClient = await readFile(
+      join(projectDirectory, 'autolink/webview-bridge/src/client.ts'),
+      'utf8',
+    );
+    assert.match(webviewClient, /from '\.\/contracts\.generated\.js'/);
+    const webviewContracts = await readFile(
+      join(
+        projectDirectory,
+        'autolink/webview-bridge/src/contracts.generated.ts',
+      ),
+      'utf8',
+    );
+    assert.match(webviewContracts, /NATIVE_MODULE_METHODS/);
+    assert.doesNotMatch(webviewContracts, /\bimport\b/);
     for (const moduleName of ['battery', 'local-notification', 'permissions']) {
       const structuredBridge = await readFile(
         join(

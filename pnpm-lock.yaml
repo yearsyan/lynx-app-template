@@ -182,9 +182,18 @@ importers:
 
   autolink/webview-bridge:
     devDependencies:
+      '@lynx-app/native-host':
+        specifier: workspace:*
+        version: link:../../lib/native-host
       '@lynx-js/types':
         specifier: 'catalog:'
         version: 4.0.0
+      '@lynx-template/autolink-device-info':
+        specifier: workspace:*
+        version: link:../device-info
+      '@lynx-template/autolink-haptics':
+        specifier: workspace:*
+        version: link:../haptics
 
   bundle/main:
     dependencies:
@@ -348,76 +357,6 @@ importers:
         specifier: 'catalog:'
         version: 1.5.0(@rsbuild/core@2.1.7)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(typescript@6.0.3)
 
-  lib/native-contracts:
-    dependencies:
-      '@lynx-app/native-host':
-        specifier: workspace:*
-        version: link:../native-host
-      '@lynx-template/autolink-album-utils':
-        specifier: workspace:*
-        version: link:../../autolink/album-utils
-      '@lynx-template/autolink-audio-player':
-        specifier: workspace:*
-        version: link:../../autolink/audio-player
-      '@lynx-template/autolink-battery':
-        specifier: workspace:*
-        version: link:../../autolink/battery
-      '@lynx-template/autolink-biometric':
-        specifier: workspace:*
-        version: link:../../autolink/biometric
-      '@lynx-template/autolink-clipboard':
-        specifier: workspace:*
-        version: link:../../autolink/clipboard
-      '@lynx-template/autolink-device-info':
-        specifier: workspace:*
-        version: link:../../autolink/device-info
-      '@lynx-template/autolink-display':
-        specifier: workspace:*
-        version: link:../../autolink/display
-      '@lynx-template/autolink-file-system':
-        specifier: workspace:*
-        version: link:../../autolink/file-system
-      '@lynx-template/autolink-haptics':
-        specifier: workspace:*
-        version: link:../../autolink/haptics
-      '@lynx-template/autolink-local-notification':
-        specifier: workspace:*
-        version: link:../../autolink/local-notification
-      '@lynx-template/autolink-mmkv':
-        specifier: workspace:*
-        version: link:../../autolink/mmkv
-      '@lynx-template/autolink-permissions':
-        specifier: workspace:*
-        version: link:../../autolink/permissions
-      '@lynx-template/autolink-router':
-        specifier: workspace:*
-        version: link:../../autolink/router
-      '@lynx-template/autolink-scanner':
-        specifier: workspace:*
-        version: link:../../autolink/scanner
-      '@lynx-template/autolink-screenshot':
-        specifier: workspace:*
-        version: link:../../autolink/screenshot
-      '@lynx-template/autolink-secure-storage':
-        specifier: workspace:*
-        version: link:../../autolink/secure-storage
-      '@lynx-template/autolink-sensors':
-        specifier: workspace:*
-        version: link:../../autolink/sensors
-      '@lynx-template/autolink-toast':
-        specifier: workspace:*
-        version: link:../../autolink/toast
-      '@lynx-template/autolink-websocket':
-        specifier: workspace:*
-        version: link:../../autolink/websocket
-    devDependencies:
-      '@lynx-js/types':
-        specifier: 'catalog:'
-        version: 4.0.0
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-
   lib/native-host:
     dependencies:
       '@lynx-js/react':
@@ -427,28 +366,6 @@ importers:
       '@lynx-js/types':
         specifier: 'catalog:'
         version: 4.0.0
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-
-  lib/webview-bridge:
-    dependencies:
-      '@lynx-app/native-contracts':
-        specifier: workspace:*
-        version: link:../native-contracts
-    devDependencies:
-      '@lynx-app/native-host':
-        specifier: workspace:*
-        version: link:../native-host
-      '@lynx-js/types':
-        specifier: 'catalog:'
-        version: 4.0.0
-      '@lynx-template/autolink-device-info':
-        specifier: workspace:*
-        version: link:../../autolink/device-info
-      '@lynx-template/autolink-haptics':
-        specifier: workspace:*
-        version: link:../../autolink/haptics
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

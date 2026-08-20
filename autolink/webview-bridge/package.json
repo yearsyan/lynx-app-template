@@ -1,11 +1,12 @@
 {
   "name": "@lynx-template/autolink-webview-bridge",
-  "description": "Autolinked native module-webview element with explicit host module-registry adapters",
+  "description": "Autolinked module-webview element, host adapters and typed browser client",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
   },
   "files": [
     "android",
@@ -15,6 +16,9 @@
     "README.md"
   ],
   "devDependencies": {
-    "@lynx-js/types": "catalog:"
+    "@lynx-app/native-host": "workspace:*",
+    "@lynx-js/types": "catalog:",
+    "@lynx-template/autolink-device-info": "workspace:*",
+    "@lynx-template/autolink-haptics": "workspace:*"
   }
 }

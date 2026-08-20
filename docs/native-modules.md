@@ -51,12 +51,12 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 
 `contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
 映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
-`@lynx-app/native-contracts` 的模块名、方法白名单、参数个数和原始类型聚合，同时在每个
-Autolink 包生成 `src/native.generated.ts`（raw 类型/模块名）和
+`autolink/webview-bridge/src/contracts.generated.ts` 的模块名、方法白名单和参数个数，
+同时在每个 NativeModule Autolink 包生成 `src/native.generated.ts`（raw 类型/模块名）和
 `src/bridge.generated.ts`（包内桥接辅助函数）。包根入口 `src/index.ts` 是手写 facade，
 生成器不会覆盖；原始类型与模块名通过 `/raw` 子路径提供，内部桥接辅助函数不属于公开
-exports。聚合注册表只用于合同检查和 WebView RPC 白名单，业务 bundle 直接依赖所使用的
-Autolink 包。
+exports。WebView RPC 契约不再聚合或依赖所有 raw interface；业务 bundle 直接依赖所使用的
+Autolink 包，浏览器页面按需使用 `@lynx-template/autolink-webview-bridge/client`。
 
 原生方法仍可使用 callback ABI，Promise 在所属包的 facade 内完成。返回值优先使用
 NativeModule 可直接传输的对象/数组；尚未迁移的三端实现可以继续返回 JSON 字符串，
@@ -1102,9 +1102,9 @@ StatusBar 仍在 `app/harmonyApp/entry/src/main/ets/native/` 逐 `LynxView` 手�
 Autolink 元数据，不生成或修改宿主 Registry。手工创建时：在 `autolink/` 下新建目录（`package.json` + `lynx.lib.json` +
 `types/platform-native-module.d.ts` + `android/` + `ios/` + `harmony/`），在
 `contracts/native-modules.json` 添加声明与三端实现映射，加入根 `package.json` 的
-workspace 依赖后执行 `pnpm install`、`pnpm native:contracts:generate`
-（`lib/native-contracts/package.json` 的依赖由生成器同步，无需手工维护）；随后 Android 直接重新构建，Gradle 插件会扫描并生成
-Registry；iOS 重新执行 `bundle exec pod install`；HarmonyOS 直接重新构建，Hvigor
+workspace 依赖后执行 `pnpm install`、`pnpm native:contracts:generate`；随后 Android
+直接重新构建，Gradle 插件会扫描并生成 Registry；iOS 重新执行
+`bundle exec pod install`；HarmonyOS 直接重新构建，Hvigor
 插件会重新扫描并生成 Registry。
 
 已有模块的共享样板（`harmony/hvigorfile.ts`、`build-profile.json5`、`module.json5`，以及

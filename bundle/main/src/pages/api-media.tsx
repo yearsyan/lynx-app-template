@@ -518,8 +518,9 @@ export function AudioPlayerPage() {
 // Self-contained demo page for the autolinked <module-webview>: it talks to
 // the same native modules the template uses (KV / Clipboard / Haptics)
 // through window.__lynxNativeBridge, the raw protocol behind
-// @lynx-app/webview-bridge. String concatenation instead of template literals
-// keeps this embeddable in the TSX template literal below.
+// @lynx-template/autolink-webview-bridge/client. String concatenation
+// instead of template literals keeps this embeddable in the TSX template
+// literal below.
 const WEBVIEW_BRIDGE_DEMO_HTML = [
   '<!DOCTYPE html><html><head><meta charset="utf-8">',
   '<meta name="viewport" content="width=device-width, initial-scale=1">',

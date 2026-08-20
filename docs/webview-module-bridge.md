@@ -29,8 +29,8 @@ const result = await window.__lynxNativeBridge.invoke(
 session。即使旧文档的异步原生调用在导航完成后才返回，也无法用重复的 request id
 错误地结算新文档的 Promise。
 
-`lib/webview-bridge`（`@lynx-app/webview-bridge`）提供 `kv`、`clipboard`、`haptics`、
-`statusBar`、`getDeviceInfo` 等类型化封装。普通浏览器或未接入的宿主中，
+`@lynx-template/autolink-webview-bridge/client` 提供 `kv`、`clipboard`、`haptics`、
+`statusBar`、`getDeviceInfo` 等类型化封装，并使用同包生成的 RPC 契约。普通浏览器或未接入的宿主中，
 `isNativeBridgeAvailable()` 返回 false，调用抛出 `NativeBridgeUnavailableError`。
 
 ## 能力授权
