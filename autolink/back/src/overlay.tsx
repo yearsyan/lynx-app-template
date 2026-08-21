@@ -7,7 +7,11 @@ import {
   useRef,
   useState,
 } from '@lynx-js/react';
-import type { CSSProperties, StandardProps } from '@lynx-js/types';
+import type {
+  CSSProperties,
+  LayoutChangeEvent,
+  StandardProps,
+} from '@lynx-js/types';
 
 import { type BackEvent, type BackListener, backStack } from './index.js';
 
@@ -15,13 +19,29 @@ export const PREDICTIVE_BACK_OVERLAY_ELEMENT_NAME =
   'predictive-back-overlay' as const;
 
 export type PredictiveBackOverlayMotion = 'sheet' | 'horizontal' | 'none';
-export type PredictiveBackOverlayDismissReason = 'back' | 'backdrop';
+export type PredictiveBackOverlayDismissReason = 'back' | 'backdrop' | 'drag';
+
+interface PredictiveBackOverlayTransitionEvent {
+  detail?: {
+    presented?: boolean;
+  };
+}
 
 export interface PredictiveBackOverlayElementProps extends StandardProps {
   children?: ReactNode;
   'target-id': string;
   'backdrop-color'?: string;
   motion?: PredictiveBackOverlayMotion;
+  presented?: boolean;
+  'animate-presence'?: boolean;
+  'drag-to-dismiss'?: boolean;
+  'drag-dismiss-threshold'?: number;
+  'content-height-ratio'?: number;
+  bindoverlaytransitionend?: (
+    event: PredictiveBackOverlayTransitionEvent,
+  ) => void;
+  binddragdismiss?: () => void;
+  bindbackdroppress?: () => void;
 }
 
 declare module '@lynx-js/types' {
@@ -69,8 +89,16 @@ export interface PredictiveBackOverlayProps {
   backdropColor?: string;
   /** Native motion preset. Per-frame JavaScript callbacks are intentionally avoided. */
   motion?: PredictiveBackOverlayMotion;
+  /** Animates mounting and controlled close transitions before unmounting. */
+  animated?: boolean;
+  /** Lets a sheet follow a downward drag and either dismiss or spring back. */
+  dragToDismiss?: boolean;
+  /** Fraction of the sheet height that commits a drag dismissal. */
+  dragDismissThreshold?: number;
   dismissOnBackdropPress?: boolean;
   onBackEvent?: BackListener;
+  onEntered?: () => void;
+  onExited?: () => void;
   className?: string;
   style?: CSSProperties;
   contentClassName?: string;
@@ -107,8 +135,13 @@ export function PredictiveBackOverlay(
     children,
     backdropColor = 'rgba(0, 0, 0, 0.45)',
     motion = 'sheet',
+    animated = true,
+    dragToDismiss = false,
+    dragDismissThreshold = 0.22,
     dismissOnBackdropPress = true,
     onBackEvent,
+    onEntered,
+    onExited,
     className,
     style,
     contentClassName,
@@ -117,39 +150,99 @@ export function PredictiveBackOverlay(
   const [targetId] = useState(
     () => `predictive-back-overlay-${++nextPredictiveBackOverlayId}`,
   );
+  const [mounted, setMounted] = useState(open);
+  const [layout, setLayout] = useState({ contentHeight: 0, rootHeight: 0 });
   const onOpenChangeRef = useRef(onOpenChange);
   const onBackEventRef = useRef(onBackEvent);
+  const onEnteredRef = useRef(onEntered);
+  const onExitedRef = useRef(onExited);
+  const openRef = useRef(open);
+  const rendered = open || mounted;
 
   useEffect(() => {
     onOpenChangeRef.current = onOpenChange;
     onBackEventRef.current = onBackEvent;
+    onEnteredRef.current = onEntered;
+    onExitedRef.current = onExited;
+    openRef.current = open;
   });
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setMounted(true);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!rendered) {
       return;
     }
     const registration = backStack.addInterceptor(
       (event: BackEvent) => {
         'background only';
         onBackEventRef.current?.(event);
-        if (event.phase === 'commit') {
+        if (event.phase === 'commit' && openRef.current) {
           onOpenChangeRef.current(false, 'back');
         }
       },
-      { animationTargetId: targetId },
+      // While the top layer is leaving it still consumes Back, but must not
+      // be snapped back to its presented position by a second gesture.
+      { animationTargetId: open ? targetId : undefined },
     );
     return registration.remove;
-  }, [open, targetId]);
+  }, [open, rendered, targetId]);
 
   const dismissFromBackdrop = useCallback(() => {
     'background only';
-    if (dismissOnBackdropPress) {
+    if (dismissOnBackdropPress && openRef.current) {
       onOpenChangeRef.current(false, 'backdrop');
     }
   }, [dismissOnBackdropPress]);
 
-  if (!open) {
+  const handleTransitionEnd = useCallback(
+    (event: PredictiveBackOverlayTransitionEvent) => {
+      'background only';
+      const presented = event.detail?.presented === true;
+      if (presented) {
+        if (openRef.current) {
+          onEnteredRef.current?.();
+        }
+        return;
+      }
+      if (!openRef.current) {
+        setMounted(false);
+        onExitedRef.current?.();
+      }
+    },
+    [],
+  );
+
+  const dismissFromDrag = useCallback(() => {
+    'background only';
+    if (openRef.current) {
+      onOpenChangeRef.current(false, 'drag');
+    }
+  }, []);
+
+  const trackRootHeight = useCallback((event: LayoutChangeEvent) => {
+    'background only';
+    const rootHeight = event.detail.height;
+    setLayout((current) =>
+      current.rootHeight === rootHeight ? current : { ...current, rootHeight },
+    );
+  }, []);
+
+  const trackContentHeight = useCallback((event: LayoutChangeEvent) => {
+    'background only';
+    const contentHeight = event.detail.height;
+    setLayout((current) =>
+      current.contentHeight === contentHeight
+        ? current
+        : { ...current, contentHeight },
+    );
+  }, []);
+
+  if (!rendered) {
     return null;
   }
 
@@ -160,14 +253,27 @@ export function PredictiveBackOverlay(
       target-id={targetId}
       backdrop-color={backdropColor}
       motion={motion}
-      bindtap={dismissFromBackdrop}
+      presented={open}
+      animate-presence={animated}
+      drag-to-dismiss={dragToDismiss && motion === 'sheet'}
+      drag-dismiss-threshold={Math.max(
+        0.05,
+        Math.min(0.9, dragDismissThreshold),
+      )}
+      content-height-ratio={
+        layout.rootHeight > 0
+          ? Math.max(0, Math.min(1, layout.contentHeight / layout.rootHeight))
+          : 0
+      }
+      bindlayoutchange={trackRootHeight}
+      bindoverlaytransitionend={handleTransitionEnd}
+      binddragdismiss={dismissFromDrag}
+      bindbackdroppress={dismissFromBackdrop}
     >
       <view
         className={contentClassName}
         style={{ ...CONTENT_STYLE, ...contentStyle }}
-        catchtap={() => {
-          'background only';
-        }}
+        bindlayoutchange={trackContentHeight}
       >
         {children}
       </view>

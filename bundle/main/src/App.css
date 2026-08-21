@@ -478,6 +478,134 @@
   color: #555555;
 }
 
+/* ============ autolink-back: predictive overlay ============ */
+
+.BackOverlayDemo__flow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 12px 0 2px;
+}
+
+.BackOverlayDemo__flowStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 62px;
+  border-radius: 10px;
+  background-color: #f4f5f7;
+}
+
+.BackOverlayDemo__flowStep--active {
+  background-color: #e8f8ef;
+}
+
+.BackOverlayDemo__flowIndex {
+  font-size: 16px;
+  font-weight: 700;
+  color: #07c160;
+}
+
+.BackOverlayDemo__flowLabel {
+  margin-top: 5px;
+  font-size: 10px;
+  color: #666666;
+}
+
+.BackOverlayDemo__flowArrow {
+  margin: 0 4px;
+  font-size: 20px;
+  color: #b7b7b7;
+}
+
+.BackOverlayDemo__checks {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: #f6f7f8;
+  box-sizing: border-box;
+}
+
+.BackOverlayDemo__check {
+  font-size: 12px;
+  line-height: 22px;
+  color: #555555;
+}
+
+.BackOverlayDemo__sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 8px 24px 40px;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+.BackOverlayDemo__sheet--second {
+  background-color: #f7faff;
+}
+
+.BackOverlayDemo__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #d8d8d8;
+}
+
+.BackOverlayDemo__handle--blue {
+  background-color: #b7c9eb;
+}
+
+.BackOverlayDemo__layerBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 18px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background-color: #e8f8ef;
+}
+
+.BackOverlayDemo__layerBadge--blue {
+  background-color: #e5efff;
+}
+
+.BackOverlayDemo__layerBadgeText {
+  font-size: 11px;
+  font-weight: 600;
+  color: #07964d;
+}
+
+.BackOverlayDemo__layerBadgeText--blue {
+  color: #3867b7;
+}
+
+.BackOverlayDemo__sheetTitle {
+  margin-top: 16px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.BackOverlayDemo__sheetDesc {
+  margin: 10px 2px 4px;
+  font-size: 13px;
+  line-height: 19px;
+  color: #888888;
+  text-align: center;
+}
+
 .LogBox {
   display: flex;
   flex-direction: column;

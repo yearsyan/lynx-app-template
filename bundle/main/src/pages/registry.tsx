@@ -24,6 +24,7 @@ import {
 } from './api-media.js';
 import { FetchPage, OpenUrlPage, WebSocketPage } from './api-network.js';
 import { FileSystemPage, KvPage, SecureStoragePage } from './api-storage.js';
+import { BackOverlayPage } from './ui-back.js';
 import { ButtonPage, InputPage, SliderPage } from './ui-basic.js';
 import {
   CheckboxPage,
@@ -180,6 +181,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileBackground: '#fff8e1',
         tileColor: '#f9a825',
         items: [
+          { key: 'backoverlay', title: '预测返回弹层' },
           { key: 'dialog', title: '对话框 Dialog' },
           { key: 'actionsheet', title: '底部弹层 Sheet' },
         ],
@@ -232,6 +234,7 @@ export const PAGES: Record<string, DemoPageEntry> = {
   checkbox: { title: '多选框', render: () => <CheckboxPage /> },
   radio: { title: '单选框', render: () => <RadioPage /> },
   dropdown: { title: '下拉', render: () => <DropdownPage /> },
+  backoverlay: { title: '预测返回弹层', render: () => <BackOverlayPage /> },
   dialog: { title: '对话框', render: () => <DialogPage /> },
   actionsheet: { title: '底部弹层', render: () => <SheetPage /> },
   swiper: { title: '轮播', render: () => <SwiperPage /> },

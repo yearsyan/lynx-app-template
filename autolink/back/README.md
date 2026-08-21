@@ -20,9 +20,13 @@ function ExampleSheet() {
       <view bindtap={sheet.present}>Open</view>
       <PredictiveBackOverlay
         open={sheet.open}
-        onOpenChange={sheet.setOpen}
+        onOpenChange={(open, reason) => {
+          sheet.setOpen(open);
+          console.log(`sheet ${open ? 'opened' : `closed by ${reason}`}`);
+        }}
         backdropColor="rgba(0, 0, 0, 0.45)"
         motion="sheet"
+        dragToDismiss
       >
         <view className="Sheet">Content</view>
       </PredictiveBackOverlay>
@@ -37,7 +41,19 @@ per-frame NativeModule → background JavaScript → render-thread round trip.
 The backdrop opacity and the `sheet` / `horizontal` / `none` motion preset are
 therefore native-grade animation targets, while React receives only lifecycle
 events needed to settle state. HarmonyOS exposes no public Back progress API,
-so the same component closes on its discrete `start` → `commit` pair.
+so system Back still closes on its discrete `start` → `commit` pair.
+
+Presence is animated by default: the component remains mounted until its
+native exit finishes, so a controlled `open={false}` does not make it vanish
+in one frame. `onEntered` and `onExited` observe the settled states, and
+`animated={false}` opts out. For `motion="sheet"`, `dragToDismiss` adds a
+native downward pan. The sheet and backdrop follow the finger, then dismiss
+after `dragDismissThreshold` (default `0.22`) or a downward fling; otherwise
+they settle back. The close reason passed to `onOpenChange` is `back`,
+`backdrop`, or `drag`. Android and iOS arbitrate vertical intent and avoid
+stealing a downward gesture from scrollable content that is not at its top.
+HarmonyOS implements local presence and downward-drag animation, but cannot
+mirror system Back progress because the platform does not publish it.
 
 For route handling or another headless use case, import `backStack` from the
 package root or `useBackInterceptor` from the `/react` entry. A headless
