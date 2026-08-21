@@ -1,4 +1,5 @@
 #import "BackModule.h"
+#import "LynxPredictiveBackOverlay.h"
 
 #import <Lynx/LynxContext.h>
 #import <Lynx/LynxView.h>
@@ -48,7 +49,15 @@ static NSString *const LynxBackEventName = @"back";
   BOOL _enabled;
   BOOL _visible;
   BOOL _gestureStarted;
+  BOOL _gestureFinishing;
   BOOL _destroyed;
+  NSInteger _configurationRevision;
+  NSString *_configuredInterceptorID;
+  NSString *_configuredTargetID;
+  NSUInteger _nextGestureID;
+  NSUInteger _gestureID;
+  NSString *_gestureInterceptorID;
+  id<LynxPredictiveBackAnimationTarget> _gestureTarget;
   CGFloat _lastProgress;
   CGPoint _lastTouch;
 }
@@ -60,6 +69,8 @@ static NSString *const LynxBackEventName = @"back";
 + (NSDictionary<NSString *, NSString *> *)methodLookup {
   return @{
     @"setEnabled" : NSStringFromSelector(@selector(setEnabled:callback:)),
+    @"configure" : NSStringFromSelector(@selector(
+        configure:interceptorId:targetId:revision:callback:)),
   };
 }
 
@@ -73,6 +84,9 @@ static NSString *const LynxBackEventName = @"back";
     _edgeGesture.cancelsTouchesInView = YES;
     _edgeGesture.delegate = self;
     _edgeGesture.enabled = NO;
+    _configuredInterceptorID = @"";
+    _configuredTargetID = @"";
+    _gestureInterceptorID = @"";
   }
   return self;
 }
@@ -87,16 +101,45 @@ static NSString *const LynxBackEventName = @"back";
       callback(@"Back has no UIViewController host");
       return;
     }
-    if (!enabled && self->_gestureStarted) {
-      [self emitPhase:@"cancel"
-             progress:self->_lastProgress
-               source:@"gesture"
-                touch:self->_lastTouch
-                 edge:nil];
-      [self resetGesture];
+    self->_configurationRevision += 1;
+    self->_configuredInterceptorID = @"";
+    self->_configuredTargetID = @"";
+    if (!enabled) {
+      [self cancelActiveGestureEmittingEvent:YES];
     }
     self->_enabled = enabled;
     [self updateInterception];
+    callback(@"");
+  });
+}
+
+- (void)configure:(BOOL)enabled
+    interceptorId:(NSString *)interceptorID
+         targetId:(NSString *)targetID
+         revision:(NSInteger)revision
+         callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (self->_destroyed) {
+      callback(@"Back has already been destroyed");
+      return;
+    }
+    if (revision < self->_configurationRevision) {
+      callback(@"");
+      return;
+    }
+    if (enabled && ![self attachToCurrentHost]) {
+      callback(@"Back has no UIViewController host");
+      return;
+    }
+    self->_configurationRevision = MAX(revision, 0);
+    self->_enabled = enabled;
+    self->_configuredInterceptorID = [interceptorID copy] ?: @"";
+    self->_configuredTargetID = [targetID copy] ?: @"";
+    // The in-flight gesture owns the snapshot it captured at begin. Merely
+    // stage this configuration for the following gesture.
+    if (!self->_gestureStarted && !self->_gestureFinishing) {
+      [self updateInterception];
+    }
     callback(@"");
   });
 }
@@ -107,13 +150,7 @@ static NSString *const LynxBackEventName = @"back";
       return;
     }
     self->_destroyed = YES;
-    if (self->_gestureStarted) {
-      [self emitPhase:@"cancel"
-             progress:self->_lastProgress
-               source:@"gesture"
-                touch:self->_lastTouch
-                 edge:nil];
-    }
+    [self cancelActiveGestureEmittingEvent:NO];
     self->_enabled = NO;
     self->_visible = NO;
     [self resetGesture];
@@ -280,16 +317,10 @@ static NSString *const LynxBackEventName = @"back";
   if (!_enabled) {
     return;
   }
-  [self emitPhase:@"start"
-         progress:0
-           source:@"button"
-            touch:CGPointZero
-             edge:@"none"];
-  [self emitPhase:@"commit"
-         progress:1
-           source:@"button"
-            touch:CGPointZero
-             edge:@"none"];
+  _lastProgress = 0;
+  _lastTouch = CGPointZero;
+  [self beginGestureWithSource:@"button" edge:@"none"];
+  [self commitActiveGestureWithSource:@"button" edge:@"none"];
 }
 
 - (void)handleEdgeGesture:(UIScreenEdgePanGestureRecognizer *)gesture {
@@ -305,38 +336,38 @@ static NSString *const LynxBackEventName = @"back";
 
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan:
-      _gestureStarted = YES;
       _lastProgress = progress;
-      [self emitPhase:@"start"
-             progress:progress
-               source:@"gesture"
-                touch:_lastTouch
-                 edge:nil];
+      [self beginGestureWithSource:@"gesture" edge:nil];
       break;
-    case UIGestureRecognizerStateChanged:
-      if (!_gestureStarted) {
+    case UIGestureRecognizerStateChanged: {
+      if (!_gestureStarted || _gestureFinishing) {
         return;
       }
       _lastProgress = progress;
-      [self emitPhase:@"progress"
-             progress:progress
-               source:@"gesture"
-                touch:_lastTouch
-                 edge:nil];
+      NSString *edge = [self resolvedEdge:nil];
+      if (_gestureTarget != nil) {
+        [_gestureTarget updateBackProgress:progress edge:edge];
+      } else {
+        [self emitPhase:@"progress"
+               progress:progress
+                 source:@"gesture"
+                  touch:_lastTouch
+                   edge:edge];
+      }
       break;
+    }
     case UIGestureRecognizerStateEnded: {
-      if (!_gestureStarted) {
+      if (!_gestureStarted || _gestureFinishing) {
         return;
       }
       _lastProgress = progress;
       CGFloat velocity = [gesture velocityInView:view].x * multiplier;
       BOOL shouldCommit = velocity > 600 || (velocity >= 0 && progress >= 0.35);
-      [self emitPhase:shouldCommit ? @"commit" : @"cancel"
-             progress:shouldCommit ? 1 : progress
-               source:@"gesture"
-                touch:_lastTouch
-                 edge:nil];
-      [self resetGesture];
+      if (shouldCommit) {
+        [self commitActiveGestureWithSource:@"gesture" edge:nil];
+      } else {
+        [self cancelActiveGestureEmittingEvent:YES];
+      }
       break;
     }
     case UIGestureRecognizerStateCancelled:
@@ -344,22 +375,107 @@ static NSString *const LynxBackEventName = @"back";
       if (!_gestureStarted) {
         return;
       }
-      [self emitPhase:@"cancel"
-             progress:_lastProgress
-               source:@"gesture"
-                touch:_lastTouch
-                 edge:nil];
-      [self resetGesture];
+      [self cancelActiveGestureEmittingEvent:YES];
       break;
     default:
       break;
   }
 }
 
+- (void)beginGestureWithSource:(NSString *)source
+                          edge:(nullable NSString *)edge {
+  if (_gestureStarted || _gestureFinishing) {
+    return;
+  }
+  _gestureStarted = YES;
+  _gestureFinishing = NO;
+  _gestureID = ++_nextGestureID;
+  _gestureInterceptorID = [_configuredInterceptorID copy] ?: @"";
+  _gestureTarget = LynxPredictiveBackTargetForContext(
+      _lynxContext, _configuredTargetID ?: @"");
+  NSString *resolvedEdge = [self resolvedEdge:edge];
+  if (_gestureTarget != nil) {
+    [_gestureTarget beginBackFromEdge:resolvedEdge];
+    [_gestureTarget updateBackProgress:_lastProgress edge:resolvedEdge];
+  }
+  [self emitPhase:@"start"
+         progress:_lastProgress
+           source:source
+            touch:_lastTouch
+             edge:resolvedEdge];
+}
+
+- (void)commitActiveGestureWithSource:(NSString *)source
+                                  edge:(nullable NSString *)edge {
+  if (!_gestureStarted || _gestureFinishing) {
+    return;
+  }
+  NSString *resolvedEdge = [self resolvedEdge:edge];
+  id<LynxPredictiveBackAnimationTarget> target = _gestureTarget;
+  if (target == nil) {
+    [self emitPhase:@"commit"
+           progress:1
+             source:source
+              touch:_lastTouch
+               edge:resolvedEdge];
+    [self resetGesture];
+    [self updateInterception];
+    return;
+  }
+
+  _gestureFinishing = YES;
+  NSUInteger finishingGestureID = _gestureID;
+  __weak BackModule *weakSelf = self;
+  [target commitBackWithCompletion:^{
+    BackModule *strongSelf = weakSelf;
+    if (strongSelf == nil || strongSelf->_destroyed ||
+        !strongSelf->_gestureStarted ||
+        strongSelf->_gestureID != finishingGestureID) {
+      return;
+    }
+    [strongSelf emitPhase:@"commit"
+                 progress:1
+                   source:source
+                    touch:strongSelf->_lastTouch
+                     edge:resolvedEdge];
+    [strongSelf resetGesture];
+    [strongSelf updateInterception];
+  }];
+}
+
+- (void)cancelActiveGestureEmittingEvent:(BOOL)emitEvent {
+  if (!_gestureStarted) {
+    return;
+  }
+  [_gestureTarget cancelBack];
+  if (emitEvent) {
+    [self emitPhase:@"cancel"
+           progress:_lastProgress
+             source:@"gesture"
+              touch:_lastTouch
+               edge:nil];
+  }
+  [self resetGesture];
+  if (!_destroyed) {
+    [self updateInterception];
+  }
+}
+
 - (void)resetGesture {
   _gestureStarted = NO;
+  _gestureFinishing = NO;
+  _gestureTarget = nil;
+  _gestureInterceptorID = @"";
+  _gestureID = 0;
   _lastProgress = 0;
   _lastTouch = CGPointZero;
+}
+
+- (NSString *)resolvedEdge:(nullable NSString *)edge {
+  if (edge != nil) {
+    return edge;
+  }
+  return (_edgeGesture.edges & UIRectEdgeRight) != 0 ? @"right" : @"left";
 }
 
 - (void)emitPhase:(NSString *)phase
@@ -367,12 +483,7 @@ static NSString *const LynxBackEventName = @"back";
            source:(NSString *)source
             touch:(CGPoint)touch
              edge:(nullable NSString *)edge {
-  NSString *resolvedEdge = edge;
-  if (resolvedEdge == nil) {
-    resolvedEdge = (_edgeGesture.edges & UIRectEdgeRight) != 0
-                       ? @"right"
-                       : @"left";
-  }
+  NSString *resolvedEdge = [self resolvedEdge:edge];
   NSDictionary<NSString *, id> *payload = @{
     @"platform" : @"ios",
     @"phase" : phase,
@@ -381,6 +492,8 @@ static NSString *const LynxBackEventName = @"back";
     @"edge" : resolvedEdge,
     @"touchX" : @(touch.x),
     @"touchY" : @(touch.y),
+    @"interceptorId" : _gestureInterceptorID ?: @"",
+    @"gestureId" : @(_gestureID),
   };
   [[_lynxContext getLynxView] sendGlobalEvent:LynxBackEventName
                                    withParams:@[ payload ]];

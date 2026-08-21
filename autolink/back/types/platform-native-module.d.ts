@@ -9,4 +9,11 @@
  */
 export declare class Back {
   setEnabled(enabled: boolean, callback: (error: string) => void): void;
+  configure(
+    enabled: boolean,
+    interceptorId: string,
+    targetId: string,
+    revision: number,
+    callback: (error: string) => void,
+  ): void;
 }

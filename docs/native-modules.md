@@ -888,24 +888,44 @@ if (await sensors.available('compass')) {
 React 相关入口按需拆分，避免普通 Promise API 强制依赖 React：
 
 - `@lynx-template/autolink-router/react#useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失字段为 `undefined`，使用前自行校验）；
-- `@lynx-template/autolink-back/react#useBackInterceptor(onEvent, enabled?)`：声明式注册页面返回拦截器，`enabled` 变化时自动注册/移除，且始终调用最新的 `onEvent`；拦截器仍遵循后进先出栈语义。
+- `@lynx-template/autolink-back/react#usePredictiveBackOverlay(initiallyOpen?)`：管理弹层的 `open`、`setOpen`、`present()`、`dismiss()` 与 `toggle()`；
+- `@lynx-template/autolink-back/react#PredictiveBackOverlay`：包装 `position: fixed` 弹层，并把 Android/iOS 预测返回直接绑定到原生动画目标；
+- `@lynx-template/autolink-back/react#useBackInterceptor(onEvent, enabled?)`：无 UI 的高级入口，适用于关闭路由或自定义生命周期；`enabled` 变化时自动注册/移除，仍遵循后进先出栈语义。
 
 ### 返回拦截与进度
 
-`Back` 使用“预先启用 + 事件通知”的模型。`autolink/back` 的
-`backStack.addInterceptor()` 会在第一个拦截器入栈时启用原生返回，在最后一个
-拦截器出栈时关闭。宿主不会在手势开始后等待异步 JavaScript 决定是否拦截。启用后，
-栈顶业务必须处理 `commit`（关闭弹窗或调用 `router.close()`），否则原生返回会被
-消费而界面保持不动。
+`Back` 使用“预先声明栈顶快照”的模型。`autolink/back` 每次入栈或出栈都把完整的
+`enabled + interceptorId + animationTargetId + revision` 同步给原生端；宿主不会在手势
+开始后等待异步 JavaScript 决定是否拦截。原生端在 `start` 固定本次手势的拦截器和动画
+目标，栈在过程中变化只影响下一次手势。
+
+普通固定弹层直接使用高层组件：
+
+```tsx
+const sheet = usePredictiveBackOverlay();
+
+<PredictiveBackOverlay
+  open={sheet.open}
+  onOpenChange={sheet.setOpen}
+  backdropColor="rgba(0, 0, 0, 0.45)"
+  motion="sheet"
+>
+  <view className="Sheet">...</view>
+</PredictiveBackOverlay>;
+```
+
+组件自身是全屏 `position: fixed` 容器，children 是内容层，背景色由原生容器绘制。
+`motion` 提供 `sheet`、`horizontal`、`none` 三个稳定预设；每帧只改变原生容器的
+子层位移与背景透明度，不触发 React diff。点背景默认关闭，也可设置
+`dismissOnBackdropPress={false}` 自行处理。
+
+路由或无 UI 拦截继续使用低层栈：
 
 ```tsx
 useEffect(() => {
   'background only';
   const registration = backStack.addInterceptor((event) => {
     'background only';
-    if (event.phase === 'progress') {
-      // event.progress 为 0..1，可驱动 Lynx 自己的返回预览。
-    }
     if (event.phase === 'commit') {
       router.close();
     }
@@ -915,8 +935,9 @@ useEffect(() => {
 ```
 
 拦截器按注册顺序组成后进先出栈。一次手势从 `start` 到 `cancel` / `commit` 固定交给
-同一个栈顶拦截器；即使它在手势中途被移除，剩余事件也不会泄漏给下面的弹窗。关闭
-顶层弹窗只会移除自己的注册项，下层弹窗自动成为新的栈顶，原生返回保持启用。
+同一个栈顶拦截器；即使它在手势中途被移除，剩余事件也不会泄漏给下面的弹窗。原生
+动画目标也固定为同一个 Element，不会因为这时新开弹窗而改画另一层。无 UI 拦截器的
+`animationTargetId` 为空；它在栈顶时，下方可视弹层不会错误跟随返回手势。
 
 底层 `back.setEnabled()` 与 `back.addListener()` 仍保留给需要自行管理生命周期
 的场景。普通弹窗、菜单和 sheet 应统一使用 `backStack`，不要混用两套生命周期。
@@ -932,24 +953,26 @@ interface BackEvent {
   edge: 'left' | 'right' | 'none';
   touchX: number;
   touchY: number;
+  interceptorId?: string; // 原生固定的内部栈项 ID
+  gestureId?: number;     // 原生手势序号
 }
 ```
 
 | 平台 | 返回来源 | 事件能力 |
 | --- | --- | --- |
-| Android 14+ | 系统预测性返回手势 | `start` / 连续 `progress` / `cancel` / `commit` |
+| Android 14+ | 系统预测性返回手势 | 原生目标连续跟手；生命周期为 `start` / `cancel` / `commit`，无目标时仍发送 `progress` |
 | Android 13 及更低版本 | 系统返回手势或按键 | 离散的 `start` → `commit` |
-| iOS | 包内屏幕边缘手势 | `start` / 连续 `progress` / `cancel` / `commit`；支持左右布局方向 |
+| iOS | 包内屏幕边缘手势 | 原生目标连续跟手；生命周期为 `start` / `cancel` / `commit`，无目标时仍发送 `progress`；支持左右布局方向 |
 | iOS | 导航栏返回按钮 | 离散的 `start` → `commit` |
 | HarmonyOS | 页面 `onBackPress()` | 离散的 `start` → `commit` |
 
 iOS 模块从 `LynxView` responder chain 自动定位所属 VC，在页面可见且启用期间暂停
-`UINavigationController` 自带侧滑，改由包内边缘手势上报进度；页面消失或模块销毁时恢复
-系统手势和导航按钮。`commit` 后仍由 Lynx 业务决定关闭页面，因此这里提供的是统一可观测
-进度，不是 UIKit 原生交互式转场对象。Android 模块通过宿主 `FragmentActivity` 的 AndroidX
-`OnBackPressedDispatcher` 注册生命周期 callback，系统不会替业务自动完成页面动画。
-
-`progress` 通过 Lynx `GlobalEventEmitter` 进入后台运行时，适合更新返回预览状态；如果业务要求逐帧、与原生转场严格同步的动画，应进一步实现原生 UI 或渲染线程专用通道。
+`UINavigationController` 自带侧滑，改由包内边缘手势驱动当前
+`<predictive-back-overlay>`；页面消失或模块销毁时恢复系统手势和导航按钮。Android 模块
+通过宿主 `FragmentActivity` 的 AndroidX `OnBackPressedDispatcher` 接收系统预测回调。
+两端的逐帧路径都停留在 UI 线程，不经过 NativeModule、`GlobalEventEmitter`、后台 JS 和
+React；只有 headless 拦截器为了自定义预览才继续收到 `progress`。HarmonyOS 没有公开的
+返回过程 API，因此只在 `commit` 更新 React 状态，不合成假进度。
 
 ## 三端映射
 
@@ -962,10 +985,9 @@ iOS 模块从 `LynxView` responder chain 自动定位所属 VC，在页面可见
 Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest 主题确定，不能只在 `onCreate()` 中调用 `setTheme()`；否则透明 LynxView 后面会显示黑色窗口背景。
 
 同一 LynxView 内的菜单、Dialog 和 Sheet 不需要额外创建透明原生页面。Lynx 支持
-`position: fixed`，fixed 节点会提升到根节点下；业务可以用它绘制全屏遮罩和面板，显示时
-向 `backStack` 注册拦截器，用 `progress` 更新返回预览、用 `cancel` 复位、用 `commit`
-关闭组件。Back 模块只提供返回生命周期，不负责渲染组件。需要逐帧拖拽的交互仍应由
-Lynx 主线程手势或 `@lynx-js/lynx-ui` Sheet 驱动，Back 负责系统返回这一条输入通道。
+`position: fixed`，`PredictiveBackOverlay` 在这个层级绘制全屏背景和面板，同时由
+`autolink/back` 内的原生 Element 完成系统返回预览。业务只管理是否展示，不需要处理
+逐帧 transform，也不会另建一套原生返回栈。
 只有确实需要独立原生页面、跨 bundle 生命周期或原生窗口层级时，才使用 Router 的
 `presentation: 'sheet'`。
 

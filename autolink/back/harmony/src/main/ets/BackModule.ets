@@ -13,18 +13,51 @@ class NativeBackEventPayload {
   edge: string = 'none';
   touchX: number = 0;
   touchY: number = 0;
+  interceptorId: string;
+  gestureId: number;
 
-  constructor(phase: string, progress: number) {
+  constructor(
+    phase: string,
+    progress: number,
+    interceptorId: string,
+    gestureId: number,
+  ) {
     this.phase = phase;
     this.progress = progress;
+    this.interceptorId = interceptorId;
+    this.gestureId = gestureId;
   }
 }
 
 class NativeBackSession {
   private enabled: boolean = false;
   private context: LynxContext | undefined = undefined;
+  private interceptorId: string = '';
+  private targetId: string = '';
+  private revision: number = 0;
+  private nextGestureId: number = 0;
 
   setEnabled(context: LynxContext, enabled: boolean): void {
+    this.revision += 1;
+    this.interceptorId = '';
+    this.targetId = '';
+    this.context = enabled ? context : undefined;
+    this.enabled = enabled;
+  }
+
+  configure(
+    context: LynxContext,
+    enabled: boolean,
+    interceptorId: string,
+    targetId: string,
+    revision: number,
+  ): void {
+    if (revision < this.revision) {
+      return;
+    }
+    this.revision = revision;
+    this.interceptorId = interceptorId;
+    this.targetId = targetId;
     this.context = enabled ? context : undefined;
     this.enabled = enabled;
   }
@@ -40,8 +73,13 @@ class NativeBackSession {
     if (!this.enabled || context === undefined) {
       return false;
     }
-    context.sendGlobalEvent('back', [new NativeBackEventPayload('start', 0)]);
-    context.sendGlobalEvent('back', [new NativeBackEventPayload('commit', 1)]);
+    const gestureId = ++this.nextGestureId;
+    context.sendGlobalEvent('back', [
+      new NativeBackEventPayload('start', 0, this.interceptorId, gestureId),
+    ]);
+    context.sendGlobalEvent('back', [
+      new NativeBackEventPayload('commit', 1, this.interceptorId, gestureId),
+    ]);
     return true;
   }
 
@@ -102,6 +140,26 @@ export class NativeBackController {
     });
   }
 
+  configure(
+    routeID: string,
+    context: LynxContext,
+    enabled: boolean,
+    interceptorId: string,
+    targetId: string,
+    revision: number,
+    callback: (error: string) => void,
+  ): void {
+    this.runOnUI(() => {
+      const session = this.sessions.get(routeID);
+      if (session === undefined) {
+        callback('Native Back page is not active');
+        return;
+      }
+      session.configure(context, enabled, interceptorId, targetId, revision);
+      callback('');
+    });
+  }
+
   detach(routeID: string, context: LynxContext): void {
     this.runOnUI(() => {
       this.sessions.get(routeID)?.detach(context);
@@ -143,6 +201,25 @@ export class BackRegistration {
     this.controller.setEnabled(this.routeID, context, enabled, callback);
   }
 
+  configure(
+    context: LynxContext,
+    enabled: boolean,
+    interceptorId: string,
+    targetId: string,
+    revision: number,
+    callback: (error: string) => void,
+  ): void {
+    this.controller.configure(
+      this.routeID,
+      context,
+      enabled,
+      interceptorId,
+      targetId,
+      revision,
+      callback,
+    );
+  }
+
   detach(context: LynxContext): void {
     this.controller.detach(this.routeID, context);
   }
@@ -182,5 +259,29 @@ export class BackModule extends LynxModule {
       return;
     }
     registration.setEnabled(this.context, enabled, callback);
+  }
+
+  configure(
+    enabled: boolean,
+    interceptorId: string,
+    targetId: string,
+    revision: number,
+    callback: (error: string) => void,
+  ): void {
+    const registration = registrationFor(this.context);
+    if (registration === undefined) {
+      callback('Native Back has no Navigation host');
+      return;
+    }
+    // HarmonyOS exposes no Back progress. targetId is intentionally accepted
+    // for protocol parity while commit remains a discrete JS state update.
+    registration.configure(
+      this.context,
+      enabled,
+      interceptorId,
+      targetId,
+      revision,
+      callback,
+    );
   }
 }

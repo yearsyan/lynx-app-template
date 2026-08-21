@@ -1171,7 +1171,9 @@
 }
 
 .FallbackDropdown__backdrop {
-  position: fixed;
+  /* PredictiveBackOverlay already owns the fixed root; keep this content in
+     its native animation subtree instead of lifting another fixed node. */
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;

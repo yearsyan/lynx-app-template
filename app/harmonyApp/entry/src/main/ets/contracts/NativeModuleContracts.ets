@@ -43,6 +43,8 @@ export function nativeModuleMethodArity(
       switch (methodName) {
         case 'setEnabled':
           return 2;
+        case 'configure':
+          return 5;
         default:
           return -1;
       }

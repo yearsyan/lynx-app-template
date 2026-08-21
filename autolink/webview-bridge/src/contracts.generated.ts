@@ -27,6 +27,7 @@ export const NATIVE_MODULE_CONTRACT = {
     name: 'Back',
     methods: {
       setEnabled: { name: 'setEnabled', arity: 2 },
+      configure: { name: 'configure', arity: 5 },
     },
   },
   Battery: {
@@ -212,6 +213,7 @@ export const NATIVE_MODULE_METHODS = {
   },
   Back: {
     setEnabled: NATIVE_MODULE_CONTRACT.Back.methods.setEnabled.name,
+    configure: NATIVE_MODULE_CONTRACT.Back.methods.configure.name,
   },
   Battery: {
     getInfo: NATIVE_MODULE_CONTRACT.Battery.methods.getInfo.name,

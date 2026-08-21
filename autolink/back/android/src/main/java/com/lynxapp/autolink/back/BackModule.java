@@ -20,13 +20,7 @@ import com.lynx.react.bridge.JavaOnlyMap;
 import com.lynx.tasm.LynxView;
 import com.lynx.tasm.behavior.LynxContext;
 
-/**
- * Lifecycle-bound system Back dispatcher for the current LynxView.
- *
- * The host only needs to build the view from a FragmentActivity. AndroidX
- * owns legacy and predictive platform registration; JavaScript synchronously
- * opts this callback in or out before the next system gesture begins.
- */
+/** Lifecycle-bound Back dispatcher with an optional native animation target. */
 @LynxNativeModule(name = BackModule.NAME)
 public final class BackModule extends LynxContextModule {
     public static final String NAME = "Back";
@@ -47,7 +41,18 @@ public final class BackModule extends LynxContextModule {
     @Nullable private final FragmentActivity activity;
     private boolean registered;
     private boolean destroyed;
+    private boolean desiredEnabled;
+    private long configuredRevision;
+    @NonNull private String configuredInterceptorId = "";
+    @NonNull private String configuredTargetId = "";
+
     private boolean gestureStarted;
+    private boolean gestureFinishing;
+    private long nextGestureId;
+    private long gestureId;
+    @NonNull private String gestureInterceptorId = "";
+    @Nullable
+    private PredictiveBackOverlayElement.PredictiveBackOverlayView gestureTarget;
     private double lastProgress;
     private double lastTouchX;
     private double lastTouchY;
@@ -57,34 +62,40 @@ public final class BackModule extends LynxContextModule {
             new OnBackPressedCallback(false) {
                 @Override
                 public void handleOnBackStarted(@NonNull BackEventCompat event) {
-                    gestureStarted = true;
+                    if (gestureStarted || gestureFinishing) {
+                        return;
+                    }
                     updateGesture(event);
-                    emitCurrent(PHASE_START);
+                    beginGesture(SOURCE_GESTURE);
                 }
 
                 @Override
                 public void handleOnBackProgressed(@NonNull BackEventCompat event) {
-                    if (!gestureStarted) {
-                        gestureStarted = true;
-                        updateGesture(event);
-                        emitCurrent(PHASE_START);
-                    } else {
-                        updateGesture(event);
+                    if (gestureFinishing) {
+                        return;
                     }
-                    emitCurrent(PHASE_PROGRESS);
+                    updateGesture(event);
+                    if (!gestureStarted) {
+                        beginGesture(SOURCE_GESTURE);
+                    }
+                    PredictiveBackOverlayElement.PredictiveBackOverlayView target =
+                            gestureTarget;
+                    if (target != null) {
+                        target.update((float) lastProgress, lastEdge);
+                    } else {
+                        emitCurrent(PHASE_PROGRESS, SOURCE_GESTURE);
+                    }
                 }
 
                 @Override
                 public void handleOnBackCancelled() {
-                    cancelGesture();
+                    cancelGesture(true);
                 }
 
                 @Override
                 public void handleOnBackPressed() {
                     if (gestureStarted) {
-                        emit(PHASE_COMMIT, 1, SOURCE_GESTURE, lastEdge,
-                                lastTouchX, lastTouchY);
-                        resetGesture();
+                        commitGesture(SOURCE_GESTURE);
                     } else {
                         emitDiscreteBack();
                     }
@@ -96,28 +107,50 @@ public final class BackModule extends LynxContextModule {
         activity = resolveFragmentActivity(context);
     }
 
-    /** Enables this view's callback; a disabled callback falls through normally. */
+    /** Compatibility switch for headless consumers that do not use backStack. */
     @LynxMethod
     public void setEnabled(boolean enabled, Callback callback) {
+        mainHandler.post(() -> {
+            configuredRevision += 1;
+            configuredInterceptorId = "";
+            configuredTargetId = "";
+            desiredEnabled = enabled;
+            if (!enabled) {
+                cancelGesture(true);
+            }
+            applyDesiredInterception(callback);
+        });
+    }
+
+    /** Atomically installs the complete top-of-stack snapshot from TypeScript. */
+    @LynxMethod
+    public void configure(
+            boolean enabled,
+            String interceptorId,
+            String targetId,
+            double revision,
+            Callback callback) {
         mainHandler.post(() -> {
             if (destroyed) {
                 callback.invoke("Back has already been destroyed");
                 return;
             }
-            FragmentActivity host = activity;
-            if (host == null || host.isFinishing() || host.isDestroyed()) {
-                callback.invoke("Back requires a usable FragmentActivity host");
+            long nextRevision = Math.max(0, (long) revision);
+            if (nextRevision < configuredRevision) {
+                callback.invoke("");
                 return;
             }
-            if (!registered) {
-                host.getOnBackPressedDispatcher().addCallback(host, backCallback);
-                registered = true;
+            configuredRevision = nextRevision;
+            desiredEnabled = enabled;
+            configuredInterceptorId = interceptorId == null ? "" : interceptorId;
+            configuredTargetId = targetId == null ? "" : targetId;
+            // Keep the callback installed until the gesture that captured the
+            // previous snapshot terminates. The next gesture gets this config.
+            if (gestureStarted || gestureFinishing) {
+                callback.invoke("");
+                return;
             }
-            if (!enabled) {
-                cancelGesture();
-            }
-            backCallback.setEnabled(enabled);
-            callback.invoke("");
+            applyDesiredInterception(callback);
         });
     }
 
@@ -125,7 +158,8 @@ public final class BackModule extends LynxContextModule {
     public void destroy() {
         destroyed = true;
         mainHandler.post(() -> {
-            cancelGesture();
+            cancelGesture(false);
+            desiredEnabled = false;
             backCallback.setEnabled(false);
             backCallback.remove();
             registered = false;
@@ -133,8 +167,68 @@ public final class BackModule extends LynxContextModule {
     }
 
     private void emitDiscreteBack() {
-        emit(PHASE_START, 0, SOURCE_SYSTEM, EDGE_NONE, 0, 0);
-        emit(PHASE_COMMIT, 1, SOURCE_SYSTEM, EDGE_NONE, 0, 0);
+        lastProgress = 0;
+        lastTouchX = 0;
+        lastTouchY = 0;
+        lastEdge = EDGE_NONE;
+        beginGesture(SOURCE_SYSTEM);
+        commitGesture(SOURCE_SYSTEM);
+    }
+
+    private void beginGesture(@NonNull String source) {
+        gestureStarted = true;
+        gestureFinishing = false;
+        gestureId = ++nextGestureId;
+        gestureInterceptorId = configuredInterceptorId;
+        gestureTarget = PredictiveBackOverlayElement.findTarget(
+                mLynxContext, configuredTargetId);
+        PredictiveBackOverlayElement.PredictiveBackOverlayView target = gestureTarget;
+        if (target != null) {
+            target.begin(lastEdge);
+            target.update((float) lastProgress, lastEdge);
+        }
+        emitCurrent(PHASE_START, source);
+    }
+
+    private void commitGesture(@NonNull String source) {
+        if (!gestureStarted || gestureFinishing) {
+            return;
+        }
+        PredictiveBackOverlayElement.PredictiveBackOverlayView target = gestureTarget;
+        if (target == null) {
+            emit(PHASE_COMMIT, 1, source, lastEdge, lastTouchX, lastTouchY);
+            resetGesture();
+            applyDesiredInterception(null);
+            return;
+        }
+
+        gestureFinishing = true;
+        long finishingGestureId = gestureId;
+        target.commit(() -> {
+            if (destroyed || !gestureStarted || gestureId != finishingGestureId) {
+                return;
+            }
+            emit(PHASE_COMMIT, 1, source, lastEdge, lastTouchX, lastTouchY);
+            resetGesture();
+            applyDesiredInterception(null);
+        });
+    }
+
+    private void cancelGesture(boolean emitEvent) {
+        if (!gestureStarted) {
+            return;
+        }
+        PredictiveBackOverlayElement.PredictiveBackOverlayView target = gestureTarget;
+        if (target != null) {
+            target.cancel();
+        }
+        if (emitEvent) {
+            emitCurrent(PHASE_CANCEL, SOURCE_GESTURE);
+        }
+        resetGesture();
+        if (!destroyed) {
+            applyDesiredInterception(null);
+        }
     }
 
     private void updateGesture(BackEventCompat event) {
@@ -154,24 +248,44 @@ public final class BackModule extends LynxContextModule {
         }
     }
 
-    private void emitCurrent(String phase) {
-        emit(phase, lastProgress, SOURCE_GESTURE, lastEdge, lastTouchX, lastTouchY);
-    }
-
-    private void cancelGesture() {
-        if (!gestureStarted) {
-            return;
-        }
-        emitCurrent(PHASE_CANCEL);
-        resetGesture();
+    private void emitCurrent(@NonNull String phase, @NonNull String source) {
+        emit(phase, lastProgress, source, lastEdge, lastTouchX, lastTouchY);
     }
 
     private void resetGesture() {
         gestureStarted = false;
+        gestureFinishing = false;
+        gestureTarget = null;
+        gestureInterceptorId = "";
+        gestureId = 0;
         lastProgress = 0;
         lastTouchX = 0;
         lastTouchY = 0;
         lastEdge = EDGE_NONE;
+    }
+
+    private void applyDesiredInterception(@Nullable Callback callback) {
+        if (destroyed) {
+            if (callback != null) {
+                callback.invoke("Back has already been destroyed");
+            }
+            return;
+        }
+        FragmentActivity host = activity;
+        if (host == null || host.isFinishing() || host.isDestroyed()) {
+            if (callback != null) {
+                callback.invoke("Back requires a usable FragmentActivity host");
+            }
+            return;
+        }
+        if (!registered) {
+            host.getOnBackPressedDispatcher().addCallback(host, backCallback);
+            registered = true;
+        }
+        backCallback.setEnabled(desiredEnabled);
+        if (callback != null) {
+            callback.invoke("");
+        }
     }
 
     private void emit(
@@ -193,6 +307,8 @@ public final class BackModule extends LynxContextModule {
         payload.putString("edge", edge);
         payload.putDouble("touchX", touchX);
         payload.putDouble("touchY", touchY);
+        payload.putString("interceptorId", gestureInterceptorId);
+        payload.putDouble("gestureId", gestureId);
         lynxView.sendGlobalEvent(EVENT_NAME, JavaOnlyArray.of(payload));
     }
 

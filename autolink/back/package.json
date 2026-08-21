@@ -1,6 +1,6 @@
 {
   "name": "@lynx-template/autolink-back",
-  "description": "Autolinked system Back interception and ReactLynx hooks",
+  "description": "Autolinked Back stack and native predictive overlay for ReactLynx",
   "version": "1.0.0",
   "private": true,
   "type": "module",

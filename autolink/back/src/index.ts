@@ -15,6 +15,10 @@ export interface BackEvent {
   edge: BackEdge;
   touchX: number;
   touchY: number;
+  /** Internal routing identity pinned by native code for one Back gesture. */
+  interceptorId?: string;
+  /** Monotonic native gesture identity, useful when diagnosing event order. */
+  gestureId?: number;
 }
 
 export type BackListener = (event: BackEvent) => void;
@@ -24,6 +28,14 @@ export interface BackInterceptorRegistration {
   readonly ready: Promise<void>;
   /** Removes this interceptor. Calling remove more than once is safe. */
   remove(): void;
+}
+
+export interface BackInterceptorOptions {
+  /**
+   * Native animation target registered by PredictiveBackOverlay. Headless
+   * interceptors should leave this empty so they remain above visual targets.
+   */
+  animationTargetId?: string;
 }
 
 export const BACK_EVENT = 'back';
@@ -55,7 +67,13 @@ function isBackEvent(value: unknown): value is BackEvent {
     typeof event.touchX === 'number' &&
     Number.isFinite(event.touchX) &&
     typeof event.touchY === 'number' &&
-    Number.isFinite(event.touchY)
+    Number.isFinite(event.touchY) &&
+    (event.interceptorId === undefined ||
+      typeof event.interceptorId === 'string') &&
+    (event.gestureId === undefined ||
+      (typeof event.gestureId === 'number' &&
+        Number.isFinite(event.gestureId) &&
+        event.gestureId >= 0))
   );
 }
 
@@ -92,15 +110,33 @@ export const back = {
 };
 
 interface BackInterceptorEntry {
+  id: string;
   listener: BackListener;
+  animationTargetId: string;
   removed: boolean;
 }
 
 const backInterceptors: BackInterceptorEntry[] = [];
+const backInterceptorsById = new Map<string, BackInterceptorEntry>();
 let activeBackInterceptor: BackInterceptorEntry | null = null;
 let removeBackStackListener: (() => void) | null = null;
-let backStackEnabled = false;
-let backStackDesiredEnabled = false;
+let nextBackInterceptorId = 0;
+let nextBackStackRevision = 0;
+let appliedBackStackRevision = 0;
+
+interface BackStackConfiguration {
+  enabled: boolean;
+  interceptorId: string;
+  targetId: string;
+  revision: number;
+}
+
+let desiredBackStackConfiguration: BackStackConfiguration = {
+  enabled: false,
+  interceptorId: '',
+  targetId: '',
+  revision: 0,
+};
 let backStackSync: Promise<void> = Promise.resolve();
 
 function topBackInterceptor(): BackInterceptorEntry | null {
@@ -111,7 +147,9 @@ function topBackInterceptor(): BackInterceptorEntry | null {
 function dispatchBackStackEvent(event: BackEvent): void {
   'background only';
   if (event.phase === 'start' || activeBackInterceptor === null) {
-    activeBackInterceptor = topBackInterceptor();
+    activeBackInterceptor = event.interceptorId
+      ? (backInterceptorsById.get(event.interceptorId) ?? null)
+      : topBackInterceptor();
   }
 
   const target = activeBackInterceptor;
@@ -142,17 +180,40 @@ function reportBackStackError(error: unknown): void {
   console.error(`Unable to synchronize native Back: ${message}`);
 }
 
+function configureNativeBack(
+  configuration: BackStackConfiguration,
+): Promise<void> {
+  'background only';
+  return completeNativeCall((callback) =>
+    requireBackModule().configure(
+      configuration.enabled,
+      configuration.interceptorId,
+      configuration.targetId,
+      configuration.revision,
+      callback,
+    ),
+  );
+}
+
 function reconcileBackStack(): Promise<void> {
   'background only';
-  backStackDesiredEnabled = backInterceptors.length > 0;
+  const top = topBackInterceptor();
+  desiredBackStackConfiguration = {
+    enabled: top !== null,
+    interceptorId: top?.id ?? '',
+    targetId: top?.animationTargetId ?? '',
+    revision: ++nextBackStackRevision,
+  };
   backStackSync = backStackSync
     .catch(() => {})
     .then(async () => {
       'background only';
-      while (backStackEnabled !== backStackDesiredEnabled) {
-        const nextEnabled = backStackDesiredEnabled;
-        await back.setEnabled(nextEnabled);
-        backStackEnabled = nextEnabled;
+      while (
+        appliedBackStackRevision < desiredBackStackConfiguration.revision
+      ) {
+        const configuration = desiredBackStackConfiguration;
+        await configureNativeBack(configuration);
+        appliedBackStackRevision = configuration.revision;
       }
     });
   return backStackSync;
@@ -163,11 +224,20 @@ function reconcileBackStack(): Promise<void> {
  * Native interception remains enabled until the final entry is removed.
  */
 export const backStack = {
-  addInterceptor(listener: BackListener): BackInterceptorRegistration {
+  addInterceptor(
+    listener: BackListener,
+    options: BackInterceptorOptions = {},
+  ): BackInterceptorRegistration {
     'background only';
     ensureBackStackListener();
-    const entry: BackInterceptorEntry = { listener, removed: false };
+    const entry: BackInterceptorEntry = {
+      id: `back-interceptor-${++nextBackInterceptorId}`,
+      listener,
+      animationTargetId: options.animationTargetId ?? '',
+      removed: false,
+    };
     backInterceptors.push(entry);
+    backInterceptorsById.set(entry.id, entry);
     const ready = reconcileBackStack();
     ready.catch(reportBackStackError);
 
@@ -179,6 +249,7 @@ export const backStack = {
           return;
         }
         entry.removed = true;
+        backInterceptorsById.delete(entry.id);
         const index = backInterceptors.lastIndexOf(entry);
         if (index >= 0) {
           backInterceptors.splice(index, 1);

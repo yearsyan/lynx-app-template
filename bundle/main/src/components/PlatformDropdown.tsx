@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
-import { useBackInterceptor } from '@lynx-template/autolink-back/react';
+import { PredictiveBackOverlay } from '@lynx-template/autolink-back/react';
 
 import type { GlassDropdownEvent } from './native-elements.js';
 
@@ -66,15 +66,6 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     width: 0,
   });
   const gestureStart = useRef<{ x: number; y: number } | null>(null);
-
-  // Enabled only while open, so this menu sits on top of every popup that
-  // was opened before it; disabling reveals the previous interceptor.
-  useBackInterceptor((event) => {
-    'background only';
-    if (event.phase === 'commit') {
-      setOpen(false);
-    }
-  }, !isIOS && open);
 
   useEffect(() => {
     if (isIOS) {
@@ -257,7 +248,15 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
         <text className="FallbackDropdown__chevron">{open ? '▲' : '▼'}</text>
         <view className="FallbackDropdown__hitTarget" bindtap={toggle} />
       </view>
-      {open ? (
+      <PredictiveBackOverlay
+        open={open}
+        onOpenChange={(nextOpen) => setOpen(nextOpen)}
+        backdropColor="transparent"
+        motion="horizontal"
+        dismissOnBackdropPress={false}
+        style={{ zIndex: 0 }}
+        contentStyle={{ width: '100%', height: '100%' }}
+      >
         <view
           className="FallbackDropdown__backdrop"
           bindtap={close}
@@ -303,7 +302,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
             ))}
           </view>
         </view>
-      ) : null}
+      </PredictiveBackOverlay>
     </view>
   );
 }

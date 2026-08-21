@@ -18,7 +18,7 @@
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
 ├── autolink          # Lynx 原生库，三端均由官方 Autolink 注册
-│   ├── back          # Back（系统返回拦截 + 预测手势进度）
+│   ├── back          # Back（系统返回栈 + Android/iOS 原生跟手 Overlay）
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
 │   ├── battery       # Battery（电量 + 充电状态）
 │   ├── clipboard     # Clipboard

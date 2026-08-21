@@ -335,6 +335,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
       'utf8',
     );
     assert.match(backDeclaration, /setEnabled/);
+    assert.match(backDeclaration, /configure/);
     const backPackageJson = JSON.parse(
       await readFile(
         join(projectDirectory, 'autolink/back/package.json'),
@@ -353,6 +354,38 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
       'utf8',
     );
     assert.match(backReact, /backStack\.addInterceptor/);
+    assert.match(backReact, /\.\/overlay\.js/);
+    const backOverlay = await readFile(
+      join(projectDirectory, 'autolink/back/src/overlay.tsx'),
+      'utf8',
+    );
+    assert.match(backOverlay, /usePredictiveBackOverlay/);
+    assert.match(backOverlay, /PredictiveBackOverlay/);
+    assert.match(backOverlay, /animationTargetId/);
+    const androidBackElement = await readFile(
+      join(
+        projectDirectory,
+        'autolink/back/android/src/main/java/com/example/autolinkfixture/autolink/back/PredictiveBackOverlayElement.java',
+      ),
+      'utf8',
+    );
+    assert.match(androidBackElement, /predictive-back-overlay/);
+    const iosBackElement = await readFile(
+      join(
+        projectDirectory,
+        'autolink/back/ios/src/LynxPredictiveBackOverlay.m',
+      ),
+      'utf8',
+    );
+    assert.match(iosBackElement, /predictive-back-overlay/);
+    const harmonyBackProvider = await readFile(
+      join(
+        projectDirectory,
+        'autolink/back/harmony/src/main/ets/LynxLibraryProviderImpl.ets',
+      ),
+      'utf8',
+    );
+    assert.match(harmonyBackProvider, /PredictiveBackOverlayUI/);
     await doesNotExist(join(projectDirectory, 'lib/native-host'));
     await doesNotExist(
       join(

@@ -5,3 +5,4 @@ export {
   BackRegistration,
   NativeBackController,
 } from './src/main/ets/BackModule';
+export { PredictiveBackOverlayUI } from './src/main/ets/PredictiveBackOverlayUI';
