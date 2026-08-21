@@ -120,8 +120,17 @@ const manifest = {
 };
 const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
 
+async function clearGeneratedBundles(directory) {
+  await mkdir(directory, { recursive: true });
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.lynx.bundle')) {
+      await rm(join(directory, entry.name), { force: true });
+    }
+  }
+}
+
 const artifactDirectory = join(workspaceDirectory, 'artifacts/latest');
-await mkdir(artifactDirectory, { recursive: true });
+await clearGeneratedBundles(artifactDirectory);
 await writeFile(join(artifactDirectory, 'manifest.json'), serializedManifest);
 
 for (const bundle of bundles) {
@@ -129,7 +138,7 @@ for (const bundle of bundles) {
 }
 
 for (const target of nativeTargets) {
-  await mkdir(target, { recursive: true });
+  await clearGeneratedBundles(target);
   await writeFile(join(target, 'lynx-bundles.json'), serializedManifest);
   for (const bundle of bundles) {
     await copyFile(bundle.source, join(target, bundle.url));

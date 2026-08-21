@@ -213,9 +213,6 @@ importers:
       '@lynx-js/react':
         specifier: 'catalog:'
         version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
-      '@lynx-template/activity-sheet':
-        specifier: workspace:*
-        version: link:../../lib/activity-sheet
       '@lynx-template/autolink-album-utils':
         specifier: workspace:*
         version: link:../../autolink/album-utils
@@ -298,56 +295,6 @@ importers:
       '@lynx-template/bundle-config':
         specifier: workspace:*
         version: link:../../lib/bundle-config
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.18
-
-  bundle/predictive-back-sheet:
-    dependencies:
-      '@lynx-js/react':
-        specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
-      '@lynx-template/activity-sheet':
-        specifier: workspace:*
-        version: link:../../lib/activity-sheet
-      '@lynx-template/autolink-router':
-        specifier: workspace:*
-        version: link:../../autolink/router
-    devDependencies:
-      '@lynx-js/preact-devtools':
-        specifier: 'catalog:'
-        version: 5.0.1-20260716151326-abdb87c
-      '@lynx-js/rspeedy':
-        specifier: 'catalog:'
-        version: 0.16.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(typescript@6.0.3)(webpack@5.109.2)
-      '@lynx-js/types':
-        specifier: 'catalog:'
-        version: 4.0.0
-      '@lynx-template/bundle-config':
-        specifier: workspace:*
-        version: link:../../lib/bundle-config
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.18
-
-  lib/activity-sheet:
-    dependencies:
-      '@lynx-js/react':
-        specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
-      '@lynx-template/autolink-back':
-        specifier: workspace:*
-        version: link:../../autolink/back
-      '@lynx-template/autolink-device-info':
-        specifier: workspace:*
-        version: link:../../autolink/device-info
-      '@lynx-template/autolink-router':
-        specifier: workspace:*
-        version: link:../../autolink/router
-    devDependencies:
-      '@lynx-js/types':
-        specifier: 'catalog:'
-        version: 4.0.0
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18

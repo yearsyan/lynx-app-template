@@ -28,8 +28,6 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `Scanner`：拉起全屏扫码页识别 QR / 条形码，并支持对相册图片本地识码；
 - `AudioPlayer`：播放本地音频文件（`file://` / Android `content://`），按 `media` / `ambient` / `alarm` / `notification` 四种流路由音量键与音频焦点，进度与状态经 `audioPlayer` 事件回传；
 - `SecureStorage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
-- `main` + `predictive-back-sheet` bundle：包含可叠加三层透明原生页面的预测性返回演示。
-
 `Router`、`WebSocket`、`KV`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
 `Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner`、
 `AudioPlayer`、`SecureStorage`、`Toast` 与 `Back` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
@@ -963,9 +961,13 @@ iOS 模块从 `LynxView` responder chain 自动定位所属 VC，在页面可见
 
 Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest 主题确定，不能只在 `onCreate()` 中调用 `setTheme()`；否则透明 LynxView 后面会显示黑色窗口背景。
 
-仓库中的 `Open stack demo` 会打开 `predictive-back-sheet`。每次 `Push Activity` 都通过 `presentation: 'sheet'` 新建一个透明原生页面，因此三层弹窗对应三层真实 Activity / ViewController / NavDestination，而不是在根 bundle 内绘制三层 overlay。每层只注册自己的返回拦截器；预测手势进度驱动当前全宽 sheet 向下位移，`commit` 退场完成后调用 `router.close()`，从而露出下面一层原生页面。
-
-这套行为已经封装在 `@lynx-template/activity-sheet`：`openActivityBottomSheet()` 负责以透明 sheet 路由打开目标 bundle，`useActivityBottomSheet()` 负责返回生命周期和关闭时序，`ActivityBottomSheet` 负责遮罩、全宽面板、grabber、动画与底部安全区。业务 bundle 只需要传入自己的内容；完整示例见 `lib/activity-sheet/README.md`。
+同一 LynxView 内的菜单、Dialog 和 Sheet 不需要额外创建透明原生页面。Lynx 支持
+`position: fixed`，fixed 节点会提升到根节点下；业务可以用它绘制全屏遮罩和面板，显示时
+向 `backStack` 注册拦截器，用 `progress` 更新返回预览、用 `cancel` 复位、用 `commit`
+关闭组件。Back 模块只提供返回生命周期，不负责渲染组件。需要逐帧拖拽的交互仍应由
+Lynx 主线程手势或 `@lynx-js/lynx-ui` Sheet 驱动，Back 负责系统返回这一条输入通道。
+只有确实需要独立原生页面、跨 bundle 生命周期或原生窗口层级时，才使用 Router 的
+`presentation: 'sheet'`。
 
 NativeModules 由应用级 Autolink Registry 自动提供；Android/iOS 新路由页无需补充 Back
 注册。HarmonyOS 页面只把 route registration 放入 `LynxContext.contextData`，并转发 ArkUI

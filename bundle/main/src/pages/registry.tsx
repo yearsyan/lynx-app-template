@@ -23,7 +23,6 @@ import {
   WebViewPage,
 } from './api-media.js';
 import { FetchPage, OpenUrlPage, WebSocketPage } from './api-network.js';
-import { ActivitySheetPage } from './api-open.js';
 import { FileSystemPage, KvPage, SecureStoragePage } from './api-storage.js';
 import { ButtonPage, InputPage, SliderPage } from './ui-basic.js';
 import {
@@ -138,14 +137,6 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
           { key: 'fs', title: '文件系统' },
         ],
       },
-      {
-        key: 'open',
-        title: '开放接口',
-        glyph: '开',
-        tileBackground: '#ffebee',
-        tileColor: '#e53935',
-        items: [{ key: 'sheet', title: '半透明堆叠页' }],
-      },
     ],
   },
   {
@@ -233,7 +224,6 @@ export const PAGES: Record<string, DemoPageEntry> = {
   kv: { title: 'MMKV 存储', render: () => <KvPage /> },
   secure: { title: '安全存储', render: () => <SecureStoragePage /> },
   fs: { title: '文件系统', render: () => <FileSystemPage /> },
-  sheet: { title: '半透明堆叠页', render: () => <ActivitySheetPage /> },
   button: { title: '按钮', render: () => <ButtonPage /> },
   pressable: { title: '原生 Pressable', render: () => <PressableViewPage /> },
   input: { title: '输入框', render: () => <InputPage /> },

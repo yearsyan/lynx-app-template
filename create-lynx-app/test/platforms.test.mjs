@@ -171,6 +171,21 @@ async function verifySinglePlatformScaffold(platform) {
     );
 
     await createBundleOutputs(projectDirectory);
+    const nativeBundleDirectory = dirname(
+      join(projectDirectory, platformFixtures[platform].manifest),
+    );
+    const staleNativeBundle = join(
+      nativeBundleDirectory,
+      'removed.lynx.bundle',
+    );
+    const staleArtifactBundle = join(
+      projectDirectory,
+      'bundle/artifacts/latest/removed.lynx.bundle',
+    );
+    await mkdir(nativeBundleDirectory, { recursive: true });
+    await mkdir(dirname(staleArtifactBundle), { recursive: true });
+    await writeFile(staleNativeBundle, 'stale');
+    await writeFile(staleArtifactBundle, 'stale');
     const sync = await execFileAsync(
       process.execPath,
       ['scripts/sync-native.mjs'],
@@ -180,6 +195,8 @@ async function verifySinglePlatformScaffold(platform) {
       sync.stdout,
       new RegExp(`1 native project\\(s\\): ${platform}`),
     );
+    await doesNotExist(staleNativeBundle);
+    await doesNotExist(staleArtifactBundle);
     await access(join(projectDirectory, platformFixtures[platform].manifest));
     for (const [candidate, fixture] of Object.entries(platformFixtures)) {
       if (candidate !== platform) {
@@ -261,6 +278,8 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     await doesNotExist(join(projectDirectory, 'lib/native-runtime'));
     await doesNotExist(join(projectDirectory, 'lib/native-contracts'));
     await doesNotExist(join(projectDirectory, 'lib/webview-bridge'));
+    await doesNotExist(join(projectDirectory, 'lib/activity-sheet'));
+    await doesNotExist(join(projectDirectory, 'bundle/predictive-back-sheet'));
     const mmkvPackageJson = JSON.parse(
       await readFile(
         join(projectDirectory, 'autolink/mmkv/package.json'),

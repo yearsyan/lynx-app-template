@@ -41,7 +41,6 @@
 │   └── main         # 默认 Lynx bundle
 ├── contracts        # NativeModule 名称、声明文件与三端实现的映射元数据
 ├── lib              # bundles 共享的基础库 workspace packages
-│   ├── activity-sheet # 跨 bundle 复用的原生透明底部面板
 │   └── bundle-config # 跨 bundle 复用的 Rspeedy 构建配置
 └── scripts          # 原生配置、bundle 创建与发布同步脚本
 ```
