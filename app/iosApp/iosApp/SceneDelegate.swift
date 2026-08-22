@@ -13,10 +13,25 @@ import UIKit
 private final class LynxNavigationController: UINavigationController,
     UIGestureRecognizerDelegate {
 
+    private lazy var presentSwipeDownGesture: UIScreenEdgePanGestureRecognizer = {
+        let gesture = UIScreenEdgePanGestureRecognizer(
+            target: self,
+            action: #selector(handlePresentSwipeDown(_:))
+        )
+        gesture.edges = .left
+        gesture.maximumNumberOfTouches = 1
+        gesture.delegate = self
+        return gesture
+    }()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setNavigationBarHidden(true, animated: false)
         interactivePopGestureRecognizer?.delegate = self
+        view.addGestureRecognizer(presentSwipeDownGesture)
+        // Normal pages keep UIKit's interactive horizontal pop. A present
+        // page with the opt-in flag lets the custom downward gesture win.
+        interactivePopGestureRecognizer?.require(toFail: presentSwipeDownGesture)
     }
 
     override var childForStatusBarStyle: UIViewController? {
@@ -28,10 +43,57 @@ private final class LynxNavigationController: UINavigationController,
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer === presentSwipeDownGesture {
+            guard viewControllers.count > 1,
+                  transitionCoordinator == nil,
+                  let page = topViewController as? LynxPageViewController,
+                  page.canBeginPresentSwipeDown else {
+                return false
+            }
+            let velocity = presentSwipeDownGesture.velocity(in: view)
+            return velocity.x > 0 && abs(velocity.x) > abs(velocity.y)
+        }
         guard gestureRecognizer === interactivePopGestureRecognizer else {
             return true
         }
-        return viewControllers.count > 1 && transitionCoordinator == nil
+        guard viewControllers.count > 1 && transitionCoordinator == nil else {
+            return false
+        }
+        // The interactive pop would slide a present-route page away and break
+        // its snapshot-backdrop illusion; those pages dismiss through the
+        // reverse choreography instead (see PresentBackdrop).
+        if let page = topViewController as? LynxPageViewController,
+           page.routeAnimation == .present {
+            return false
+        }
+        return true
+    }
+
+    @objc private func handlePresentSwipeDown(_ gesture: UIScreenEdgePanGestureRecognizer) {
+        guard let page = topViewController as? LynxPageViewController else { return }
+        let width = max(view.bounds.width, 1)
+        let progress = min(max(gesture.translation(in: view).x / width, 0), 1)
+
+        switch gesture.state {
+        case .began:
+            _ = page.beginPresentSwipeDown()
+        case .changed:
+            page.updatePresentSwipeDown(progress: progress)
+        case .ended:
+            let velocity = gesture.velocity(in: view).x
+            if progress >= 0.3 || velocity >= 650 {
+                page.finishPresentSwipeDown { [weak self, weak page] in
+                    guard let self, let page, self.topViewController === page else { return }
+                    self.popViewController(animated: false)
+                }
+            } else {
+                page.cancelPresentSwipeDown()
+            }
+        case .cancelled, .failed:
+            page.cancelPresentSwipeDown()
+        default:
+            break
+        }
     }
 }
 
@@ -140,7 +202,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     bundle: resolution.bundle,
                     params: resolution.params
                 ),
-                transparent: false,
+                snapshot: nil,
                 statusBarStyle: .darkContent
             ),
             animated: true
@@ -164,7 +226,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return LynxPageViewController(
             bundleName: resolution.bundle,
             route: routeDictionary(bundle: resolution.bundle, params: resolution.params),
-            transparent: false,
+            snapshot: nil,
             statusBarStyle: .darkContent
         )
     }
@@ -175,9 +237,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) -> [String: Any] {
         [
             "bundle": bundle,
-            "presentation": "push",
             "animation": "default",
-            "transparent": false,
             "statusBarStyle": "dark-content",
             "params": params,
         ]

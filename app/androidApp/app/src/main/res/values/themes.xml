@@ -3,15 +3,6 @@
 
     <style name="Theme.LynxTemplate" parent="Theme.LynxTemplate.Base" />
 
-    <style name="Theme.LynxTemplate.Transparent" parent="Theme.LynxTemplate">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:colorBackground">@android:color/transparent</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:backgroundDimEnabled">false</item>
-        <item name="android:windowDisablePreview">true</item>
-    </style>
-
     <style name="Theme.LynxTemplate.Base" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#F7F7FB</item>
         <item name="android:statusBarColor">@android:color/transparent</item>

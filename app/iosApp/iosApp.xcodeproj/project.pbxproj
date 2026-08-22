@@ -16,6 +16,7 @@
 		9B0001030000000000000001 /* AppRouteHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0000030000000000000001 /* AppRouteHandler.swift */; };
 		9C0001010000000000000001 /* LynxPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000010000000000000001 /* LynxPageViewController.swift */; };
 		9C0001020000000000000001 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000020000000000000001 /* ViewController.swift */; };
+		9C0001030000000000000001 /* PresentBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0000030000000000000001 /* PresentBackdrop.swift */; };
 		AA1000010000000000000001 /* LynxTemplateHttpService.m in Sources */ = {isa = PBXBuildFile; fileRef = AA1000020000000000000002 /* LynxTemplateHttpService.m */; };
 		CC0000010000000000000001 /* DevelopmentSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000020000000000000002 /* DevelopmentSettings.swift */; };
 		CC0000030000000000000003 /* DebugSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000040000000000000004 /* DebugSettingsViewController.swift */; };
@@ -36,6 +37,7 @@
 		9B0000030000000000000001 /* AppRouteHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouteHandler.swift; sourceTree = "<group>"; };
 		9C0000010000000000000001 /* LynxPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynxPageViewController.swift; sourceTree = "<group>"; };
 		9C0000020000000000000001 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		9C0000030000000000000001 /* PresentBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentBackdrop.swift; sourceTree = "<group>"; };
 		AA1000020000000000000002 /* LynxTemplateHttpService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxTemplateHttpService.m; sourceTree = "<group>"; };
 		CC0000020000000000000002 /* DevelopmentSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevelopmentSettings.swift; sourceTree = "<group>"; };
 		CC0000040000000000000004 /* DebugSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSettingsViewController.swift; sourceTree = "<group>"; };
@@ -114,6 +116,7 @@
 			isa = PBXGroup;
 			children = (
 				9C0000010000000000000001 /* LynxPageViewController.swift */,
+				9C0000030000000000000001 /* PresentBackdrop.swift */,
 				9C0000020000000000000001 /* ViewController.swift */,
 				CC0000040000000000000004 /* DebugSettingsViewController.swift */,
 			);
@@ -247,6 +250,7 @@
 				AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */,
 				AA1000010000000000000001 /* LynxTemplateHttpService.m in Sources */,
 				9C0001010000000000000001 /* LynxPageViewController.swift in Sources */,
+				9C0001030000000000000001 /* PresentBackdrop.swift in Sources */,
 				9C0001020000000000000001 /* ViewController.swift in Sources */,
 				2B94A3C92D6613730060892C /* AppDelegate.swift in Sources */,
 				2B94A3CB2D6613730060892C /* SceneDelegate.swift in Sources */,

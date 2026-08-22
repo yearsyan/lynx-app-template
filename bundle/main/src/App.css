@@ -1381,3 +1381,205 @@
   color: #07c160;
   font-weight: 600;
 }
+
+/* ============ Route present ============ */
+
+/* Present routes paint over the native snapshot backdrop; only the page's
+   own modal layout decides what shows through. */
+.AppRoot--present {
+  background-color: transparent;
+}
+
+.PresentRoute__root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.PresentRoute__scrim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  /* The dimming itself is painted by the native scrim layer between the
+     snapshot backdrop and this page; this view only catches close taps. */
+}
+
+.PresentRoute__sheet {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 24px 48px;
+  box-sizing: border-box;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.PresentRoute__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #d8d8d8;
+}
+
+.PresentRoute__title {
+  margin-top: 16px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.PresentRoute__desc {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 19px;
+  color: #888888;
+  text-align: center;
+}
+
+.PresentRoute__sheet .DemoButton {
+  margin-top: 20px;
+}
+
+/* ============ Download manager ============ */
+
+.DownloadDemo__urlInput {
+  font-size: 12px;
+}
+
+.DownloadTask {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e8e8e8;
+  border-radius: 9px;
+  background-color: #fafafa;
+  box-sizing: border-box;
+}
+
+.DownloadTask__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.DownloadTask__name {
+  flex: 1;
+  min-width: 0;
+  margin-right: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #222222;
+}
+
+.DownloadTask__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background-color: #e8f8ef;
+}
+
+.DownloadTask__state--queued {
+  background-color: #e8f0fe;
+}
+
+.DownloadTask__state--paused {
+  background-color: #fff3e0;
+}
+
+.DownloadTask__state--failed {
+  background-color: #fdecec;
+}
+
+.DownloadTask__state--cancelled {
+  background-color: #eeeeee;
+}
+
+.DownloadTask__stateText {
+  font-size: 10px;
+  font-weight: 600;
+  color: #07964d;
+}
+
+.DownloadTask__stateText--queued {
+  color: #1a73e8;
+}
+
+.DownloadTask__stateText--paused {
+  color: #e47b08;
+}
+
+.DownloadTask__stateText--failed {
+  color: #d93025;
+}
+
+.DownloadTask__stateText--cancelled {
+  color: #777777;
+}
+
+.DownloadTask__meta {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #999999;
+}
+
+.DownloadTask__progress {
+  width: 100%;
+  height: 6px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: #e6e6e6;
+}
+
+.DownloadTask__progressFill {
+  height: 100%;
+  border-radius: 3px;
+  background-color: #07c160;
+}
+
+.DownloadTask__progressFill--queued {
+  background-color: #1a73e8;
+}
+
+.DownloadTask__progressFill--paused {
+  background-color: #f5a623;
+}
+
+.DownloadTask__progressFill--failed,
+.DownloadTask__progressFill--cancelled {
+  background-color: #b6b6b6;
+}
+
+.DownloadTask__bytes {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #555555;
+}
+
+.DownloadTask__error {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #d93025;
+}
+
+.DownloadTask__file {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 15px;
+  color: #777777;
+}

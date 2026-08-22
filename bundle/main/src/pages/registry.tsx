@@ -10,6 +10,7 @@ import {
   ScannerPage,
   SensorsPage,
 } from './api-device.js';
+import { DownloadManagerPage } from './api-download.js';
 import {
   BrightnessPage,
   LocalNotificationPage,
@@ -31,6 +32,8 @@ import {
   WebSocketPage,
 } from './api-network.js';
 import { FileSystemPage, KvPage, SecureStoragePage } from './api-storage.js';
+import { RoutePresentPage } from './route-present.js';
+import { RouteResultPage } from './route-result.js';
 import { BackOverlayPage } from './ui-back.js';
 import { ButtonPage, InputPage, SliderPage } from './ui-basic.js';
 import {
@@ -85,6 +88,8 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileBackground: '#e7f6ec',
         tileColor: '#07c160',
         items: [
+          { key: 'routepresent', title: 'present 转场' },
+          { key: 'routeresult', title: '页面结果回传' },
           { key: 'toast', title: 'Toast 提示' },
           { key: 'statusbar', title: '状态栏样式' },
           { key: 'brightness', title: '屏幕亮度' },
@@ -116,6 +121,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileColor: '#00897b',
         items: [
           { key: 'fetch', title: '发起请求' },
+          { key: 'download', title: '下载管理器' },
           { key: 'networkinfo', title: '网络状态' },
           { key: 'websocket', title: 'WebSocket' },
           { key: 'openurl', title: '打开链接' },
@@ -214,6 +220,8 @@ interface DemoPageEntry {
 }
 
 export const PAGES: Record<string, DemoPageEntry> = {
+  routepresent: { title: 'present 转场', render: () => <RoutePresentPage /> },
+  routeresult: { title: '页面结果回传', render: () => <RouteResultPage /> },
   toast: { title: 'Toast 提示', render: () => <ToastPage /> },
   statusbar: { title: '状态栏样式', render: () => <StatusBarPage /> },
   brightness: { title: '屏幕亮度', render: () => <BrightnessPage /> },
@@ -227,6 +235,7 @@ export const PAGES: Record<string, DemoPageEntry> = {
   haptics: { title: '振动反馈', render: () => <HapticsPage /> },
   scanner: { title: '扫码', render: () => <ScannerPage /> },
   fetch: { title: '发起请求', render: () => <FetchPage /> },
+  download: { title: '下载管理器', render: () => <DownloadManagerPage /> },
   networkinfo: { title: '网络状态', render: () => <NetworkInfoPage /> },
   websocket: { title: 'WebSocket', render: () => <WebSocketPage /> },
   openurl: { title: '打开链接', render: () => <OpenUrlPage /> },

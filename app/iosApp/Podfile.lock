@@ -35,11 +35,13 @@ PODS:
     - Lynx
   - lynx-app-audio-player (1.0.0):
     - Lynx
-  - lynx-app-biometric (1.0.0):
+  - lynx-app-biometric (2.0.0):
     - Lynx
   - lynx-app-clipboard (1.0.0):
     - Lynx
   - lynx-app-device (1.0.0):
+    - Lynx
+  - lynx-app-download-manager (1.0.0):
     - Lynx
   - lynx-app-file-system (1.0.0):
     - Lynx
@@ -231,6 +233,7 @@ DEPENDENCIES:
   - lynx-app-biometric (from `/Users/u/workspace/lynx-template/autolink/biometric/ios`)
   - lynx-app-clipboard (from `/Users/u/workspace/lynx-template/autolink/clipboard/ios`)
   - lynx-app-device (from `/Users/u/workspace/lynx-template/autolink/device/ios`)
+  - lynx-app-download-manager (from `/Users/u/workspace/lynx-template/autolink/download-manager/ios`)
   - lynx-app-file-system (from `/Users/u/workspace/lynx-template/autolink/file-system/ios`)
   - lynx-app-haptics (from `/Users/u/workspace/lynx-template/autolink/haptics/ios`)
   - lynx-app-image-tooling (from `/Users/u/workspace/lynx-template/autolink/image-tooling/ios`)
@@ -292,6 +295,8 @@ EXTERNAL SOURCES:
     :path: "/Users/u/workspace/lynx-template/autolink/clipboard/ios"
   lynx-app-device:
     :path: "/Users/u/workspace/lynx-template/autolink/device/ios"
+  lynx-app-download-manager:
+    :path: "/Users/u/workspace/lynx-template/autolink/download-manager/ios"
   lynx-app-file-system:
     :path: "/Users/u/workspace/lynx-template/autolink/file-system/ios"
   lynx-app-haptics:
@@ -334,9 +339,10 @@ SPEC CHECKSUMS:
   Lynx: 34c94a5ca239b8c282519ccbb598da390c3d7741
   lynx-app-album-utils: 945e846361c8b9a3f51f2afed5a2363f3c3efcde
   lynx-app-audio-player: 78bd28ca624df990405aff1bbeb1f2a44c775f9e
-  lynx-app-biometric: 2422797a73addbe29137aed33c284d36c387a553
+  lynx-app-biometric: 66417a6b646030fe640a7f4d415738c8c37f2f6e
   lynx-app-clipboard: 4fa5b6d19bbf978336d5c8b09e303bee5ae35821
   lynx-app-device: 9de9a1d7b98e9ff0f4673fa9584400b0a827a631
+  lynx-app-download-manager: c16880cee87fb3d324fb4e7eaa2809d925a0ac61
   lynx-app-file-system: 6d54f5949461556a89bae0b94e3c5addb147173d
   lynx-app-haptics: 837ff778e906de9ac37005abd56e16f6c4defd8d
   lynx-app-image-tooling: b3ce3fcbe8f9eac0d7b79151c3a406ec3e43022c

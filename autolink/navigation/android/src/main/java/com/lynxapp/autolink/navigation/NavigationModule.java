@@ -37,11 +37,10 @@ import com.lynx.tasm.behavior.LynxContext;
 @LynxNativeModule(name = NavigationModule.NAME)
 public final class NavigationModule extends LynxContextModule {
     public static final String NAME = "Navigation";
-    public static final String PRESENTATION_PUSH = "push";
-    public static final String PRESENTATION_SHEET = "sheet";
     public static final String ANIMATION_DEFAULT = "default";
     public static final String ANIMATION_FADE = "fade";
     public static final String ANIMATION_NONE = "none";
+    public static final String ANIMATION_PRESENT = "present";
     private static final String EVENT_NAME = "back";
 
     private static final String PLATFORM_ANDROID = "android";
@@ -133,8 +132,8 @@ public final class NavigationModule extends LynxContextModule {
     }
 
     public static boolean isLynxRouteAnimation(String value) {
-        return ANIMATION_DEFAULT.equals(value)
-                || ANIMATION_FADE.equals(value) || ANIMATION_NONE.equals(value);
+        return ANIMATION_DEFAULT.equals(value) || ANIMATION_FADE.equals(value)
+                || ANIMATION_NONE.equals(value) || ANIMATION_PRESENT.equals(value);
     }
 
     @LynxMethod
@@ -157,6 +156,29 @@ public final class NavigationModule extends LynxContextModule {
             return;
         }
         handler.close(host, callback);
+    }
+
+    @LynxMethod
+    public void openForResult(ReadableMap options, Callback callback) {
+        LynxRouteHandler handler = routeHandler;
+        Activity host = resolveActivity();
+        if (handler == null || host == null) {
+            callback.invoke(LynxRouteHandler.RouteResultEnvelope.error(
+                    "Navigation has no Activity host"));
+            return;
+        }
+        handler.openForResult(host, options, callback);
+    }
+
+    @LynxMethod
+    public void closeWithResult(ReadableMap result, Callback callback) {
+        LynxRouteHandler handler = routeHandler;
+        Activity host = resolveActivity();
+        if (handler == null || host == null) {
+            callback.invoke("Navigation has no Activity host");
+            return;
+        }
+        handler.closeWithResult(host, result, callback);
     }
 
     @LynxMethod

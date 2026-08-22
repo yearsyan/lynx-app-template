@@ -22,9 +22,10 @@ class LynxTemplateApplication : Application() {
         AppInstrumentation.init(this)
         // MMKV bootstrap lives in the autolinked Storage library.
         // The autolinked Navigation module delegates in-app bundle navigation
-        // to this stateless host handler; it must be installed before the
-        // first Lynx view is created.
-        NavigationModule.setRouteHandler(AppRouteHandler())
+        // to this host handler; it must be installed before the first Lynx
+        // view is created. It also watches Activity destructions to deliver
+        // pending openForResult results.
+        NavigationModule.setRouteHandler(AppRouteHandler(this))
         initLynxService()
         initLynxEnv()
         DevToolInitializer.onEnvironmentInitialized(this)

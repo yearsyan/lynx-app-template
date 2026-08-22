@@ -1,28 +1,78 @@
 import { common } from '@kit.AbilityKit';
-import { UIContext } from '@kit.ArkUI';
+import { UIContext, window } from '@kit.ArkUI';
+import { image } from '@kit.ImageKit';
 
 import { BundleConfig } from '../config/BundleConfig';
 import { STATUS_BAR_STYLE_DARK_CONTENT } from '@lynx-template/autolink-device';
+import { NativeRouteResult } from '@lynx-template/autolink-navigation';
 
 interface NativeRouteOptions {
   bundle: string;
-  presentation?: string;
-  transparent?: boolean;
   statusBarStyle?: string;
   animation?: string;
+  present?: NativeRoutePresentOptions;
   params?: Record<string, Object>;
+}
+
+interface NativeRoutePresentOptions {
+  scrimColor?: string;
+  backdropTransition?: boolean;
+  enter?: NativeRoutePresentContentAnimationOptions;
+  exit?: NativeRoutePresentContentAnimationOptions;
+  contentTransition?: boolean;
+  backdropBlur?: boolean;
+  iosSwipeDown?: boolean;
+  androidPredictiveBackDown?: boolean;
+}
+
+interface NativeRoutePresentContentAnimationOptions {
+  opacity?: boolean;
+  push?: boolean;
 }
 
 const ROUTE_ANIMATION_DEFAULT: string = 'default';
 const ROUTE_ANIMATION_FADE: string = 'fade';
 const ROUTE_ANIMATION_NONE: string = 'none';
+const ROUTE_ANIMATION_PRESENT: string = 'present';
+/** Blurred backdrops give up pixel alignment, so they capture small. */
+const BLURRED_CAPTURE_SCALE: number = 1 / 3;
 
-/** Maps the shared route animation to the ArkUI navigation transition. */
+function routeResultErrorEnvelope(message: string): string {
+  const envelope: Record<string, Object> = { 'error': message };
+  return JSON.stringify(envelope);
+}
+
+/** A pending openForResult callback, resolved when the opened route dies. */
+class PendingRouteResult {
+  private result: Record<string, Object> | undefined = undefined;
+  private readonly onResult: (resultJSON: string) => void;
+
+  constructor(onResult: (resultJSON: string) => void) {
+    this.onResult = onResult;
+  }
+
+  setResult(result: Record<string, Object>): void {
+    this.result = result;
+  }
+
+  deliver(): void {
+    const envelope: Record<string, Object> =
+      this.result === undefined ? {} : { 'value': this.result };
+    this.onResult(JSON.stringify(envelope));
+  }
+}
+
+/**
+ * Maps the shared route animation to the ArkUI navigation transition. The
+ * present transition opens with no system animation; the page itself layers
+ * the previous page's snapshot (see NativeRoute.snapshot) and plays the
+ * iOS-like present choreography from the content's first screen.
+ */
 export function nativeRouteTransitionType(animation: string): NavigationSystemTransitionType {
   if (animation === ROUTE_ANIMATION_FADE) {
     return NavigationSystemTransitionType.FADE;
   }
-  if (animation === ROUTE_ANIMATION_NONE) {
+  if (animation === ROUTE_ANIMATION_NONE || animation === ROUTE_ANIMATION_PRESENT) {
     return NavigationSystemTransitionType.NONE;
   }
   return NavigationSystemTransitionType.DEFAULT;
@@ -31,27 +81,41 @@ export function nativeRouteTransitionType(animation: string): NavigationSystemTr
 export class NativeRoute {
   private static nextNativeBackID: number = 0;
   bundle: string;
-  presentation: string;
-  transparent: boolean;
   statusBarStyle: string;
   animation: string;
   params: Record<string, Object>;
+  /** Present routes only: snapshot of the previous page shown as the backdrop. */
+  snapshot?: image.PixelMap;
+  /** Present routes only: scrim color ('#AARRGGBB') over the snapshot backdrop. */
+  presentScrimColor?: string;
+  /** Present routes only: snapshot shrink choreography and its reverse on close. */
+  presentBackdropTransition: boolean = true;
+  /** Present routes only: content entering opacity choreography. */
+  presentEnterOpacity: boolean = false;
+  /** Present routes only: content entering full-viewport push choreography. */
+  presentEnterPush: boolean = true;
+  /** Present routes only: content exiting opacity choreography. */
+  presentExitOpacity: boolean = false;
+  /** Present routes only: content exiting full-viewport push choreography. */
+  presentExitPush: boolean = true;
+  /** Present routes only: blur the snapshot (captured at reduced resolution). */
+  presentBackdropBlur: boolean = false;
+  /** openForResult routes only: correlates this route with its opener. */
+  resultToken?: string;
   readonly nativeBackID: string;
 
   constructor(
     bundle: string,
-    presentation: string = 'push',
-    transparent: boolean = false,
     statusBarStyle: string = STATUS_BAR_STYLE_DARK_CONTENT,
     animation: string = ROUTE_ANIMATION_DEFAULT,
     params: Record<string, Object> = {},
+    snapshot?: image.PixelMap,
   ) {
     this.bundle = bundle;
-    this.presentation = presentation;
-    this.transparent = transparent;
     this.statusBarStyle = statusBarStyle;
     this.animation = animation;
     this.params = params;
+    this.snapshot = snapshot;
     this.nativeBackID = `native-back-${NativeRoute.nextNativeBackID}`;
     NativeRoute.nextNativeBackID += 1;
   }
@@ -69,9 +133,16 @@ export class NativeRoute {
 export class NativeRouterController {
   static readonly DESTINATION_NAME: string = 'lynx-bundle';
 
+  private static nextResultToken: number = 0;
+
   private readonly pathStack: NavPathStack;
   private uiContext: UIContext | undefined = undefined;
   private abilityContext: common.UIAbilityContext | undefined = undefined;
+  // Present routes register their reverse choreography so close() and system
+  // Back pop only after the snapshot backdrop has restored the previous page.
+  private readonly presentDismissers: Map<string, () => void> = new Map();
+  // openForResult routes only: their opener's pending result callback.
+  private readonly pendingResults: Map<string, PendingRouteResult> = new Map();
 
   constructor(pathStack: NavPathStack) {
     this.pathStack = pathStack;
@@ -85,43 +156,77 @@ export class NativeRouterController {
     this.abilityContext = context;
   }
 
+  registerPresentDismiss(routeID: string, dismiss: (() => void) | undefined): void {
+    if (dismiss === undefined) {
+      this.presentDismissers.delete(routeID);
+    } else {
+      this.presentDismissers.set(routeID, dismiss);
+    }
+  }
+
+  presentDismissFor(routeID: string): (() => void) | undefined {
+    return this.presentDismissers.get(routeID);
+  }
+
   open(options: NativeRouteOptions, callback: (error: string) => void): void {
-    const presentation = options.presentation ?? 'push';
-    const route = new NativeRoute(
-      options.bundle,
-      presentation,
-      options.transparent ?? presentation === 'sheet',
-      options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT,
-      options.animation ?? ROUTE_ANIMATION_DEFAULT,
-      options.params ?? {},
-    );
-    this.runOnUI(() => {
-      try {
-        this.pathStack.pushPath({
-          name: NativeRouterController.DESTINATION_NAME,
-          param: route,
-        });
-        callback('');
-      } catch (error) {
-        callback(`Unable to open native route: ${JSON.stringify(error)}`);
+    this.openInternal(options, undefined, callback);
+  }
+
+  openForResult(
+    options: NativeRouteOptions,
+    onResult: (resultJSON: string) => void,
+  ): void {
+    NativeRouterController.nextResultToken += 1;
+    const token = `route-result-${NativeRouterController.nextResultToken}`;
+    this.pendingResults.set(token, new PendingRouteResult(onResult));
+    this.openInternal(options, token, (error: string) => {
+      // Push failures reject the awaiting promise; a successful push keeps
+      // the entry pending until the route disappears.
+      if (error.length > 0) {
+        this.pendingResults.delete(token);
+        onResult(routeResultErrorEnvelope(error));
       }
     });
   }
 
   close(callback: (error: string) => void): void {
     this.runOnUI(() => {
-      if (this.pathStack.size() === 0) {
-        if (this.abilityContext !== undefined) {
-          this.abilityContext.moveAbilityToBackground()
-            .then(() => callback(''))
-            .catch((error: Error) => callback(`Unable to background the app: ${error.message}`));
-          return;
+      this.performClose(callback);
+    });
+  }
+
+  closeWithResult(
+    result: NativeRouteResult,
+    callback: (error: string) => void,
+  ): void {
+    this.runOnUI(() => {
+      if (this.pathStack.size() > 0) {
+        const top =
+          this.pathStack.getParamByIndex(this.pathStack.size() - 1) as NativeRoute | undefined;
+        if (top?.resultToken !== undefined) {
+          this.pendingResults.get(top.resultToken)?.setResult(result);
         }
-        callback('The root route cannot be closed');
+      }
+      this.performClose(callback);
+    });
+  }
+
+  /**
+   * Resolves the route's pending openForResult entry (with its recorded
+   * result, or the no-result envelope) when the route leaves the stack.
+   */
+  completeRouteResult(route: NativeRoute): void {
+    const token = route.resultToken;
+    if (token === undefined) {
+      return;
+    }
+    this.runOnUI(() => {
+      const pending = this.pendingResults.get(token);
+      if (pending === undefined) {
         return;
       }
-      this.pathStack.pop();
-      callback('');
+      this.pendingResults.delete(token);
+      pending.deliver();
     });
   }
 
@@ -133,6 +238,106 @@ export class NativeRouterController {
     this.abilityContext.openLink(url)
       .then(() => callback(''))
       .catch((error: Error) => callback(`Unable to open URL: ${error.message}`));
+  }
+
+  /** Pops with no system transition after a present route's reverse choreography. */
+  popAfterPresentDismiss(): void {
+    this.runOnUI((): void => {
+      this.pathStack.pop(false);
+    });
+  }
+
+  private openInternal(
+    options: NativeRouteOptions,
+    resultToken: string | undefined,
+    onPushFinished: (error: string) => void,
+  ): void {
+    const route = new NativeRoute(
+      options.bundle,
+      options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT,
+      options.animation ?? ROUTE_ANIMATION_DEFAULT,
+      options.params ?? {},
+    );
+    route.presentScrimColor = options.present?.scrimColor;
+    route.presentBackdropTransition = options.present?.backdropTransition ?? true;
+    const legacyContentTransition = options.present?.contentTransition ?? true;
+    route.presentEnterOpacity = options.present?.enter?.opacity ?? false;
+    route.presentEnterPush = options.present?.enter?.push ?? legacyContentTransition;
+    route.presentExitOpacity = options.present?.exit?.opacity ?? false;
+    route.presentExitPush = options.present?.exit?.push ?? legacyContentTransition;
+    route.presentBackdropBlur = options.present?.backdropBlur ?? false;
+    route.resultToken = resultToken;
+    this.runOnUI(() => {
+      if (route.animation === ROUTE_ANIMATION_PRESENT) {
+        // The snapshot must exist before the destination builds, so its very
+        // first frame already shows the previous page's pixels.
+        this.captureSnapshot(route.presentBackdropBlur)
+          .then((pixelMap: image.PixelMap) => {
+            route.snapshot = pixelMap;
+            this.pushRoute(route, onPushFinished);
+          })
+          .catch(() => {
+            // Without a snapshot the page still opens instantly; the content
+            // simply appears without the backdrop choreography.
+            this.pushRoute(route, onPushFinished);
+          });
+        return;
+      }
+      this.pushRoute(route, onPushFinished);
+    });
+  }
+
+  private performClose(callback: (error: string) => void): void {
+    if (this.pathStack.size() === 0) {
+      if (this.abilityContext !== undefined) {
+        this.abilityContext.moveAbilityToBackground()
+          .then(() => callback(''))
+          .catch((error: Error) => callback(`Unable to background the app: ${error.message}`));
+        return;
+      }
+      callback('The root route cannot be closed');
+      return;
+    }
+    const top = this.pathStack.getParamByIndex(this.pathStack.size() - 1) as NativeRoute | undefined;
+    const dismiss = top === undefined ? undefined : this.presentDismissers.get(top.nativeBackID);
+    if (dismiss !== undefined) {
+      // The choreography pops the route itself once the backdrop has
+      // restored the previous page's pixels.
+      dismiss();
+      callback('');
+      return;
+    }
+    this.pathStack.pop();
+    callback('');
+  }
+
+  private pushRoute(route: NativeRoute, callback: (error: string) => void): void {
+    try {
+      this.pathStack.pushPath({
+        name: NativeRouterController.DESTINATION_NAME,
+        param: route,
+      });
+      callback('');
+    } catch (error) {
+      callback(`Unable to open native route: ${JSON.stringify(error)}`);
+    }
+  }
+
+  private captureSnapshot(blurred: boolean): Promise<image.PixelMap> {
+    const context = this.abilityContext ??
+      this.uiContext?.getHostContext() as common.UIAbilityContext | undefined;
+    if (context === undefined) {
+      return Promise.reject(new Error('Native router has no window context'));
+    }
+    return window.getLastWindow(context)
+      .then((hostWindow) => hostWindow.snapshot())
+      .then((pixelMap: image.PixelMap): Promise<image.PixelMap> => {
+        if (!blurred) {
+          return Promise.resolve(pixelMap);
+        }
+        return pixelMap.scale(BLURRED_CAPTURE_SCALE, BLURRED_CAPTURE_SCALE)
+          .then(() => pixelMap);
+      });
   }
 
   private runOnUI(task: () => void): void {

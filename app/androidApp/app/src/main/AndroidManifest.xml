@@ -22,10 +22,6 @@
             android:exported="false"
             android:theme="@style/Theme.LynxTemplate" />
         <activity
-            android:name=".activity.TransparentLynxPageActivity"
-            android:exported="false"
-            android:theme="@style/Theme.LynxTemplate.Transparent" />
-        <activity
             android:name=".activity.MainActivity"
             android:exported="true"
             android:label="@string/app_name"

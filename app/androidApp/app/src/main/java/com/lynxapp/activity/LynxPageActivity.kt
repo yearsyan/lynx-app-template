@@ -1,13 +1,15 @@
 package com.lynxapp.activity
 
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
 import android.widget.FrameLayout
+import androidx.activity.BackEventCompat
+import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.FragmentActivity
 import com.google.gson.Gson
 import com.lynx.tasm.LynxView
+import com.lynx.tasm.LynxViewClient
 import com.lynxapp.LynxBundleRepository
 import com.lynxapp.LynxTemplateApplication
 import com.lynxapp.autolink.device.DeviceSystemUI
@@ -16,7 +18,11 @@ import com.lynxapp.component.createLynxView
 import com.lynxapp.autolink.navigation.NavigationModule
 
 /**
- * Hosts an embedded Lynx bundle as an opaque page or transparent overlay.
+ * Hosts an embedded Lynx bundle as an opaque page. `animation: 'present'`
+ * routes layer a [PresentBackdrop] — a snapshot of the previous page — behind
+ * a transparent-background LynxView and play the present choreography from
+ * the content's first screen (see [PresentBackdrop] for the timing).
+ *
  * The app root (MainActivity) subclasses this: a pushed page reads its route
  * from intent extras, the root states its configuration via overrides.
  *
@@ -29,6 +35,11 @@ open class LynxPageActivity : FragmentActivity() {
     protected lateinit var bundleRepository: LynxBundleRepository
     protected lateinit var root: FrameLayout
     private var fellBackToEmbedded = false
+    private var presentBackdrop: PresentBackdrop? = null
+    private var predictiveBackDismissStarted = false
+
+    private val androidPredictiveBackDownEnabled: Boolean
+        get() = intent.getBooleanExtra(EXTRA_PRESENT_ANDROID_PREDICTIVE_BACK_DOWN, false)
 
     /** Root routes answer `router.close()` by leaving the app instead of finishing. */
     internal open val isRootRoute: Boolean
@@ -38,37 +49,106 @@ open class LynxPageActivity : FragmentActivity() {
     protected open val bundleName: String
         get() = intent.getStringExtra(EXTRA_BUNDLE) ?: DEFAULT_BUNDLE
 
-    internal val routePresentation: String
-        get() = intent.getStringExtra(EXTRA_PRESENTATION)
-            ?: NavigationModule.PRESENTATION_PUSH
-
     internal val routeAnimation: String
         get() = intent.getStringExtra(EXTRA_ANIMATION)
             ?: NavigationModule.ANIMATION_DEFAULT
-
-    private val isTransparent: Boolean
-        get() = intent.getBooleanExtra(EXTRA_TRANSPARENT, false)
 
     private val statusBarStyle: String
         get() = intent.getStringExtra(EXTRA_STATUS_BAR_STYLE)
             ?: DeviceSystemUI.STATUS_BAR_STYLE_DARK_CONTENT
 
+    /** Reveals the content over the backdrop once its first screen is painted. */
+    private val presentScreenClient = object : LynxViewClient() {
+        override fun onFirstScreen() {
+            presentBackdrop?.playPresent(lynxView)
+        }
+    }
+
+    // Present routes replay their open choreography in reverse before really
+    // finishing. Registered after the autolink Back dispatcher's callbacks, so
+    // JS in-page interception still wins over the route dismissal.
+    private val presentBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackStarted(backEvent: BackEventCompat) {
+            if (!androidPredictiveBackDownEnabled) return
+            predictiveBackDismissStarted =
+                presentBackdrop?.beginInteractiveDismiss(lynxView) == true
+        }
+
+        override fun handleOnBackProgressed(backEvent: BackEventCompat) {
+            if (!androidPredictiveBackDownEnabled) return
+            if (!predictiveBackDismissStarted) {
+                predictiveBackDismissStarted =
+                    presentBackdrop?.beginInteractiveDismiss(lynxView) == true
+            }
+            if (predictiveBackDismissStarted) {
+                presentBackdrop?.updateInteractiveDismiss(backEvent.progress, lynxView)
+            }
+        }
+
+        override fun handleOnBackCancelled() {
+            if (!predictiveBackDismissStarted) return
+            predictiveBackDismissStarted = false
+            presentBackdrop?.cancelInteractiveDismiss(lynxView)
+        }
+
+        override fun handleOnBackPressed() {
+            if (androidPredictiveBackDownEnabled && predictiveBackDismissStarted) {
+                predictiveBackDismissStarted = false
+                presentBackdrop?.finishInteractiveDismiss(lynxView, ::finishPresentRoute)
+            } else {
+                finishWithPresentTransition()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (isTransparent) {
-            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            window.decorView.setBackgroundColor(Color.TRANSPARENT)
-        }
         DeviceSystemUI.enableEdgeToEdge(this, statusBarStyle)
         bundleRepository = (application as LynxTemplateApplication).bundleRepository
+        presentBackdrop = if (intent.getBooleanExtra(EXTRA_SNAPSHOT, false)) {
+            RouteSnapshotStore.consume()?.let { bitmap ->
+                PresentBackdrop(
+                    activity = this,
+                    bitmap = bitmap,
+                    scrimColor = intent.getStringExtra(EXTRA_PRESENT_SCRIM_COLOR)
+                        ?.let { runCatching { Color.parseColor(it) }.getOrNull() },
+                    backdropTransition = intent.getBooleanExtra(EXTRA_PRESENT_BACKDROP_TRANSITION, true),
+                    enterAnimation = PresentContentAnimationOptions(
+                        opacity = intent.getBooleanExtra(EXTRA_PRESENT_ENTER_OPACITY, false),
+                        push = intent.getBooleanExtra(EXTRA_PRESENT_ENTER_PUSH, true),
+                    ),
+                    exitAnimation = PresentContentAnimationOptions(
+                        opacity = intent.getBooleanExtra(EXTRA_PRESENT_EXIT_OPACITY, false),
+                        push = intent.getBooleanExtra(EXTRA_PRESENT_EXIT_PUSH, true),
+                    ),
+                    blurred = intent.getBooleanExtra(EXTRA_PRESENT_BACKDROP_BLUR, false),
+                )
+            }
+        } else {
+            null
+        }
         lynxView = createLynxView(
             bundleRepository,
             bundleName,
             onBundleLoadFailure = ::fallBackToEmbeddedBundle,
-        ).apply {
-            setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
-        }
+        ).also(::prepareLynxView)
         root = FrameLayout(this).apply {
+            presentBackdrop?.let { backdrop ->
+                addView(
+                    backdrop.view,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                addView(
+                    backdrop.scrim,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+            }
             addView(
                 lynxView,
                 FrameLayout.LayoutParams(
@@ -78,6 +158,9 @@ open class LynxPageActivity : FragmentActivity() {
             )
         }
         setContentView(root)
+        if (presentBackdrop != null) {
+            onBackPressedDispatcher.addCallback(this, presentBackCallback.apply { isEnabled = true })
+        }
         nativeEnvironmentBridge = NativeEnvironmentBridge(
             lynxView = lynxView,
             additionalData = routeData(),
@@ -88,6 +171,7 @@ open class LynxPageActivity : FragmentActivity() {
     override fun onDestroy() {
         nativeEnvironmentBridge.detach()
         lynxView.destroy()
+        presentBackdrop?.release()
         super.onDestroy()
     }
 
@@ -123,12 +207,10 @@ open class LynxPageActivity : FragmentActivity() {
             bundleRepository,
             bundleName,
             groupUrl = embedded,
-        ).apply {
-            setBackgroundColor(if (isTransparent) Color.TRANSPARENT else PAGE_BACKGROUND)
-        }
+        ).also(::prepareLynxView)
         root.addView(
             lynxView,
-            0,
+            if (presentBackdrop != null) 2 else 0,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -141,6 +223,36 @@ open class LynxPageActivity : FragmentActivity() {
         nativeEnvironmentBridge.attach { renderBundle(embedded) }
     }
 
+    /**
+     * Present routes draw the LynxView with a transparent background over the
+     * snapshot backdrop and keep it hidden until the backdrop's choreography
+     * reveals it from the first screen.
+     */
+    private fun prepareLynxView(view: LynxView) {
+        val backdrop = presentBackdrop
+        view.setBackgroundColor(if (backdrop != null) Color.TRANSPARENT else PAGE_BACKGROUND)
+        if (backdrop != null) {
+            view.addLynxViewClient(presentScreenClient)
+            backdrop.prepareContent(view)
+        }
+    }
+
+    /** Closes a present route through the reverse choreography, with no system transition. */
+    internal fun finishWithPresentTransition() {
+        predictiveBackDismissStarted = false
+        val backdrop = presentBackdrop
+        if (backdrop == null) {
+            finish()
+            return
+        }
+        backdrop.playDismiss(lynxView, ::finishPresentRoute)
+    }
+
+    private fun finishPresentRoute() {
+        finish()
+        overridePendingTransition(0, 0)
+    }
+
     private fun routeData(): Map<String, Any> {
         val paramsJSON = intent.getStringExtra(EXTRA_PARAMS_JSON) ?: "{}"
         val params = runCatching {
@@ -150,9 +262,7 @@ open class LynxPageActivity : FragmentActivity() {
         return mapOf(
             "route" to mapOf(
                 "bundle" to bundleName,
-                "presentation" to routePresentation,
                 "animation" to routeAnimation,
-                "transparent" to isTransparent,
                 "statusBarStyle" to statusBarStyle,
                 "params" to params,
             ),
@@ -161,9 +271,17 @@ open class LynxPageActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_BUNDLE = "lynx.route.bundle"
-        const val EXTRA_PRESENTATION = "lynx.route.presentation"
         const val EXTRA_ANIMATION = "lynx.route.animation"
-        const val EXTRA_TRANSPARENT = "lynx.route.transparent"
+        const val EXTRA_SNAPSHOT = "lynx.route.snapshot"
+        const val EXTRA_PRESENT_SCRIM_COLOR = "lynx.route.presentScrimColor"
+        const val EXTRA_PRESENT_BACKDROP_TRANSITION = "lynx.route.presentBackdropTransition"
+        const val EXTRA_PRESENT_ENTER_OPACITY = "lynx.route.presentEnterOpacity"
+        const val EXTRA_PRESENT_ENTER_PUSH = "lynx.route.presentEnterPush"
+        const val EXTRA_PRESENT_EXIT_OPACITY = "lynx.route.presentExitOpacity"
+        const val EXTRA_PRESENT_EXIT_PUSH = "lynx.route.presentExitPush"
+        const val EXTRA_PRESENT_BACKDROP_BLUR = "lynx.route.presentBackdropBlur"
+        const val EXTRA_PRESENT_ANDROID_PREDICTIVE_BACK_DOWN =
+            "lynx.route.presentAndroidPredictiveBackDown"
         const val EXTRA_STATUS_BAR_STYLE = "lynx.route.statusBarStyle"
         const val EXTRA_PARAMS_JSON = "lynx.route.params"
         private const val TAG = "LynxPageActivity"

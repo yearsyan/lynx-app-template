@@ -214,6 +214,7 @@ export function App() {
   // The same `main` bundle renders both the home showcase (root native page,
   // no route params) and every demo page (pushed native pages opened with
   // `params.page`). System back pops the pushed native page for free.
+  const initData = useInitData();
   const params = useRouteParams<{ page?: string }>();
   const pageKey = params.page;
   const page = pageKey === undefined ? undefined : PAGES[pageKey];
@@ -223,7 +224,12 @@ export function App() {
     console.info(
       `Lynx API Showcase · ${SystemInfo.platform} · engine ${SystemInfo.engineVersion}`,
     );
-    statusBar.setStyle('dark-content').catch(() => {});
+    // Mirror the route's own statusBarStyle (the host applied it before the
+    // first frame); a present route opened over black snapshot margins uses
+    // light-content, so a fixed dark-content here would hide the status bar.
+    statusBar
+      .setStyle(initData?.route?.statusBarStyle ?? 'dark-content')
+      .catch(() => {});
   }, []);
 
   const open = useCallback((pageKey: string) => {
@@ -231,7 +237,6 @@ export function App() {
     router
       .open({
         bundle: 'main',
-        presentation: 'push',
         params: { page: pageKey },
       })
       .catch((error: Error) =>
@@ -245,6 +250,12 @@ export function App() {
   }, []);
 
   if (page !== undefined) {
+    if (initData?.route?.animation === 'present') {
+      // Present routes overlay the previous page's snapshot backdrop: no page
+      // chrome and a transparent root, so the page draws its own modal layout
+      // and lets the backdrop show through where it stays unpainted.
+      return <view className="AppRoot AppRoot--present">{page.render()}</view>;
+    }
     return (
       <view className="AppRoot">
         <PageFrame title={page.title} onBack={close}>

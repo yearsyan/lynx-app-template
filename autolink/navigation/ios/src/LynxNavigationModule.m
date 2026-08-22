@@ -6,6 +6,17 @@
 
 static NSString *const LynxBackEventName = @"back";
 
+/** JSON error envelope carried by openForResult callbacks. */
+static NSString *LynxRouteResultErrorEnvelope(NSString *message) {
+  NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"error" : message}
+                                                  options:0
+                                                    error:nil];
+  if (data == nil) {
+    return @"{}";
+  }
+  return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+}
+
 /** Child controller that mirrors its owning page's appearance lifecycle. */
 @interface LynxBackLifecycleObserver : UIViewController
 
@@ -73,6 +84,8 @@ static id<LynxRouteHandler> _Nullable _routeHandler = nil;
   return @{
     @"open" : NSStringFromSelector(@selector(open:callback:)),
     @"close" : NSStringFromSelector(@selector(close:)),
+    @"openForResult" : NSStringFromSelector(@selector(openForResult:callback:)),
+    @"closeWithResult" : NSStringFromSelector(@selector(closeWithResult:callback:)),
     @"openURL" : NSStringFromSelector(@selector(openURL:callback:)),
     @"setEnabled" : NSStringFromSelector(@selector(setEnabled:callback:)),
     @"configure" : NSStringFromSelector(@selector(
@@ -123,6 +136,36 @@ static id<LynxRouteHandler> _Nullable _routeHandler = nil;
     return;
   }
   [handler closeFromViewController:host success:callback];
+}
+
+- (void)openForResult:(NSDictionary *)options callback:(LynxCallbackBlock)callback {
+  id<LynxRouteHandler> handler = _routeHandler;
+  UIViewController *host = [self presentingViewController];
+  if (handler == nil || host == nil) {
+    callback(LynxRouteResultErrorEnvelope(@"Navigation has no visible UIViewController host"));
+    return;
+  }
+  SEL selector = @selector(openForResultFromViewController:options:onResult:);
+  if (![handler respondsToSelector:selector]) {
+    callback(LynxRouteResultErrorEnvelope(@"openForResult is not supported by this host"));
+    return;
+  }
+  [handler openForResultFromViewController:host options:options onResult:callback];
+}
+
+- (void)closeWithResult:(NSDictionary *)result callback:(LynxCallbackBlock)callback {
+  id<LynxRouteHandler> handler = _routeHandler;
+  UIViewController *host = [self presentingViewController];
+  if (handler == nil || host == nil) {
+    callback(@"Navigation has no visible UIViewController host");
+    return;
+  }
+  SEL selector = @selector(closeWithResultFromViewController:result:success:);
+  if (![handler respondsToSelector:selector]) {
+    callback(@"closeWithResult is not supported by this host");
+    return;
+  }
+  [handler closeWithResultFromViewController:host result:result success:callback];
 }
 
 - (void)openURL:(NSString *)url callback:(LynxCallbackBlock)callback {

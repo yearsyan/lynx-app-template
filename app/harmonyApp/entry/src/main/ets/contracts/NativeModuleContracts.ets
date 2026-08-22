@@ -42,11 +42,15 @@ export function nativeModuleMethodArity(
     case 'Biometric':
       switch (methodName) {
         case 'checkSupport':
-          return 1;
+          return 2;
         case 'authenticate':
           return 2;
         case 'createSigningKey':
-          return 1;
+          return 2;
+        case 'getSigningKey':
+          return 2;
+        case 'deleteSigningKey':
+          return 2;
         case 'signChallenge':
           return 2;
         default:
@@ -89,6 +93,27 @@ export function nativeModuleMethodArity(
           return 2;
         case 'stop':
           return 2;
+        default:
+          return -1;
+      }
+    case 'DownloadManager':
+      switch (methodName) {
+        case 'getCapabilities':
+          return 1;
+        case 'enqueue':
+          return 2;
+        case 'pause':
+          return 2;
+        case 'resume':
+          return 2;
+        case 'cancel':
+          return 2;
+        case 'remove':
+          return 3;
+        case 'getTask':
+          return 2;
+        case 'listTasks':
+          return 1;
         default:
           return -1;
       }
@@ -160,6 +185,10 @@ export function nativeModuleMethodArity(
           return 2;
         case 'close':
           return 1;
+        case 'openForResult':
+          return 2;
+        case 'closeWithResult':
+          return 2;
         case 'openURL':
           return 2;
         case 'setEnabled':

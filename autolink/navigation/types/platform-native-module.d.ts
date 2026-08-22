@@ -11,15 +11,58 @@ export declare class Navigation {
   open(
     options: {
       bundle: string;
-      presentation?: 'push' | 'sheet';
-      transparent?: boolean;
       statusBarStyle?: 'dark-content' | 'light-content';
-      animation?: 'default' | 'fade' | 'none';
+      animation?: 'default' | 'fade' | 'none' | 'present';
+      present?: {
+        scrimColor?: string;
+        backdropTransition?: boolean;
+        enter?: {
+          opacity?: boolean;
+          push?: boolean;
+        };
+        exit?: {
+          opacity?: boolean;
+          push?: boolean;
+        };
+        contentTransition?: boolean;
+        backdropBlur?: boolean;
+        iosSwipeDown?: boolean;
+        androidPredictiveBackDown?: boolean;
+      };
       params?: Record<string, unknown>;
     },
     callback: (error: string) => void,
   ): void;
   close(callback: (error: string) => void): void;
+  openForResult(
+    options: {
+      bundle: string;
+      statusBarStyle?: 'dark-content' | 'light-content';
+      animation?: 'default' | 'fade' | 'none' | 'present';
+      present?: {
+        scrimColor?: string;
+        backdropTransition?: boolean;
+        enter?: {
+          opacity?: boolean;
+          push?: boolean;
+        };
+        exit?: {
+          opacity?: boolean;
+          push?: boolean;
+        };
+        contentTransition?: boolean;
+        backdropBlur?: boolean;
+        iosSwipeDown?: boolean;
+        androidPredictiveBackDown?: boolean;
+      };
+      params?: Record<string, unknown>;
+    },
+    callback: (resultJSON: string) => void,
+  ): void;
+  closeWithResult(
+    result: Record<string, unknown>,
+    callback: (error: string) => void,
+  ): void;
   openURL(url: string, callback: (error: string) => void): void;
   setEnabled(enabled: boolean, callback: (error: string) => void): void;
   configure(

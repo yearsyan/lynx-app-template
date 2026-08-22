@@ -11,10 +11,8 @@ export * from './overlay.js';
 /** Route metadata injected by native hosts for secondary Lynx pages. */
 export interface NativeRouteEnvironment {
   bundle: string;
-  presentation: 'push' | 'sheet';
-  transparent: boolean;
   statusBarStyle: 'dark-content' | 'light-content';
-  animation: 'default' | 'fade' | 'none';
+  animation: 'default' | 'fade' | 'none' | 'present';
   params: Record<string, unknown>;
 }
 
@@ -55,6 +53,32 @@ export function useBackInterceptor(
     const registration = backStack.addInterceptor((event) => {
       'background only';
       handlerRef.current(event);
+    });
+    return registration.remove;
+  }, [enabled]);
+}
+
+/**
+ * Turns one system Back commit into a dismissal while enabled. Intended for
+ * single-dismiss surfaces assembled from JS UI (dialog, drawer, filter
+ * panel): Back closes the surface instead of the route. A cancelled gesture
+ * leaves the surface open, and the registration is removed when the surface
+ * unmounts or closes, so the next Back returns to normal navigation.
+ */
+export function useBackDismissal(onDismiss: () => void, enabled = true): void {
+  const handlerRef = useRef(onDismiss);
+  useEffect(() => {
+    handlerRef.current = onDismiss;
+  });
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const registration = backStack.addInterceptor((event) => {
+      'background only';
+      if (event.phase === 'commit') {
+        handlerRef.current();
+      }
     });
     return registration.remove;
   }, [enabled]);

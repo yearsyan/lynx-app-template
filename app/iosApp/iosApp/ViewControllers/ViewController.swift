@@ -5,7 +5,7 @@ import UIKit
 final class ViewController: LynxPageViewController {
   init() {
     // Same defaults as the former storyboard path: "main" bundle, no route.
-    super.init(bundleName: "main", route: nil, transparent: false, statusBarStyle: .darkContent)
+    super.init(bundleName: "main", route: nil, snapshot: nil, statusBarStyle: .darkContent)
   }
 
   required init?(coder: NSCoder) {

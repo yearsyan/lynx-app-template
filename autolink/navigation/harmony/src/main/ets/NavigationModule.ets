@@ -1,20 +1,58 @@
 import { UIContext } from '@kit.ArkUI';
 import { LynxContext, LynxModule, LynxViewClient } from '@lynx/lynx';
 
+export interface NativeRoutePresentOptions {
+  /** Scrim color over the snapshot backdrop, '#AARRGGBB' (alpha first). */
+  scrimColor?: string;
+  /** Snapshot shrink choreography on open and its reverse on close; default true. */
+  backdropTransition?: boolean;
+  /** Content entering choreography; opacity false and push true by default. */
+  enter?: NativeRoutePresentContentAnimationOptions;
+  /** Content exiting choreography; opacity false and push true by default. */
+  exit?: NativeRoutePresentContentAnimationOptions;
+  /** Legacy push switch for both phases; explicit enter/exit push values win. */
+  contentTransition?: boolean;
+  /** Blur the snapshot and capture it at reduced resolution; default false. */
+  backdropBlur?: boolean;
+  /** iOS-only interactive present dismissal flag; ignored on HarmonyOS. */
+  iosSwipeDown?: boolean;
+  /** Android-only interactive present dismissal flag; ignored on HarmonyOS. */
+  androidPredictiveBackDown?: boolean;
+}
+
+export interface NativeRoutePresentContentAnimationOptions {
+  opacity?: boolean;
+  push?: boolean;
+}
+
 export interface NativeRouteOptions {
   bundle: string;
-  presentation?: string;
-  transparent?: boolean;
   statusBarStyle?: string;
   animation?: string;
+  present?: NativeRoutePresentOptions;
   params?: Record<string, Object>;
 }
 
-/** Host navigation policy installed in LynxContext.contextData by the app. */
+/** Result payload carried by closeWithResult back to the opener. */
+export type NativeRouteResult = Record<string, Object>;
+
+/**
+ * Host navigation policy installed in LynxContext.contextData by the app.
+ * The result-routing methods are optional: the module reports a graceful
+ * error when the host did not implement them.
+ */
 export interface NativeRouterHandler {
   open(options: NativeRouteOptions, callback: (error: string) => void): void;
   close(callback: (error: string) => void): void;
   openURL(url: string, callback: (error: string) => void): void;
+  openForResult?(
+    options: NativeRouteOptions,
+    onResult: (resultJSON: string) => void,
+  ): void;
+  closeWithResult?(
+    result: NativeRouteResult,
+    callback: (error: string) => void,
+  ): void;
 }
 
 /** Stable contextData key shared with HarmonyOS hosts that provide navigation. */
@@ -28,18 +66,26 @@ export const BACK_REGISTRATION_CONTEXT_DATA_KEY: string =
 const ROUTE_ANIMATION_DEFAULT: string = 'default';
 const ROUTE_ANIMATION_FADE: string = 'fade';
 const ROUTE_ANIMATION_NONE: string = 'none';
+const ROUTE_ANIMATION_PRESENT: string = 'present';
 const STATUS_BAR_STYLE_DARK_CONTENT: string = 'dark-content';
 const STATUS_BAR_STYLE_LIGHT_CONTENT: string = 'light-content';
 
 function isRouteAnimation(value: string): boolean {
   return value === ROUTE_ANIMATION_DEFAULT ||
     value === ROUTE_ANIMATION_FADE ||
-    value === ROUTE_ANIMATION_NONE;
+    value === ROUTE_ANIMATION_NONE ||
+    value === ROUTE_ANIMATION_PRESENT;
 }
 
 function isStatusBarStyle(value: string): boolean {
   return value === STATUS_BAR_STYLE_DARK_CONTENT ||
     value === STATUS_BAR_STYLE_LIGHT_CONTENT;
+}
+
+/** JSON error envelope carried by openForResult callbacks. */
+function routeResultErrorEnvelope(message: string): string {
+  const envelope: Record<string, Object> = { 'error': message };
+  return JSON.stringify(envelope);
 }
 
 class NativeBackEventPayload {
@@ -282,8 +328,9 @@ class BackLifecycleClient extends LynxViewClient {
 
 /**
  * Route navigation and Back interception exported to Lynx as Navigation.
- * open/close/openURL follow the host navigation policy; setEnabled/configure
- * drive the host's synchronous Back route session.
+ * open/close/openURL follow the host navigation policy; openForResult and
+ * closeWithResult extend it with result routing between native routes;
+ * setEnabled/configure drive the host's synchronous Back route session.
  */
 export class NavigationModule extends LynxModule {
   static readonly NAME: string = 'Navigation';
@@ -294,35 +341,16 @@ export class NavigationModule extends LynxModule {
   }
 
   open(options: NativeRouteOptions, callback: (error: string) => void): void {
-    if (options === undefined || typeof options.bundle !== 'string' ||
-      !new RegExp('^[a-z0-9][a-z0-9-]*$').test(options.bundle)) {
-      callback(`Invalid Lynx bundle name: ${options?.bundle ?? ''}`);
+    const normalized = this.normalizeRouteOptions(options, callback);
+    if (normalized === undefined) {
       return;
     }
-    const animation = options.animation ?? ROUTE_ANIMATION_DEFAULT;
-    if (!isRouteAnimation(animation)) {
-      callback(`Invalid route animation: ${animation}`);
-      return;
-    }
-    const statusBarStyle = options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT;
-    if (!isStatusBarStyle(statusBarStyle)) {
-      callback(`Invalid status bar style: ${statusBarStyle}`);
-      return;
-    }
-    const presentation = options.presentation ?? 'push';
     const handler = this.routeHandler();
     if (handler === undefined) {
       callback('Native navigation has no route handler host');
       return;
     }
-    handler.open({
-      bundle: options.bundle,
-      presentation,
-      transparent: options.transparent ?? presentation === 'sheet',
-      statusBarStyle,
-      animation,
-      params: options.params ?? {},
-    }, callback);
+    handler.open(normalized, callback);
   }
 
   close(callback: (error: string) => void): void {
@@ -332,6 +360,37 @@ export class NavigationModule extends LynxModule {
       return;
     }
     handler.close(callback);
+  }
+
+  openForResult(options: NativeRouteOptions, callback: (resultJSON: string) => void): void {
+    const normalized = this.normalizeRouteOptions(
+      options,
+      (message: string) => {
+        callback(routeResultErrorEnvelope(message));
+      },
+    );
+    if (normalized === undefined) {
+      return;
+    }
+    const handler = this.routeHandler();
+    if (handler?.openForResult === undefined) {
+      callback(routeResultErrorEnvelope(handler === undefined
+        ? 'Native navigation has no route handler host'
+        : 'openForResult is not supported by this host'));
+      return;
+    }
+    handler.openForResult(normalized, callback);
+  }
+
+  closeWithResult(result: NativeRouteResult, callback: (error: string) => void): void {
+    const handler = this.routeHandler();
+    if (handler?.closeWithResult === undefined) {
+      callback(handler === undefined
+        ? 'Native navigation has no route handler host'
+        : 'closeWithResult is not supported by this host');
+      return;
+    }
+    handler.closeWithResult(result, callback);
   }
 
   openURL(url: string, callback: (error: string) => void): void {
@@ -384,5 +443,38 @@ export class NavigationModule extends LynxModule {
   private routeHandler(): NativeRouterHandler | undefined {
     const contextData = this.context.getContextData();
     return contextData?.[ROUTE_HANDLER_CONTEXT_DATA_KEY] as NativeRouterHandler | undefined;
+  }
+
+  private normalizeRouteOptions(
+    options: NativeRouteOptions,
+    onError: (message: string) => void,
+  ): NativeRouteOptions | undefined {
+    if (options === undefined || typeof options.bundle !== 'string' ||
+      !new RegExp('^[a-z0-9][a-z0-9-]*$').test(options.bundle)) {
+      onError(`Invalid Lynx bundle name: ${options?.bundle ?? ''}`);
+      return undefined;
+    }
+    const animation = options.animation ?? ROUTE_ANIMATION_DEFAULT;
+    if (!isRouteAnimation(animation)) {
+      onError(`Invalid route animation: ${animation}`);
+      return undefined;
+    }
+    const statusBarStyle = options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT;
+    if (!isStatusBarStyle(statusBarStyle)) {
+      onError(`Invalid status bar style: ${statusBarStyle}`);
+      return undefined;
+    }
+    const scrimColor = options.present?.scrimColor;
+    if (scrimColor !== undefined && !new RegExp('^#[0-9a-fA-F]{8}$').test(scrimColor)) {
+      onError(`Invalid present scrim color: ${scrimColor}`);
+      return undefined;
+    }
+    return {
+      bundle: options.bundle,
+      statusBarStyle,
+      animation,
+      present: options.present,
+      params: options.params ?? {},
+    };
   }
 }

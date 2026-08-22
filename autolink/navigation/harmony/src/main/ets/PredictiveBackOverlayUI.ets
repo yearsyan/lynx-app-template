@@ -313,13 +313,14 @@ struct PredictiveBackOverlayComponent {
           duration: this.state.animationDuration,
           curve: Curve.Friction,
         });
-      Stack() {
+      Stack({ alignContent: Alignment.Bottom }) {
         ForEach(this.state.children, (child: NativeContent) => {
           ContentSlot(child.content);
         });
       }
       .width('100%')
       .height('100%')
+      .hitTestBehavior(HitTestMode.Transparent)
       .translate({
         x: this.state.contentTranslationX(),
         y: this.state.contentTranslationY(),
@@ -331,6 +332,12 @@ struct PredictiveBackOverlayComponent {
     }
     .width('100%')
     .height('100%')
+    // This is a modal root. Let its ContentSlot and the native drag handler
+    // both participate in hit testing, but stop the same pointer sequence from
+    // falling through to the Lynx page root (or a lower overlay). Transparent
+    // here makes Lynx's shared tap recognizer receive one Down per root and the
+    // second Down invalidates the first click target.
+    .hitTestBehavior(HitTestMode.Default)
     .onAreaChange((oldValue: Area, newValue: Area) => {
       this.state.handleAreaChange(newValue);
     })
@@ -392,11 +399,18 @@ export class PredictiveBackOverlayUI extends UIGroup {
   insertChild(nativeContent: NativeContent, index: number): void {
     this.children.splice(index, 0, nativeContent);
     this.state.children = this.children.slice();
+    // ContentSlot reparents the Lynx subtree under this ArkUI builder. Attach
+    // Lynx's gesture dispatcher to that new root so taps inside the sheet keep
+    // reaching their original Lynx targets. Supplying a level also registers
+    // this content in Lynx's overlay hit-test stack; renderer signs preserve
+    // sibling creation order, so the newest stacked sheet is the active root.
+    this.nativeUI?.attachGestureToNode(nativeContent, this.sign);
   }
 
   removeChild(nativeContent: NativeContent): void {
     const index = this.children.indexOf(nativeContent);
     if (index >= 0) {
+      this.nativeUI?.detachGestureFromNode(nativeContent);
       this.children.splice(index, 1);
       this.state.children = this.children.slice();
     }
@@ -424,6 +438,9 @@ export class PredictiveBackOverlayUI extends UIGroup {
   }
 
   dispose(): void {
+    for (const child of this.children) {
+      this.nativeUI?.detachGestureFromNode(child);
+    }
     this.state.reset();
     super.dispose();
   }
