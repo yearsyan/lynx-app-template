@@ -152,3 +152,22 @@ dependencies {
     implementation("org.lynxsdk.lynx:servalsvg:0.0.2")
     implementation("org.lynxsdk.lynx:xelement-refresh:4.0.0")
 }
+
+// The library-build plugin's generate* LynxLibraryRegistry task declares only
+// its output directory, so a newly autolinked library keeps the generated
+// provider list stale (the task stays UP-TO-DATE) and the JS side reports the
+// module as "not registered by this host" until a forced rerun. Key the task
+// on the same lynx.lib.json manifests the settings plugin scans so adding or
+// removing an autolink package regenerates the registry.
+val autolinkLibraryManifests = fileTree(
+    rootProject.file("../../node_modules/@lynx-template")
+) {
+    include("*/lynx.lib.json")
+}
+tasks
+    .matching { it.name.startsWith("generate") && it.name.endsWith("LynxLibraryRegistry") }
+    .configureEach {
+        inputs.files(autolinkLibraryManifests)
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+            .withPropertyName("autolinkLibraryManifests")
+    }

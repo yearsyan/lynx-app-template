@@ -22,6 +22,9 @@
       ]
     },
     {
+      "name": "download-manager"
+    },
+    {
       "name": "file-system"
     },
     {

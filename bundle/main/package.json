@@ -20,6 +20,7 @@
     "@lynx-template/autolink-biometric": "workspace:*",
     "@lynx-template/autolink-clipboard": "workspace:*",
     "@lynx-template/autolink-device": "workspace:*",
+    "@lynx-template/autolink-download-manager": "workspace:*",
     "@lynx-template/autolink-file-system": "workspace:*",
     "@lynx-template/autolink-haptics": "workspace:*",
     "@lynx-template/autolink-image-tooling": "workspace:*",

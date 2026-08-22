@@ -97,7 +97,6 @@ async function openProfile() {
   'background only';
   await router.open({
     bundle: 'profile',
-    presentation: 'push',
     statusBarStyle: 'dark-content',
     params: { userID: '42' },
   });
@@ -108,13 +107,17 @@ async function useDarkPageChrome() {
   await statusBar.setStyle('light-content');
 }
 
-async function openSheet() {
+async function openPresentPage() {
   'background only';
   await router.open({
     bundle: 'native-capabilities',
-    presentation: 'sheet',
-    transparent: true,
-    params: { mode: 'sheet', source: 'main' },
+    animation: 'present',
+    // 默认即为无透明度动画 + 从/向屏幕下方完整推入推出；两个阶段可单独覆盖。
+    present: {
+      enter: { opacity: false, push: true },
+      exit: { opacity: false, push: true },
+    },
+    params: { mode: 'present', source: 'main' },
   });
 }
 
@@ -174,18 +177,32 @@ GCM 校验失败，`getString` 按缺失处理并返回默认值；`remove` 与 
 ```ts
 interface RouteOptions {
   bundle: string;
-  presentation?: 'push' | 'sheet';
-  transparent?: boolean;
   statusBarStyle?: 'dark-content' | 'light-content';
-  animation?: 'default' | 'fade' | 'none';
+  animation?: 'default' | 'fade' | 'none' | 'present';
+  // 仅 animation 为 'present' 时生效
+  present?: {
+    scrimColor?: string; // '#AARRGGBB'，默认 '#59000000'
+    backdropTransition?: boolean; // 背景（上一页截图）的缩小/复原编舞，默认 true
+    enter?: {
+      opacity?: boolean; // 入场透明度动画，默认 false
+      push?: boolean; // 从屏幕下方完整推入，默认 true
+    };
+    exit?: {
+      opacity?: boolean; // 出场透明度动画，默认 false
+      push?: boolean; // 向屏幕下方完整推出，默认 true
+    };
+    /** @deprecated 仅作为 enter.push / exit.push 的兼容默认值 */
+    contentTransition?: boolean;
+    backdropBlur?: boolean; // 背景改用降采样模糊截图，默认 false
+  };
   params?: Record<string, unknown>;
 }
 ```
 
-`presentation` 只区分普通页面（`push`）和透明弹层（`sheet`，自动带上
-`transparent: true`）。打开与关闭的原生过渡动画由 `animation` 控制：
-`default` 保持各平台标准推入过渡，`fade` 双向淡入淡出，`none`
-打开与关闭都瞬时完成。非法取值会被共享 TypeScript 层和三端原生模块分别拒绝。
+打开与关闭的原生过渡动画由 `animation` 控制：`default` 保持各平台标准
+推入过渡，`fade` 双向淡入淡出，`none` 打开与关闭都瞬时完成，
+`present` 播放类 iOS present 转场（见下节）。非法取值会被共享
+TypeScript 层和三端原生模块分别拒绝。
 
 `bundle` 必须匹配 `^[a-z0-9][a-z0-9-]*$`，并与 workspace `package.json` 的 `lynxBundle.name` 一致。路由页通过 init data 收到统一结构：
 
@@ -193,10 +210,8 @@ interface RouteOptions {
 {
   "route": {
     "bundle": "native-capabilities",
-    "presentation": "sheet",
-    "transparent": true,
     "statusBarStyle": "dark-content",
-    "animation": "default",
+    "animation": "present",
     "params": {
       "source": "main"
     }
@@ -207,6 +222,49 @@ interface RouteOptions {
 页面调用 `router.close()` 返回上一层。根路由上 Android/Harmony 宿主会把应用
 退到后台（Android `moveTaskToBack`、Harmony `moveAbilityToBackground`，保留
 任务栈，再次进入即时恢复）；iOS 宿主则返回「根路由不可关闭」错误。
+
+### present 转场（截图背景）
+
+`animation: 'present'` 不依赖任何透明原生页面，而是由宿主在打开前对当前
+页面截图，新页面以不透明方式打开：
+
+1. 宿主截取当前页面像素（Android `PixelCopy`、iOS `drawViewHierarchyInRect`、
+   HarmonyOS `window.snapshot()`）；
+2. 以无系统动画方式打开新的不透明页面，并在其首帧渲染前把截图铺为背景层，
+   LynxView 背景透明——首屏内容就绪前用户看到的是与上一页像素一致的截图，
+   切页零感知；
+3. Lynx 首屏回调（`onFirstScreen`）触发后播放编舞：截图背景缩小、下移并
+   加圆角（底边对齐屏幕底部，顶边让出状态栏，模拟“前一页后退”）；内容默认
+   不改变透明度，从屏幕下方一个完整视口外推入，因此第一帧可见面积严格为 0；
+   截图与内容之间还有一层 35% 黑色遮罩原地淡入（静止、不随内容滑动）；
+4. 关闭时按独立的 `exit` 配置退出并复原截图，动画结束后才真正关页（无系统
+   转场）。露出的真实上一页与复原后的截图像素对齐，`router.close()` 与系统
+   返回键都走这条路径。
+
+终态下截图背景保持缩小停留在页面底层，页面内容自行决定露出多少：弹层式
+页面顶部留透明即可看到“缩小的上一页”（由原生遮罩统一压暗，页面无需自绘
+遮罩），全屏不透明内容则完全覆盖它。
+`bundle/main` 的「present 转场」演示页展示了这种弹层式布局。
+
+present 的原生 chrome 都可配置（`present` 选项，三端行为一致）：
+
+- `scrimColor`：截图与内容之间那层遮罩的颜色，`'#AARRGGBB'` 格式（alpha
+  在前，即浓度），默认 `'#59000000'`（35% 黑）；传 `'#00000000'` 等于不压暗；
+- `backdropTransition: false`：清除上一页截图的缩小/复原编舞——截图保持
+  全屏静止作为背景（等同旧透明页面的观感）；
+- `enter` / `exit`：分别配置新页面入场与出场，两个阶段互不影响。每个阶段的
+  `opacity` 默认 `false`（无透明度动画），`push` 默认 `true`（从/向屏幕下方
+  一个完整视口推入推出）；`push: true` 的入场首帧可见面积为 0。两项都为
+  `false` 时该阶段内容瞬时出现/消失；
+- `contentTransition`：旧调用兼容项，仅在对应阶段未显式设置 `push` 时作为
+  `enter.push` 和 `exit.push` 的默认值；新代码应使用 `enter` / `exit`；
+- 背景或当前阶段的内容只要有动画，遮罩就随该阶段原地淡入/淡出；都关闭时
+  遮罩从第一帧起静止显示；
+- `backdropBlur: true`：截图改以 1/3 分辨率捕获并做高斯模糊（Android 12+
+  用 `RenderEffect`，更低版本为 CPU 盒式模糊；iOS 为 `CIGaussianBlur`；
+  HarmonyOS 为 `Image.blur`），省去全分辨率截图开销，代价是关闭切回真实
+  上一页时有一个从模糊到清晰的细微跳变。模糊截图无需与上一页像素对齐，
+  通常与 `backdropTransition: false` 搭配作为静态氛围背景。
 
 ### 系统路由
 
@@ -296,141 +354,159 @@ HarmonyOS 触感反馈基于 Sensor Service Kit 的 Vibrator：light / medium / 
 soft / sharp / hard 预置效果；设备不支持对应预置效果时降级为 15 / 30 / 60ms 单次振动。
 `ohos.permission.VIBRATE` 是普通的系统授权权限，无需运行时弹窗。
 
-### 生物识别
+### 生物认证 v2
 
-`Biometric` 分为静默查询和交互认证两级 API：
+v2 把“认证策略”和“传感器类型”分开：业务选择需要的保证等级，系统在同一次弹窗中使用
+设备已配置且满足策略的人脸或指纹。绝大多数设备只有其中一种，业务不应提供“选人脸 / 选指纹”
+按钮。`biometryType` 只用于辅助文案，不是传给 `authenticate` 的选择器；Android 无法可靠获知
+具体类型，因此可能返回 `unknown`。
+
+| `policy` | 语义 | Android | iOS | HarmonyOS |
+| --- | --- | --- | --- | --- |
+| `biometricWeak`（默认） | 任一系统认可的生物认证 | `BIOMETRIC_WEAK` | `deviceOwnerAuthenticationWithBiometrics` | ATL2 指纹 / 面容 |
+| `biometricStrong` | 强生物认证，不允许锁屏凭据替代 | `BIOMETRIC_STRONG` | 同上（iOS 不暴露强弱等级） | ATL3 指纹 / 面容 |
+| `deviceOwnerAuthentication` | 生物认证或系统锁屏凭据 | `BIOMETRIC_WEAK \| DEVICE_CREDENTIAL` | `deviceOwnerAuthentication` | ATL2 指纹 / 面容 / PIN |
 
 ```ts
 import { biometric } from '@lynx-template/autolink-biometric';
 
-// 静默查询：不弹任何 UI，用于决定是否展示"开启生物识别"入口。
-const support = await biometric.checkSupport();
-// { canAuthenticate, reason, biometryType, deviceCredentialSetup }
+// 静默查询，不显示 UI；应使用与随后认证相同的 policy。
+const support = await biometric.checkSupport({ policy: 'biometricWeak' });
+// { policy, canAuthenticate, reason, biometryType, deviceCredentialSetup }
 
-// 拉起系统认证弹窗，resolve 出结构化结果。
 const outcome = await biometric.authenticate({
-  title: 'Lynx Template',            // Android / HarmonyOS 弹窗标题；iOS 无标题
-  reason: 'Confirm your identity.',  // iOS localizedReason / Android 描述
-  cancelButtonTitle: 'Use password',  // Android 负按钮 / iOS 降级按钮文案
-  allowDeviceCredential: false,      // 是否允许锁屏凭证兜底，默认 false
+  policy: 'biometricWeak',
+  title: '确认身份',       // Android / HarmonyOS 显示；iOS 不显示标题
+  reason: '继续本次操作', // iOS localizedReason / Android 描述
+  cancelButtonText: '取消',
 });
+
 if (outcome.success) {
-  // 通过
-} else if (outcome.code === 'userFallback') {
-  // 用户点了降级按钮，跳转业务自己的密码界面
+  // 仅表示本机认证成功。
 }
 ```
 
-`authenticate` 永远 resolve 一个结构化 outcome，不因取消而 reject：用户取消
-（`userCancel`）、点击降级按钮（`userFallback`）、系统打断（`systemCancel`）都是正常
-业务分支，只有参数非法或宿主未注册模块才 reject / throw。`success` 恒等于
-`code === 'success'`。同一页面同时只允许一个活动请求，第二个请求 resolve 为
-`busy`。`reason` / `title` 为空会被共享层与三端原生分别拒绝。
+取消、失败与系统打断均 resolve 结构化 outcome；参数非法可能同步抛错，传输损坏或宿主未注册
+模块会 reject。`success` 恒等于 `code === 'success'`，outcome 会回显实际 `policy`。同一 Lynx 页面
+同一时刻只允许一个系统认证 UI，重入返回 `busy`。常见 code 包括 `userCancel`、`systemCancel`、`failed`、
+`notEnrolled`、`locked`、`noDeviceCredential` 与 `unavailable`。
 
-`checkSupport` 返回的 `reason` 说明当前为什么不能认证：`ok`、`noHardware`（无传感器
-或不可用）、`notEnrolled`（未录入）、`locked`（多次失败被锁定）、`noDeviceCredential`
-（未设置锁屏凭证）等。`biometryType` 在 iOS 和 HarmonyOS 上报告 `face` /
-`fingerprint`，Android 的 androidx.biometric 不暴露传感器类型，报告 `unknown`，
-业务文案应准备兜底说法。
+`cancelButtonText` 只表示取消 / 导航，不再承担“使用密码”的业务降级含义。需要系统锁屏凭据
+时显式选择 `deviceOwnerAuthentication`；需要应用自己的密码流程时，在认证失败或取消后由业务
+自行导航。
 
-`allowDeviceCredential: false`（默认）是纯生物识别模式，用户点降级按钮会得到显式的
-`userFallback`，由业务决定跳转自己的密码界面；`true` 则交给系统凭证 UI 自动兜底
-（iOS `.deviceOwnerAuthentication`、Android `DEVICE_CREDENTIAL | BIOMETRIC_WEAK`、
-HarmonyOS authType 追加 `PIN`），此时不会再出现 `userFallback`。
+三端仍保留原有宿主前置条件：Android Activity 必须是 `FragmentActivity` 且库声明
+`USE_BIOMETRIC`；iOS 使用 Face ID 时宿主必须声明 `NSFaceIDUsageDescription`；HarmonyOS
+模块声明 `ohos.permission.ACCESS_BIOMETRIC`。
 
-三端实现与权限边界：
+**安全边界**：`authenticate` 只做本机在场验证，客户端布尔结果可以被 hook，不能作为服务端
+敏感操作凭据。需要服务端校验时使用下面的 v2 挑战签名协议。
 
-| 平台 | 能力查询 | 认证 | 权限 / 前置条件 |
-| --- | --- | --- | --- |
-| Android | `BiometricManager.canAuthenticate(BIOMETRIC_WEAK)` | `androidx.biometric.BiometricPrompt` | `USE_BIOMETRIC`（normal，库 manifest 声明并合并）；宿主 Activity 须为 `FragmentActivity` |
-| iOS | `LAContext.canEvaluatePolicy` + `biometryType` | `evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics / .deviceOwnerAuthentication)` | Touch ID 无需声明；Face ID 需宿主 `NSFaceIDUsageDescription`（已在宿主声明） |
-| HarmonyOS | `userAuth.getAvailableStatus`（按指纹 / 面容 / PIN 分别探测） | `userAuth.getUserAuthInstance(...).start()`，ATL2 | `ohos.permission.ACCESS_BIOMETRIC`（normal 级 system_grant，已在 module.json5 声明） |
+### v2 挑战签名（服务端可校验）
 
-Android 宿主的 `MainActivity` 与 `LynxPageActivity` 因此继承
-`FragmentActivity`（app 依赖 `androidx.fragment`），模块从 `LynxContext` 解包出
-当前 Activity 后托管系统弹窗。HarmonyOS 的错误码（`UserAuthResultCode`）映射进统一
-outcome：`FAIL` → `failed`（指纹 / 面容识别未通过，Android / iOS 的单次不匹配由系统
-弹窗内部重试，不会产生该码）、`CANCELED` → `userCancel`、`LOCKED` → `locked`、
-`NOT_ENROLLED` → `notEnrolled` 等。
-
-**安全边界**：`authenticate` 只做"本机在场验证"（presence），`success` 表示用户当次
-通过了系统生物识别，但客户端布尔值总可以被 hook，**不能单独作为服务端敏感操作的凭据**。
-需要服务端可信时使用下面两个签名 API。
-
-### 生物识别挑战签名（服务端可校验）
-
-`Biometric` 维护一把硬件绑定的 EC P-256 签名密钥，私钥永不出安全硬件，且只能在一次
-成功的生物识别弹窗内使用。协议分两步：
+v2 不再维护一把隐式固定密钥。每次 `createSigningKey({ scope })` 都创建新的 P-256 密钥并返回
+唯一 `keyId`，旧密钥继续可用，业务可安全轮换。`scope` 只能包含 ASCII 字母、数字、点、下划线
+和连字符（1..64 字符），应使用不含账号、手机号等个人信息的稳定代号。
 
 ```ts
 import { biometric } from '@lynx-template/autolink-biometric';
 
-// 1) 每设备一次：生成密钥，把公钥交给服务端绑定到账号。
-const created = await biometric.createSigningKey();
+// 注册：服务端挑战可用于尽力而为的密钥证明。
+const created = await biometric.createSigningKey({
+  scope: 'payments',
+  attestationChallenge, // 可选，标准 Base64，解码后 16..128 字节
+});
 if (created.success) {
-  await api.post('/account/biometric-key', { publicKey: created.publicKey });
+  await api.post('/biometric/keys', {
+    keyId: created.keyId,
+    publicKey: created.publicKey,
+    algorithm: created.algorithm,                 // ES256
+    signatureEncoding: created.signatureEncoding, // ieee-p1363
+    securityLevel: created.securityLevel,
+    attestation: created.attestation,
+  });
 }
 
-// 2) 每次敏感操作：服务端下发一次性 nonce，客户端弹生物识别并对 nonce 签名。
-const { challenge } = await api.post('/auth/challenge');
+// 使用：challenge 由服务端一次性下发；contextHash 是规范业务内容的 SHA-256。
 const signed = await biometric.signChallenge({
-  challenge,                       // 服务端 nonce 的 Base64
+  keyId: created.keyId!,
+  challenge,  // 标准 Base64，解码后 16..64 字节
+  contextHash,
   title: '确认支付',
-  reason: '使用生物识别签名确认本次支付。',
+  reason: '确认向商户支付 ¥128.00',
 });
 if (signed.success) {
-  await api.post('/auth/verify', { challenge, signature: signed.signature });
+  await api.post('/payments/confirm', {
+    keyId: signed.keyId,
+    challenge,
+    contextHash,
+    signature: signed.signature,
+  });
 }
 ```
 
-密钥与签名格式三端统一：
+另外提供 `getSigningKey({ keyId })` 恢复公钥元数据，以及 `deleteSigningKey({ keyId })` 删除
+指定密钥。推荐轮换顺序是“创建新密钥 → 服务端登记并验证 → 服务端切换为 active → 删除旧密钥”；
+不要先删旧密钥。`keyNotFound` 表示密钥不存在，或因生物信息重新录入而被平台安全策略作废。
 
-- **公钥**：65 字节非压缩 EC 点（`0x04 || X || Y`）的 Base64；
-- **签名**：对 challenge 原始字节的 SHA256 ECDSA 签名，统一为 64 字节 `r || s`
-  （IEEE P1363）的 Base64（Android / HarmonyOS 原生输出为 ASN.1 DER，模块内已转换）。
+三端协议字节完全一致。共享层在调用原生模块前构造：
 
-| 平台 | 私钥存放 | 生物绑定 |
-| --- | --- | --- |
-| Android | AndroidKeyStore（`setUserAuthenticationRequired(true)`，重录生物识别即失效） | `BiometricPrompt.CryptoObject`，要求 `BIOMETRIC_STRONG`（Class 3） |
-| iOS | 优先 Secure Enclave；模拟器等无 SE 场景回退为 keychain 软件密钥 | `kSecAttrAccessControl` = `biometryCurrentSet | privateKeyUsage`，`evaluatePolicy` 后用同一 `LAContext` 取 key 签名 |
-| HarmonyOS | HUKS（`HUKS_TAG_USER_AUTH_TYPE` = 指纹 \| 面容） | `initSession` 产生 challenge → `getUserAuthInstance` 用同一 challenge 认证拿 authToken → `finishSession` 携带 `HUKS_TAG_AUTH_TOKEN` 完成 |
+```text
+ASCII("LYNX_BIOMETRIC_V2\0") || ASCII(keyId) || 0x00 ||
+contextHash[32] || challenge[16..64]
+```
 
-签名 API 复用 `authenticate` 的 outcome 语义（取消 / 降级 / 锁定等 resolve 结构化
-code），并新增两个 code：`notSupported`（硬件不支持，如 Android 无 Class 3 传感器）与
-`keyNotFound`（本设备没有密钥，或用户重录生物识别导致密钥失效——后者是刻意的安全
-行为，处理方式是重新 `createSigningKey` 并让服务端重新绑定公钥）。签名 API 不支持
-`allowDeviceCredential`，始终要求生物识别。
-
-服务端验证示例（Node.js，验签 P1363 签名 + 重建 SPKI）：
+原生端再次校验域分隔符、`keyId` 和长度后，以 SHA-256 ECDSA 签名。公钥是 Base64 编码的
+65 字节非压缩 P-256 点（`0x04 || X || Y`），签名统一为 Base64 编码的 64 字节 IEEE P1363
+`r || s`。服务端验签示例：
 
 ```ts
 import { createPublicKey, verify } from 'node:crypto';
 
 const SPKI_PREFIX = Buffer.from(
-  '3059301306072a8648ce3d020106082a8648ce3d030107034200', 'hex',
+  '3059301306072a8648ce3d020106082a8648ce3d030107034200',
+  'hex',
 );
 
-function verifyBiometricSignature(
-  publicKeyBase64: string,   // createSigningKey 返回的 65 字节点
-  challengeBase64: string,  // 下发给客户端的同一 nonce
-  signatureBase64: string,  // signChallenge 返回的 64 字节 r||s
-): boolean {
-  const spki = Buffer.concat([SPKI_PREFIX, Buffer.from(publicKeyBase64, 'base64')]);
-  const key = createPublicKey({ key: spki, format: 'der', type: 'spki' });
+function verifyBiometricSignature(input: {
+  keyId: string;
+  publicKey: string;
+  contextHash: string;
+  challenge: string;
+  signature: string;
+}): boolean {
+  const point = Buffer.from(input.publicKey, 'base64');
+  const key = createPublicKey({
+    key: Buffer.concat([SPKI_PREFIX, point]),
+    format: 'der',
+    type: 'spki',
+  });
+  const payload = Buffer.concat([
+    Buffer.from('LYNX_BIOMETRIC_V2\0', 'ascii'),
+    Buffer.from(input.keyId, 'ascii'),
+    Buffer.from([0]),
+    Buffer.from(input.contextHash, 'base64'),
+    Buffer.from(input.challenge, 'base64'),
+  ]);
   return verify(
     'sha256',
-    Buffer.from(challengeBase64, 'base64'),
+    payload,
     { key, dsaEncoding: 'ieee-p1363' },
-    Buffer.from(signatureBase64, 'base64'),
+    Buffer.from(input.signature, 'base64'),
   );
 }
 ```
 
-nonce 必须一次性且短时效（如 60 秒），否则签名可被重放。这套机制防的是"客户端结果被
-hook / 伪造"：攻击者可以随意触发签名调用，但无法导出私钥，签名在安全硬件内要求一次
-真实的生物识别事件；它不防"用户被诱导对可疑操作刷脸"，操作内容应写进 `title` /
-`reason` 并由服务端在签名 payload 中绑定业务参数。`bundle/main` 的 "Make key" /
-"Sign" 按钮用本地随机 nonce 演示完整流程（实际业务中 nonce 应来自服务端）。
+| 平台 | 私钥与认证约束 | 元数据 |
+| --- | --- | --- |
+| Android | AndroidKeyStore，每次签名用 `BiometricPrompt.CryptoObject` 且要求 `BIOMETRIC_STRONG`；重录生物即失效 | 报告 `secureHardware` / `software`；传入证明挑战时返回 Android X.509 证明链 |
+| iOS | 真机只接受 Secure Enclave，`biometryCurrentSet \| privateKeyUsage`；仅模拟器允许软件 keychain 密钥 | 报告安全级别；当前不提供证明 |
+| HarmonyOS | HUKS 会话 challenge 与 ATL3 生物认证 token 绑定后才可 `finishSession` | 当前安全级别为 `unknown`，不提供证明 |
+
+签名始终要求强生物认证，不接受锁屏密码替代。`attestation` 是尽力而为的注册证据，服务端必须
+按平台验证证书链、挑战和应用身份，不能只检查字段存在。服务端还必须确保 nonce 随机、一次性、
+短时效，并在验签前确认 `keyId` 属于当前账号且仍为 active；`contextHash` 必须由规范化的完整业务
+操作计算，不能只绑定按钮名称或展示文案。
 
 
 ### 相册与文件选择
@@ -1102,6 +1178,7 @@ React 相关入口按需拆分，避免普通 Promise API 强制依赖 React：
 - `@lynx-template/autolink-navigation/react#usePredictiveBackOverlay(initiallyOpen?)`：管理弹层的 `open`、`setOpen`、`present()`、`dismiss()` 与 `toggle()`；
 - `@lynx-template/autolink-navigation/react#PredictiveBackOverlay`：包装 `position: fixed` 弹层，并把 Android/iOS 预测返回直接绑定到原生动画目标；
 - `@lynx-template/autolink-navigation/react#useBackInterceptor(onEvent, enabled?)`：无 UI 的高级入口，适用于关闭路由或自定义生命周期；`enabled` 变化时自动注册/移除，仍遵循后进先出栈语义。
+- `@lynx-template/autolink-navigation/react#useBackDismissal(onDismiss, enabled?)`：面向对话框、抽屉等「返回即关闭」的 JS 浮层——`enabled` 期间一次返回 commit 只调用 `onDismiss` 关闭浮层而不退出路由；手势取消则浮层保持打开，浮层卸载/关闭时自动归还返回权。
 
 ### 返回拦截与进度
 
@@ -1187,20 +1264,24 @@ React；只有 headless 拦截器为了自定义预览才继续收到 `progress`
 
 ## 三端映射
 
-| 平台 | 普通页面 | 透明页面 / `sheet` |
+| 平台 | 普通页面（`default` / `fade` / `none`） | `present` 转场 |
 | --- | --- | --- |
-| Android | 新建 `LynxPageActivity` | 新建 Manifest 中预先声明透明主题的 `TransparentLynxPageActivity` |
-| iOS | 有 `UINavigationController` 时 push，否则 full-screen present | `.overFullScreen` present，LynxView 和宿主 view 均透明 |
-| HarmonyOS | `Navigation` + 标准 `NavDestination` | `NavDestinationMode.DIALOG` + 透明背景 |
+| Android | 新建 `LynxPageActivity` | 打开前 `PixelCopy` 截当前窗口，经 `RouteSnapshotStore` 交给新 Activity；窗口背景与根布局首帧即显示截图，`onFirstScreen` 后由 `PresentBackdrop` 播放编舞 |
+| iOS | `UINavigationController` push（`fade` 用 `CATransition` 包裹无动画 push） | `drawViewHierarchyInRect` 截当前页后无动画 push；`viewDidLoad` 插入截图 `UIImageView`，`lynxViewDidFirstScreen:` 后由 `PresentBackdrop` 播放编舞 |
+| HarmonyOS | `Navigation` + 标准 `NavDestination`（`systemTransition`） | `window.snapshot()` 截当前窗后以 `NONE` 转场 push；`NavDestination` 首帧即渲染截图 `Image`，`LynxViewClient.onFirstScreen` 后 `animateTo` 播放编舞 |
 
-Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest 主题确定，不能只在 `onCreate()` 中调用 `setTheme()`；否则透明 LynxView 后面会显示黑色窗口背景。
+截图必须在目标页首帧渲染前就位（Android 还需先设为窗口背景，避免主题底色闪灰），
+这样无系统动画的打开对用户零感知；编舞只作用于已可见的图层。关闭路径
+（`router.close()` 与系统返回键）先反向复原截图背景，再以无系统动画方式真正关页，
+露出的真实上一页与截图像素对齐。Android 侧的 `enableOnBackInvokedCallback`
+预测返回与该编舞不融合，present 路由通过 `OnBackPressedCallback` 走统一的反向路径。
 
-同一 LynxView 内的菜单、Dialog 和 Sheet 不需要额外创建透明原生页面。Lynx 支持
+同一 LynxView 内的菜单、Dialog 和 Sheet 不需要额外创建原生页面。Lynx 支持
 `position: fixed`，`PredictiveBackOverlay` 在这个层级绘制全屏背景和面板，同时由
 `autolink/navigation` 内的原生 Element 完成系统返回预览。业务只管理是否展示，不需要处理
 逐帧 transform，也不会另建一套原生返回栈。
 只有确实需要独立原生页面、跨 bundle 生命周期或原生窗口层级时，才使用 Navigation 的
-`presentation: 'sheet'`。
+`animation: 'present'` 打开弹层式原生页面。
 
 NativeModules 由应用级 Autolink Registry 自动提供；Android/iOS 新路由页无需补充 Back
 注册。HarmonyOS 页面只把 route registration 放入 `LynxContext.contextData`，并转发 ArkUI

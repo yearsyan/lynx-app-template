@@ -92,6 +92,24 @@
       }
     },
     {
+      "name": "DownloadManager",
+      "interfaceName": "DownloadManagerModule",
+      "declaration": "autolink/download-manager/types/platform-native-module.d.ts",
+      "declarationName": "DownloadManager",
+      "autolink": {
+        "directory": "download-manager",
+        "exportName": "DOWNLOAD_MANAGER_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/download-manager/android/src/main/java",
+          "fileName": "DownloadManagerModule.java"
+        },
+        "ios": "autolink/download-manager/ios/src/DownloadManagerModule.m",
+        "harmony": "autolink/download-manager/harmony/src/main/ets/DownloadManagerModule.ets"
+      }
+    },
+    {
       "name": "FileSystem",
       "interfaceName": "FileSystemModule",
       "declaration": "autolink/file-system/types/platform-native-module.d.ts",

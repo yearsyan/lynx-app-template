@@ -26,9 +26,11 @@ export const NATIVE_MODULE_CONTRACT = {
   Biometric: {
     name: 'Biometric',
     methods: {
-      checkSupport: { name: 'checkSupport', arity: 1 },
+      checkSupport: { name: 'checkSupport', arity: 2 },
       authenticate: { name: 'authenticate', arity: 2 },
-      createSigningKey: { name: 'createSigningKey', arity: 1 },
+      createSigningKey: { name: 'createSigningKey', arity: 2 },
+      getSigningKey: { name: 'getSigningKey', arity: 2 },
+      deleteSigningKey: { name: 'deleteSigningKey', arity: 2 },
       signChallenge: { name: 'signChallenge', arity: 2 },
     },
   },
@@ -55,6 +57,19 @@ export const NATIVE_MODULE_CONTRACT = {
       isAvailable: { name: 'isAvailable', arity: 2 },
       start: { name: 'start', arity: 2 },
       stop: { name: 'stop', arity: 2 },
+    },
+  },
+  DownloadManager: {
+    name: 'DownloadManager',
+    methods: {
+      getCapabilities: { name: 'getCapabilities', arity: 1 },
+      enqueue: { name: 'enqueue', arity: 2 },
+      pause: { name: 'pause', arity: 2 },
+      resume: { name: 'resume', arity: 2 },
+      cancel: { name: 'cancel', arity: 2 },
+      remove: { name: 'remove', arity: 3 },
+      getTask: { name: 'getTask', arity: 2 },
+      listTasks: { name: 'listTasks', arity: 1 },
     },
   },
   FileSystem: {
@@ -103,6 +118,8 @@ export const NATIVE_MODULE_CONTRACT = {
     methods: {
       open: { name: 'open', arity: 2 },
       close: { name: 'close', arity: 1 },
+      openForResult: { name: 'openForResult', arity: 2 },
+      closeWithResult: { name: 'closeWithResult', arity: 2 },
       openURL: { name: 'openURL', arity: 2 },
       setEnabled: { name: 'setEnabled', arity: 2 },
       configure: { name: 'configure', arity: 5 },
@@ -181,6 +198,7 @@ export const NATIVE_MODULE_NAMES = {
   Biometric: NATIVE_MODULE_CONTRACT.Biometric.name,
   Clipboard: NATIVE_MODULE_CONTRACT.Clipboard.name,
   Device: NATIVE_MODULE_CONTRACT.Device.name,
+  DownloadManager: NATIVE_MODULE_CONTRACT.DownloadManager.name,
   FileSystem: NATIVE_MODULE_CONTRACT.FileSystem.name,
   Haptics: NATIVE_MODULE_CONTRACT.Haptics.name,
   ImageTooling: NATIVE_MODULE_CONTRACT.ImageTooling.name,
@@ -217,6 +235,9 @@ export const NATIVE_MODULE_METHODS = {
     authenticate: NATIVE_MODULE_CONTRACT.Biometric.methods.authenticate.name,
     createSigningKey:
       NATIVE_MODULE_CONTRACT.Biometric.methods.createSigningKey.name,
+    getSigningKey: NATIVE_MODULE_CONTRACT.Biometric.methods.getSigningKey.name,
+    deleteSigningKey:
+      NATIVE_MODULE_CONTRACT.Biometric.methods.deleteSigningKey.name,
     signChallenge: NATIVE_MODULE_CONTRACT.Biometric.methods.signChallenge.name,
   },
   Clipboard: {
@@ -239,6 +260,17 @@ export const NATIVE_MODULE_METHODS = {
     isAvailable: NATIVE_MODULE_CONTRACT.Device.methods.isAvailable.name,
     start: NATIVE_MODULE_CONTRACT.Device.methods.start.name,
     stop: NATIVE_MODULE_CONTRACT.Device.methods.stop.name,
+  },
+  DownloadManager: {
+    getCapabilities:
+      NATIVE_MODULE_CONTRACT.DownloadManager.methods.getCapabilities.name,
+    enqueue: NATIVE_MODULE_CONTRACT.DownloadManager.methods.enqueue.name,
+    pause: NATIVE_MODULE_CONTRACT.DownloadManager.methods.pause.name,
+    resume: NATIVE_MODULE_CONTRACT.DownloadManager.methods.resume.name,
+    cancel: NATIVE_MODULE_CONTRACT.DownloadManager.methods.cancel.name,
+    remove: NATIVE_MODULE_CONTRACT.DownloadManager.methods.remove.name,
+    getTask: NATIVE_MODULE_CONTRACT.DownloadManager.methods.getTask.name,
+    listTasks: NATIVE_MODULE_CONTRACT.DownloadManager.methods.listTasks.name,
   },
   FileSystem: {
     pick: NATIVE_MODULE_CONTRACT.FileSystem.methods.pick.name,
@@ -272,6 +304,9 @@ export const NATIVE_MODULE_METHODS = {
   Navigation: {
     open: NATIVE_MODULE_CONTRACT.Navigation.methods.open.name,
     close: NATIVE_MODULE_CONTRACT.Navigation.methods.close.name,
+    openForResult: NATIVE_MODULE_CONTRACT.Navigation.methods.openForResult.name,
+    closeWithResult:
+      NATIVE_MODULE_CONTRACT.Navigation.methods.closeWithResult.name,
     openURL: NATIVE_MODULE_CONTRACT.Navigation.methods.openURL.name,
     setEnabled: NATIVE_MODULE_CONTRACT.Navigation.methods.setEnabled.name,
     configure: NATIVE_MODULE_CONTRACT.Navigation.methods.configure.name,
