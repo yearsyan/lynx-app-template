@@ -24,6 +24,7 @@ export function PageFrame(props: {
         className="Page__scroll"
         scroll-orientation="vertical"
         scroll-bar-enable={false}
+        bounces={false}
       >
         <view
           className="Page__body"

@@ -108,21 +108,6 @@ function TabIcon(props: { tab: 'api' | 'ui'; active: boolean }) {
   );
 }
 
-const HOME_BOUNCE_OPTIONS = {
-  enableBounces: true,
-  alwaysBouncing: true,
-  upperBounceItem: (
-    <view className="BounceTag">
-      <text className="BounceTag__text">已经到顶啦</text>
-    </view>
-  ),
-  lowerBounceItem: (
-    <view className="BounceTag">
-      <text className="BounceTag__text">到底啦</text>
-    </view>
-  ),
-};
-
 function Home(props: { onOpen: (pageKey: string) => void }) {
   const initData = useInitData();
   const insets = readSafeAreaInsets(initData);
@@ -177,7 +162,7 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
         scrollOrientation="vertical"
         className="Home__scroll"
         style={{ width: '100%', height: `${scrollHeight}px` }}
-        bounceableOptions={HOME_BOUNCE_OPTIONS}
+        bounceableOptions={false}
       >
         <view
           className="Home__body"
