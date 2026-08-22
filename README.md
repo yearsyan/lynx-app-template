@@ -18,30 +18,24 @@
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
 ├── autolink          # Lynx 原生库，三端均由官方 Autolink 注册
-│   ├── back          # Back（系统返回栈 + Android/iOS 原生跟手 Overlay）
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
-│   ├── battery       # Battery（电量 + 充电状态）
 │   ├── clipboard     # Clipboard
-│   ├── device-info   # DeviceInfo（设备信息、安全区、状态栏）
-│   ├── display       # Display（宽度 + 亮度 + 常亮）
+│   ├── device        # Device（设备信息、安全区、状态栏、电量、显示宽度/亮度/常亮、加速度计 + 罗盘）
 │   ├── file-system   # FileSystem（系统文件选择器 + URI 文件操作）
 │   ├── haptics       # Haptics
 │   ├── liquid-glass  # iOS Liquid Glass Element（switch + dropdown）
 │   ├── album-utils   # AlbumUtils（相册选图 + 存图）
-│   ├── mmkv          # KV（MMKV 字符串存储）
-│   ├── router        # Router（原生页面导航 + URL 打开）
+│   ├── navigation    # Navigation（原生页面导航 + URL 打开 + 系统返回栈 + Android/iOS 原生跟手 Overlay）
 │   ├── scanner       # Scanner（系统扫码页 + 图片识码）
 │   ├── screenshot    # Screenshot（视图 / 页面截图存入缓存）
-│   ├── secure-storage # SecureStorage（系统密钥保护的小型机密存储）
-│   ├── sensors       # Sensors（加速度计 + 罗盘流式读数）
+│   ├── storage       # Storage（KV 共享 MMKV 字符串存储 + SecureStorage 机密小存储）
+│   ├── share         # Share（系统分享面板：文本 / 链接 / 本地文件）
 │   ├── toast         # Toast（原生轻提示）
 │   ├── websocket     # WebSocket
 │   └── webview-bridge # module-webview Element 与受控 NativeModule RPC
 ├── bundle           # 可独立构建和发布的 Lynx bundles
 │   └── main         # 默认 Lynx bundle
 ├── contracts        # NativeModule 名称、声明文件与三端实现的映射元数据
-├── lib              # bundles 共享的基础库 workspace packages
-│   └── bundle-config # 跨 bundle 复用的 Rspeedy 构建配置
 └── scripts          # 原生配置、bundle 创建与发布同步脚本
 ```
 
@@ -63,11 +57,11 @@
 
 原生模块与 Element 库集中维护在 `autolink/`。Android、iOS 与 HarmonyOS 三个宿主都由
 Lynx 官方 Autolink 工具扫描各自平台的库、接入依赖并生成 Registry；宿主不维护
-Autolink Provider 清单。NativeModule 库均提供 HarmonyOS 源码 HAR；其中 Router
+Autolink Provider 清单。NativeModule 库均提供 HarmonyOS 源码 HAR；其中 Navigation
 通过 `LynxContext.contextData` 调用宿主的 ArkUI 导航策略，但模块类和注册仍由 Autolink
-管理。Back 已纵向封装在 `autolink/back`；Android/iOS 不再手工注册，HarmonyOS 宿主只把
-声明式返回事件和路由会话接到包内控制器。StatusBar 与 SafeArea 位于
-`autolink/device-info`。iOS 的
+管理。Back 与路由导航纵向封装在 `autolink/navigation`；Android/iOS 不再手工注册，HarmonyOS 宿主只把
+声明式返回事件和路由会话接到包内控制器。StatusBar、SafeArea、电量、显示与传感器位于
+`autolink/device`。iOS 的
 `glass-switch` 与 `glass-dropdown` 也已作为
 `autolink/liquid-glass` 中的 Element 自动接入。集成细节见
 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
@@ -121,13 +115,13 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 ## 原生应用标识
 
 根目录 `package.json` 的 `nativeApp` 是三端安装标识的唯一配置入口：
-下面示例展示只额外启用 MMKV 的三端项目（Router 与 WebView bridge 为宿主必需项）：
+下面示例展示只额外启用 Storage 的三端项目（Device、Navigation 与 WebView bridge 为宿主必需项）：
 
 ```json
 {
   "nativeApp": {
     "platforms": ["android", "ios", "harmony"],
-    "autolinkModules": ["mmkv", "router", "webview-bridge"],
+    "autolinkModules": ["device", "navigation", "storage", "webview-bridge"],
     "bundleId": "com.lynxapp",
     "android": {
       "debugApplicationIdSuffix": ".debug"
@@ -146,7 +140,8 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 稍后重新开启。修改该数组后运行 `pnpm native:autolink:apply` 和 `pnpm install`。
 
 交互式创建项目时会显示默认全选的多选 TUI；也可以用
-`--autolink mmkv,toast` 非交互指定。Router 是所有宿主的导航基础设施，Android/iOS 的
+`--autolink storage,toast` 非交互指定。Navigation 是所有宿主的导航基础设施，Device 提供
+安全区/状态栏适配器，Android/iOS 的
 WebView bridge 也是宿主编译依赖，因此这些项目必需项会自动加入且在 TUI 中锁定。
 
 修改标识后运行 `pnpm native:apply`，脚本会同步以下原生配置：
@@ -159,7 +154,7 @@ WebView bridge 也是宿主编译依赖，因此这些项目必需项会自动�
 
 ## Lynx 版本
 
-根目录 `package.json` 的 `lynx` 字段是引擎与 SDK 版本的唯一来源：
+根目录 `package.json` 的 `lynx` 字段是原生宿主与发布清单使用的版本来源：
 
 ```json
 {
@@ -171,9 +166,9 @@ WebView bridge 也是宿主编译依赖，因此这些项目必需项会自动�
 }
 ```
 
-- `engineVersion`：各 bundle 由 `@lynx-template/bundle-config` 在构建时直接读取；三端原生
-  无法读取 package.json，对应常量（Kotlin `ENGINE_VERSION`、Swift `engineVersion`、
-  ETS `ENGINE_VERSION`）由 `pnpm native:apply` 直接写入；
+- `engineVersion`：写入发布清单，并由 `pnpm native:apply` 同步到三端原生常量
+  （Kotlin `ENGINE_VERSION`、Swift `engineVersion`、ETS `ENGINE_VERSION`），作为 OTA
+  bundle 与宿主之间的版本契约；bundle 构建使用 `pluginReactLynx()` 的默认兼容目标；
 - `sdkVersion`：`pnpm native:sync` 写入发布清单，`pnpm native:apply` 写入宿主 Android
   `build.gradle.kts` 与 iOS `Podfile` 的 Lynx 钉版，`pnpm native:modules:sync` 同步进每个
   autolink 模块的 `android/build.gradle.kts`（`org.lynxsdk.lynx:*` 坐标，servalsvg 除外）；

@@ -1,3 +1,4 @@
+import groovy.json.JsonSlurper
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -22,6 +23,15 @@ fun buildConfigString(property: String): String {
         .replace("\"", "\\\"")
     return "\"$escaped\""
 }
+
+// Single source of truth for the deep link scheme is contracts/deeplinks.json
+// (see scripts/sync-native.mjs); the host validates host/path at runtime.
+val deepLinkScheme: String = runCatching {
+    val config = JsonSlurper().parse(
+        rootProject.file("../../contracts/deeplinks.json")
+    ) as Map<*, *>
+    config["scheme"] as String
+}.getOrNull() ?: "lynxapp"
 
 android {
     namespace = "com.lynxapp"
@@ -55,6 +65,7 @@ android {
             buildConfigString("lynx.update.manifest.url")
         )
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["lynxDeepLinkScheme"] = deepLinkScheme
     }
 
     buildTypes {
@@ -129,8 +140,8 @@ dependencies {
     debugImplementation("org.lynxsdk.lynx:lynx-service-devtool:4.0.0")
 
     // Stetho: chrome://inspect debugging (network, database, dumpapp). Debug only.
-    debugImplementation("com.facebook.stetho:stetho:1.6.0")
-    debugImplementation("com.facebook.stetho:stetho-okhttp3:1.6.0")
+    debugImplementation("io.github.yearsyan:stetho:1.6.1-rc2")
+    debugImplementation("io.github.yearsyan:stetho-okhttp3:1.6.1-rc2")
 
     // integrating XElement
     implementation("org.lynxsdk.lynx:xelement:4.0.0")

@@ -144,13 +144,13 @@ export function DropdownPage() {
 
   return (
     <view>
-      <ApiName name="<glass-dropdown />" />
+      <ApiName name="<PlatformDropdown />" />
       <DemoCard
-        title={isIOS ? '原生 Liquid Glass 下拉' : '平台下拉'}
+        title="平台下拉"
         desc={
           isIOS
-            ? 'iOS 渲染原生 Liquid Glass 下拉菜单（UIButton menu），其余平台回退到 Lynx 弹层。'
-            : '当前平台使用 Lynx 绘制的回退弹层；在 iOS 上会替换为原生 Liquid Glass 下拉菜单。'
+            ? '按钮和选中态由 Lynx 绘制；点击时由 iOS 原生 UIMenu 呈现 Liquid Glass 菜单。'
+            : '按钮、选中态和弹层均由 Lynx 绘制。'
         }
       >
         <view className="GlassStage">
@@ -161,7 +161,9 @@ export function DropdownPage() {
             onSelect={(next) => setIndex(next)}
           />
           {isIOS ? (
-            <text className="GlassStage__hint">点击玻璃胶囊打开原生菜单</text>
+            <text className="GlassStage__hint">
+              点击 Lynx 按钮打开原生 Liquid Glass 菜单
+            </text>
           ) : null}
         </view>
         <ResultLine

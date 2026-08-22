@@ -1,6 +1,6 @@
 # Debug 开发配置
 
-iOS、Android 和 HarmonyOS 的 Debug App 都在主页面右上角提供原生 `DEV` 入口。配置保存在当前设备，不需要修改或重新编译原生工程；Release 不显示入口，也不读取这些值。
+iOS、Android 和 HarmonyOS 的 Debug App 都在主页面右上角提供原生 `DEV` 入口。入口支持拖动调整位置，松手后位置会保存在当前设备；轻点（未产生拖动）仍打开配置页。配置保存在当前设备，不需要修改或重新编译原生工程；Release 不显示入口，也不读取这些值。
 
 ## 字段
 
@@ -20,6 +20,27 @@ bundle ID 只允许小写字母、数字和连字符，且不能重复。URL 必
 ## 加载优先级
 
 对任意 bundle，Debug 设备映射优先于工程中的旧式固定开发 URL。`main` 没有设备映射时继续依次使用旧式 Debug URL、已校验的热更新缓存和安装包内资源；其他 bundle 没有设备映射时使用安装包内资源。主 bundle 使用开发映射时会暂停热更新检查，避免开发内容被切换掉。
+
+## ADB 设备文件映射（Android）
+
+除了 App 内的 DEV 配置页，Android Debug 包还会读取固定路径的设备文件
+`/data/local/tmp/lynx_dev_bundles.txt`。它与 DEV 面板共用同一种逐行格式
+（`bundle-id=server-url`，支持 `#` 注释与空行；根 URL 同样自动补
+`/<bundle-id>.lynx.bundle`），但面向的是脚本与自动化：无需重编译、无需打开
+App，一条 `adb push` 即可改向，再次打开页面时生效：
+
+```bash
+printf 'main=http://192.168.9.138:3000\nprofile=http://192.168.9.138:3001\n' \
+  | adb shell 'cat > /data/local/tmp/lynx_dev_bundles.txt'
+# 恢复内置加载：adb shell rm /data/local/tmp/lynx_dev_bundles.txt
+```
+
+可行性边界：`/data/local/tmp` 对应用是「可穿越、不可列举」，因此文件名必须固定；
+adb 推入的文件默认全局可读，App 用应用内 `File` API 直读即可，不需要任何权限。
+个别厂商 / 版本的 SELinux 策略可能拒绝应用读取该目录，此时整个文件按「无映射」
+静默忽略——它永远不会阻塞启动。生效优先级：DEV 面板映射 > 设备文件映射 >
+旧式 Debug URL（`LYNX_DEV_BUNDLE_URL`）> 热更新缓存 > 安装包内资源；主 bundle
+命中设备文件映射时同样暂停热更新检查。该文件仅 Debug 读取，Release 看不到入口。
 
 ## 加载失败回退
 

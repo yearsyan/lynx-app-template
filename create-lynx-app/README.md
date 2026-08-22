@@ -18,7 +18,7 @@ Flags:
 --scope acme                  # npm scope, no leading @ (default lynfe)
 --display-name "My App"       # user-visible name (default derived from name)
 --platforms android,ios       # comma-separated subset (default all three)
---autolink mmkv,toast         # native modules to enable (default all applicable)
+--autolink storage,toast         # native modules to enable (default all applicable)
 --yes                         # skip prompts, use defaults/flags
 ```
 

@@ -1,0 +1,309 @@
+import { BusinessError } from '@kit.BasicServicesKit';
+import { util } from '@kit.ArkTS';
+import { cryptoFramework } from '@kit.CryptoArchitectureKit';
+import { huks } from '@kit.UniversalKeystoreKit';
+import { MMKV } from '@tencent/mmkv';
+import { LynxContext, LynxModule } from '@lynx/lynx';
+
+/** One sealed secret: the GCM nonce and the ciphertext halves. */
+class SealedValue {
+  nonce: Uint8Array;
+  cipher: Uint8Array;
+
+  constructor(nonce: Uint8Array, cipher: Uint8Array) {
+    this.nonce = nonce;
+    this.cipher = cipher;
+  }
+}
+
+/**
+ * String storage exported to Lynx as Storage. Two backends share this
+ * module: the shared MMKV instance behind the plain KV primitives, and the
+ * small-secret secure store whose values are sealed with an AES-256-GCM key
+ * held inside HUKS; only the base64 IV and ciphertext are persisted in a
+ * dedicated MMKV instance.
+ */
+export class StorageModule extends LynxModule {
+  static readonly NAME: string = 'Storage';
+  /** Fixed HUKS alias of the app's symmetric secure-storage key. */
+  private static readonly KEY_ALIAS: string = 'lynx.secure.storage.key';
+  private static readonly IV_BYTES: number = 12;
+  private static readonly TAG_BYTES: number = 16;
+  /** Keeps the secure store to small secrets; mirrored by the shared TS facade. */
+  private static readonly MAX_VALUE_BYTES: number = 64 * 1024;
+
+  private readonly storage: MMKV;
+  private readonly secureStorage: MMKV;
+  private readonly base64: util.Base64Helper = new util.Base64Helper();
+
+  constructor(context: LynxContext, param?: Object) {
+    super(context, param);
+    this.storage = MMKV.mmkvWithID('lynx.native.kv');
+    this.secureStorage = MMKV.mmkvWithID('lynx.secure.storage');
+  }
+
+  // ------------------------------------------------------------------
+  // Shared MMKV-backed KV store
+  // ------------------------------------------------------------------
+
+  setString(key: string, value: string, callback: (error: string) => void): void {
+    if (key.trim().length === 0 || !this.storage.encodeString(key, value)) {
+      callback('Unable to persist MMKV key');
+      return;
+    }
+    callback('');
+  }
+
+  getString(
+    key: string,
+    defaultValue: string,
+    callback: (value: string | null) => void,
+  ): void {
+    this.readString(key, defaultValue, callback);
+  }
+
+  getStringOrNull(
+    key: string,
+    callback: (value: string | null) => void,
+  ): void {
+    this.readString(key, null, callback);
+  }
+
+  remove(key: string, callback: (error: string) => void): void {
+    if (key.trim().length === 0) {
+      callback('MMKV key must not be empty');
+      return;
+    }
+    this.storage.removeValueForKey(key);
+    callback('');
+  }
+
+  clear(callback: (error: string) => void): void {
+    this.storage.clearAll();
+    callback('');
+  }
+
+  contains(key: string, callback: (contains: boolean) => void): void {
+    callback(key.trim().length > 0 && this.storage.containsKey(key));
+  }
+
+  // ------------------------------------------------------------------
+  // Small-secret secure store
+  // ------------------------------------------------------------------
+
+  secureSetString(key: string, value: string, callback: (error: string) => void): void {
+    if (!StorageModule.isValidKey(key)) {
+      callback('Secure storage key must not be empty');
+      return;
+    }
+    if (value === undefined || value === null) {
+      callback('Secure storage value is missing or too large');
+      return;
+    }
+    const plain: Uint8Array = new util.TextEncoder().encodeInto(value);
+    if (plain.length > StorageModule.MAX_VALUE_BYTES) {
+      callback('Secure storage value is missing or too large');
+      return;
+    }
+    this.ensureKey()
+      .then(() => this.encrypt(plain))
+      .then((sealed: SealedValue) => {
+        const entry: string =
+          `${this.base64.encodeToStringSync(sealed.nonce)}:${this.base64.encodeToStringSync(sealed.cipher)}`;
+        if (!this.secureStorage.encodeString(key, entry)) {
+          callback('Unable to persist the secure value');
+          return;
+        }
+        callback('');
+      })
+      .catch((error: BusinessError) => {
+        callback(StorageModule.errorMessage(error, 'Unable to write the secure value'));
+      });
+  }
+
+  secureGetString(
+    key: string,
+    defaultValue: string,
+    callback: (value: string | null) => void,
+  ): void {
+    this.readSecureString(key, defaultValue, callback);
+  }
+
+  secureGetStringOrNull(
+    key: string,
+    callback: (value: string | null) => void,
+  ): void {
+    this.readSecureString(key, null, callback);
+  }
+
+  secureRemove(key: string, callback: (error: string) => void): void {
+    if (!StorageModule.isValidKey(key)) {
+      callback('Secure storage key must not be empty');
+      return;
+    }
+    this.secureStorage.removeValueForKey(key);
+    callback('');
+  }
+
+  private readString(
+    key: string,
+    defaultValue: string | null,
+    callback: (value: string | null) => void,
+  ): void {
+    const value = this.storage.decodeString(key, defaultValue ?? undefined);
+    callback(value ?? defaultValue);
+  }
+
+  private readSecureString(
+    key: string,
+    defaultValue: string | null,
+    callback: (value: string | null) => void,
+  ): void {
+    if (!StorageModule.isValidKey(key)) {
+      callback(defaultValue);
+      return;
+    }
+    const entry: string | undefined = this.secureStorage.decodeString(key, undefined);
+    if (entry === undefined || entry === null) {
+      callback(defaultValue);
+      return;
+    }
+    let sealed: SealedValue;
+    try {
+      sealed = this.parseEntry(entry);
+    } catch (_error) {
+      callback(defaultValue);
+      return;
+    }
+    this.decrypt(sealed)
+      .then((plain: Uint8Array) => {
+        callback(util.TextDecoder.create('utf-8').decodeToString(plain));
+      })
+      .catch((_error: BusinessError) => {
+        // GCM verification fails when the entry was tampered with or the
+        // HUKS key was wiped; both behave like missing data.
+        callback(defaultValue);
+      });
+  }
+
+  private ensureKey(): Promise<void> {
+    return huks.isKeyItemExist(StorageModule.KEY_ALIAS, { properties: [] })
+      .catch((_error: BusinessError) => false)
+      .then((exists: boolean) => {
+        if (exists) {
+          return null;
+        }
+        return huks.generateKeyItem(StorageModule.KEY_ALIAS, {
+          properties: StorageModule.keygenProperties(),
+        });
+      })
+      .then(() => {});
+  }
+
+  private encrypt(plain: Uint8Array): Promise<SealedValue> {
+    return this.randomBytes(StorageModule.IV_BYTES)
+      .then((nonce: Uint8Array) => {
+        const properties: Array<huks.HuksParam> = [
+          { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_AES },
+          { tag: huks.HuksTag.HUKS_TAG_KEY_SIZE, value: 256 },
+          { tag: huks.HuksTag.HUKS_TAG_PURPOSE, value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_ENCRYPT },
+          { tag: huks.HuksTag.HUKS_TAG_BLOCK_MODE, value: huks.HuksCipherMode.HUKS_MODE_GCM },
+          { tag: huks.HuksTag.HUKS_TAG_PADDING, value: huks.HuksKeyPadding.HUKS_PADDING_NONE },
+          { tag: huks.HuksTag.HUKS_TAG_NONCE, value: nonce },
+        ];
+        const options: huks.HuksOptions = {
+          properties: properties,
+          inData: plain,
+        };
+        return huks.initSession(StorageModule.KEY_ALIAS, options)
+          .then((session: huks.HuksSessionHandle) =>
+            huks.finishSession(session.handle, options))
+          .then((result: huks.HuksReturnResult) => {
+            if (result.outData === undefined
+              || result.outData.length < StorageModule.TAG_BYTES) {
+              throw new Error('HUKS encryption produced no data');
+            }
+            return new SealedValue(nonce, result.outData);
+          });
+      });
+  }
+
+  private decrypt(sealed: SealedValue): Promise<Uint8Array> {
+    if (sealed.cipher.length < StorageModule.TAG_BYTES) {
+      return Promise.reject(new Error('Malformed secure entry'));
+    }
+    const cipherLength = sealed.cipher.length - StorageModule.TAG_BYTES;
+    const cipher = sealed.cipher.slice(0, cipherLength);
+    const authTag = sealed.cipher.slice(cipherLength);
+    const properties: Array<huks.HuksParam> = [
+      { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_AES },
+      { tag: huks.HuksTag.HUKS_TAG_KEY_SIZE, value: 256 },
+      { tag: huks.HuksTag.HUKS_TAG_PURPOSE, value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_DECRYPT },
+      { tag: huks.HuksTag.HUKS_TAG_BLOCK_MODE, value: huks.HuksCipherMode.HUKS_MODE_GCM },
+      { tag: huks.HuksTag.HUKS_TAG_PADDING, value: huks.HuksKeyPadding.HUKS_PADDING_NONE },
+      { tag: huks.HuksTag.HUKS_TAG_NONCE, value: sealed.nonce },
+      { tag: huks.HuksTag.HUKS_TAG_AE_TAG, value: authTag },
+    ];
+    const options: huks.HuksOptions = {
+      properties: properties,
+      inData: cipher,
+    };
+    return huks.initSession(StorageModule.KEY_ALIAS, options)
+      .then((session: huks.HuksSessionHandle) =>
+        huks.finishSession(session.handle, options))
+      .then((result: huks.HuksReturnResult) => {
+        if (result.outData === undefined) {
+          throw new Error('HUKS decryption produced no data');
+        }
+        return result.outData;
+      });
+  }
+
+  private randomBytes(length: number): Promise<Uint8Array> {
+    const blob: cryptoFramework.DataBlob =
+      cryptoFramework.createRandom().generateRandomSync(length);
+    if (blob.data.length !== length) {
+      return Promise.reject(new Error('Unable to generate a random IV'));
+    }
+    return Promise.resolve(blob.data);
+  }
+
+  private parseEntry(entry: string): SealedValue {
+    const separator: number = entry.indexOf(':');
+    if (separator <= 0 || separator + 1 >= entry.length) {
+      throw new Error('Malformed secure entry');
+    }
+    const nonce: Uint8Array = this.base64.decodeSync(entry.substring(0, separator));
+    const cipher: Uint8Array = this.base64.decodeSync(entry.substring(separator + 1));
+    if (nonce.length !== StorageModule.IV_BYTES
+      || cipher.length < StorageModule.TAG_BYTES) {
+      throw new Error('Malformed secure entry');
+    }
+    return new SealedValue(nonce, cipher);
+  }
+
+  private static keygenProperties(): Array<huks.HuksParam> {
+    return [
+      { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_AES },
+      {
+        tag: huks.HuksTag.HUKS_TAG_PURPOSE,
+        value: huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_ENCRYPT
+          | huks.HuksKeyPurpose.HUKS_KEY_PURPOSE_DECRYPT,
+      },
+      { tag: huks.HuksTag.HUKS_TAG_KEY_SIZE, value: 256 },
+      { tag: huks.HuksTag.HUKS_TAG_BLOCK_MODE, value: huks.HuksCipherMode.HUKS_MODE_GCM },
+      { tag: huks.HuksTag.HUKS_TAG_PADDING, value: huks.HuksKeyPadding.HUKS_PADDING_NONE },
+    ];
+  }
+
+  private static isValidKey(key: string): boolean {
+    return key !== undefined && key !== null && key.trim().length > 0;
+  }
+
+  private static errorMessage(error: Error, fallback: string): string {
+    const message: string = error instanceof Error
+      ? error.message
+      : JSON.stringify(error);
+    return message.length > 0 ? message : fallback;
+  }
+}

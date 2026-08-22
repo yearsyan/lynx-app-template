@@ -1,7 +1,6 @@
 import { useCallback, useState } from '@lynx-js/react';
 import { fileSystem } from '@lynx-template/autolink-file-system';
-import { kv } from '@lynx-template/autolink-mmkv';
-import { secureStorage } from '@lynx-template/autolink-secure-storage';
+import { kv, secureStorage } from '@lynx-template/autolink-storage';
 
 import {
   ApiName,

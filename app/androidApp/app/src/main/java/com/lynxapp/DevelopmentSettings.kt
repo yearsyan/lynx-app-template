@@ -2,6 +2,7 @@ package com.lynxapp
 
 import android.content.Context
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.io.File
 
 /**
  * Debug-only runtime overrides shared by every Lynx page in the Android host.
@@ -34,6 +35,29 @@ internal object DevelopmentSettings {
         val mapping = snapshot(context).bundleServers.firstOrNull { it.bundleId == bundleId }
         return mapping?.let { resolveBundleUrl(bundleId, it.server) }
     }
+
+    /**
+     * Agent/automation-driven overrides pushed over adb, one
+     * `bundle-id=server-url` per line in the same format the DEV panel
+     * serializes. `/data/local/tmp` is traversable (but not listable) by
+     * apps and adb-pushed files are world-readable, so a fixed file name
+     * works without any permission; on builds where SELinux still denies
+     * the read, or on any parse problem, the file is simply ignored — it
+     * can never break startup. There is deliberately no cache: `adb push`
+     * takes effect on the next page open without a reinstall.
+     */
+    fun deviceFileDevelopmentUrl(bundleId: String): String? {
+        if (!BuildConfig.DEBUG || !BUNDLE_ID.matches(bundleId)) return null
+        val mapping = deviceFileMappings().firstOrNull { it.bundleId == bundleId }
+        return mapping?.let { resolveBundleUrl(bundleId, it.server) }
+    }
+
+    private fun deviceFileMappings(): List<BundleServer> =
+        runCatching {
+            val file = File(DEVICE_MAPPINGS_FILE)
+            if (!file.isFile) return@runCatching emptyList()
+            parseMappings(file.readText())
+        }.getOrDefault(emptyList())
 
     /** Returns normalized values suitable for showing again in the list UI. */
     fun save(context: Context, bundleServers: List<BundleServer>): Snapshot {
@@ -148,6 +172,7 @@ internal object DevelopmentSettings {
     }
 
     private const val PREFERENCES = "lynx.debug.development-settings"
+    private const val DEVICE_MAPPINGS_FILE = "/data/local/tmp/lynx_dev_bundles.txt"
     private const val BUNDLE_SERVERS = "bundle-servers"
     private const val LOADED_BUNDLES = "loaded-bundles"
     private val BUNDLE_ID = Regex("^[a-z0-9][a-z0-9-]*$")

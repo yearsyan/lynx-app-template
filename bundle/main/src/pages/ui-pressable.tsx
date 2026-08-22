@@ -17,34 +17,55 @@ const BANNERS = [
 ] as const;
 
 export function PressableViewPage() {
-  const [pressCount, setPressCount] = useState(0);
-  const [lastPressed, setLastPressed] = useState<string | null>(null);
+  const [eventCount, setEventCount] = useState(0);
+  const [lastEvent, setLastEvent] = useState<string | null>(null);
 
-  const recordPress = useCallback((label: string) => {
+  const recordEvent = useCallback((kind: '点击' | '长按', label: string) => {
     'background only';
-    setPressCount((count) => count + 1);
-    setLastPressed(label);
+    setEventCount((count) => count + 1);
+    setLastEvent(`${kind} · ${label}`);
   }, []);
 
   return (
     <view>
       <ApiName name="<pressable-view />" />
       <DemoCard
-        title="原生 Pressable"
-        desc="绿色按钮使用更深的状态层；视觉反馈与滚动手势仲裁都在平台 UI 线程，JS 只接收最终一次 press。"
+        title="长按与系统触感"
+        desc="分别长按下面两个按钮：约 500ms 后只回调一次 longpress，松手不会补发 press；第二个按钮还会触发系统线性马达。"
       >
         <pressable-view
-          id="pressable-primary"
+          id="pressable-long-no-haptic"
+          className="NativePressable NativePressable--secondary"
+          active-opacity={1}
+          pressed-overlay-color="rgba(0, 0, 0, 0.08)"
+          accessibility-element
+          accessibility-label="长按测试，不带系统触感"
+          accessibility-traits="button"
+          bindpress={() => recordEvent('点击', '无触感按钮')}
+          bindlongpress={() => recordEvent('长按', '未启用系统触感')}
+        >
+          <view className="NativePressable__surface NativePressable__surface--secondary">
+            <text className="NativePressable__secondaryLabel">
+              长按测试（无触感）
+            </text>
+          </view>
+        </pressable-view>
+        <pressable-view
+          id="pressable-long-haptic"
           className="NativePressable NativePressable--primary"
           active-opacity={1}
           pressed-overlay-color="rgba(0, 0, 0, 0.12)"
+          long-press-haptic
           accessibility-element
-          accessibility-label="原生点击测试"
+          accessibility-label="长按测试，带系统触感"
           accessibility-traits="button"
-          bindpress={() => recordPress('原生点击测试')}
+          bindpress={() => recordEvent('点击', '触感按钮')}
+          bindlongpress={() => recordEvent('长按', '已启用系统触感')}
         >
           <view className="NativePressable__surface NativePressable__surface--primary">
-            <text className="NativePressable__primaryLabel">点按测试</text>
+            <text className="NativePressable__primaryLabel">
+              长按测试（系统触感）
+            </text>
           </view>
         </pressable-view>
         <pressable-view
@@ -60,17 +81,17 @@ export function PressableViewPage() {
         </pressable-view>
         <ResultLine
           text={
-            lastPressed === null
+            lastEvent === null
               ? null
-              : `press × ${pressCount} · 最后：${lastPressed}`
+              : `事件 × ${eventCount} · 最后：${lastEvent}`
           }
-          placeholder="尚未收到 press；滚动和刹停触摸不应改变计数"
+          placeholder="尚未收到事件；请分别长按两个按钮进行对比"
         />
       </DemoCard>
 
       <DemoCard
         title="滚动 / 甩动 / 刹停验证"
-        desc="浅色横幅使用 8% 黑色状态层。在横幅上慢拖、快速甩动，再用手指点停惯性；横幅不应闪烁或增加计数。"
+        desc="横幅也支持长按，但未开启马达。慢拖、快速甩动或点停惯性都不应触发点击/长按。"
       >
         {BANNERS.map(([title, subtitle], index) => (
           <pressable-view
@@ -82,7 +103,8 @@ export function PressableViewPage() {
             accessibility-element
             accessibility-label={title}
             accessibility-traits="button"
-            bindpress={() => recordPress(title)}
+            bindpress={() => recordEvent('点击', title)}
+            bindlongpress={() => recordEvent('长按', `${title}（无触感）`)}
           >
             <view className="PressableBanner__surface">
               <view className="PressableBanner__copy">

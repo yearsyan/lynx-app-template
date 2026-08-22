@@ -106,6 +106,25 @@ if (bundles.length === 0) {
 
 bundles.sort((left, right) => left.name.localeCompare(right.name));
 
+// Deep link config: the single source of truth for the URL prefix and the
+// path-to-bundle route table. It ships next to lynx-bundles.json so every
+// host reads the same mapping at runtime.
+const deepLinkConfigFile = join(
+  repositoryDirectory,
+  'contracts/deeplinks.json',
+);
+let deepLinkConfig;
+try {
+  deepLinkConfig = JSON.parse(await readFile(deepLinkConfigFile, 'utf8'));
+} catch (error) {
+  throw new Error(`Unable to read ${deepLinkConfigFile}: ${error.message}`);
+}
+validateDeepLinkConfig(
+  deepLinkConfig,
+  new Set(bundles.map((bundle) => bundle.name)),
+);
+const serializedDeepLinkConfig = `${JSON.stringify(deepLinkConfig, null, 2)}\n`;
+
 const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
 const generatedAt = sourceDateEpoch
   ? new Date(Number(sourceDateEpoch) * 1000).toISOString()
@@ -119,6 +138,67 @@ const manifest = {
   bundles: bundles.map(({ source: _, ...bundle }) => bundle),
 };
 const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
+
+function validateDeepLinkConfig(config, bundleNames) {
+  const file = 'contracts/deeplinks.json';
+  const bundleNamePattern = /^[a-z0-9][a-z0-9-]*$/;
+  if (config?.schemaVersion !== 1) {
+    throw new Error(`${file}: schemaVersion must be 1`);
+  }
+  if (!/^[a-z][a-z0-9+.-]*$/.test(config.scheme ?? '')) {
+    throw new Error(`${file}: scheme must be a lowercase URI scheme`);
+  }
+  if (!/^[a-z0-9][a-z0-9.-]*$/.test(config.host ?? '')) {
+    throw new Error(
+      `${file}: host must be a bare lowercase hostname (no scheme, port, or path)`,
+    );
+  }
+  if (
+    !bundleNamePattern.test(config.defaultBundle ?? '') ||
+    !bundleNames.has(config.defaultBundle)
+  ) {
+    throw new Error(
+      `${file}: defaultBundle "${config.defaultBundle}" is not a known bundle`,
+    );
+  }
+  if (!Array.isArray(config.routes) || config.routes.length === 0) {
+    throw new Error(`${file}: routes must be a non-empty array`);
+  }
+  const paths = new Set();
+  for (const route of config.routes) {
+    if (
+      typeof route?.path !== 'string' ||
+      !route.path.startsWith('/') ||
+      route.path.includes('?')
+    ) {
+      throw new Error(
+        `${file}: route path "${route?.path}" must start with "/" and carry no query`,
+      );
+    }
+    if (paths.has(route.path)) {
+      throw new Error(`${file}: duplicate route path "${route.path}"`);
+    }
+    paths.add(route.path);
+    if (
+      !bundleNamePattern.test(route.bundle ?? '') ||
+      !bundleNames.has(route.bundle)
+    ) {
+      throw new Error(
+        `${file}: route "${route.path}" maps to unknown bundle "${route?.bundle}"`,
+      );
+    }
+    if (
+      route.params !== undefined &&
+      (typeof route.params !== 'object' ||
+        Array.isArray(route.params) ||
+        route.params === null)
+    ) {
+      throw new Error(
+        `${file}: route "${route.path}" params must be a JSON object`,
+      );
+    }
+  }
+}
 
 async function clearGeneratedBundles(directory) {
   await mkdir(directory, { recursive: true });
@@ -140,6 +220,7 @@ for (const bundle of bundles) {
 for (const target of nativeTargets) {
   await clearGeneratedBundles(target);
   await writeFile(join(target, 'lynx-bundles.json'), serializedManifest);
+  await writeFile(join(target, 'deeplinks.json'), serializedDeepLinkConfig);
   for (const bundle of bundles) {
     await copyFile(bundle.source, join(target, bundle.url));
   }
@@ -156,3 +237,4 @@ for (const target of legacyNativeTargets) {
 console.info(
   `Synced ${bundles.length} bundle(s) to artifacts and ${nativeTargets.length} native project(s): ${enabledPlatforms.join(', ')}.`,
 );
+console.info('Synced contracts/deeplinks.json to the same native project(s).');

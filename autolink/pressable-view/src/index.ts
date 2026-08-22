@@ -17,6 +17,8 @@ export interface PressableViewProps extends StandardProps {
   'pressed-overlay-color'?: string;
   /** Disables visual feedback, activation, and accessibility actions. */
   disabled?: boolean;
+  /** Plays native long-press haptics when `bindlongpress` is emitted. */
+  'long-press-haptic'?: boolean;
   /** Fires only for a completed native press, never for a scroll gesture. */
   bindpress?: (event: PressableViewPressEvent) => void;
 }

@@ -20,7 +20,7 @@ import type {
   DeviceInfo,
   SafeAreaInsets,
   StatusBarStyle,
-} from '@lynx-template/autolink-device-info';
+} from '@lynx-template/autolink-device';
 import type { HapticImpact } from '@lynx-template/autolink-haptics';
 import {
   NATIVE_MODULE_METHODS,
@@ -99,8 +99,8 @@ async function invokeVoid(...invocation: NativeInvocation): Promise<void> {
 export const kv = {
   async setString(key: string, value: string): Promise<void> {
     await invokeVoid(
-      NATIVE_MODULE_NAMES.KV,
-      NATIVE_MODULE_METHODS.KV.setString,
+      NATIVE_MODULE_NAMES.Storage,
+      NATIVE_MODULE_METHODS.Storage.setString,
       [key, value],
     );
   },
@@ -109,32 +109,39 @@ export const kv = {
     key: string,
     defaultValue: string | null = null,
   ): Promise<string | null> {
+    const method =
+      defaultValue === null
+        ? NATIVE_MODULE_METHODS.Storage.getStringOrNull
+        : NATIVE_MODULE_METHODS.Storage.getString;
+    const args = defaultValue === null ? [key] : [key, defaultValue];
     const [value] = await invokeNative<[string | null]>(
-      NATIVE_MODULE_NAMES.KV,
-      NATIVE_MODULE_METHODS.KV.getString,
-      [key, defaultValue],
+      NATIVE_MODULE_NAMES.Storage,
+      method,
+      args,
     );
-    return value ?? null;
+    return typeof value === 'string' ? value : defaultValue;
   },
 
   async remove(key: string): Promise<void> {
-    await invokeVoid(NATIVE_MODULE_NAMES.KV, NATIVE_MODULE_METHODS.KV.remove, [
-      key,
-    ]);
+    await invokeVoid(
+      NATIVE_MODULE_NAMES.Storage,
+      NATIVE_MODULE_METHODS.Storage.remove,
+      [key],
+    );
   },
 
   async clear(): Promise<void> {
     await invokeVoid(
-      NATIVE_MODULE_NAMES.KV,
-      NATIVE_MODULE_METHODS.KV.clear,
+      NATIVE_MODULE_NAMES.Storage,
+      NATIVE_MODULE_METHODS.Storage.clear,
       [],
     );
   },
 
   async contains(key: string): Promise<boolean> {
     const [contains] = await invokeNative<[boolean]>(
-      NATIVE_MODULE_NAMES.KV,
-      NATIVE_MODULE_METHODS.KV.contains,
+      NATIVE_MODULE_NAMES.Storage,
+      NATIVE_MODULE_METHODS.Storage.contains,
       [key],
     );
     return contains === true;
@@ -188,35 +195,35 @@ export const haptics = {
   },
 };
 
-/** Status-bar facade backed by the Autolinked DeviceInfo module. */
+/** Status-bar facade backed by the Autolinked Device module. */
 export const statusBar = {
   async setStyle(style: StatusBarStyle): Promise<void> {
     await invokeVoid(
-      NATIVE_MODULE_NAMES.DeviceInfo,
-      NATIVE_MODULE_METHODS.DeviceInfo.setStatusBarStyle,
+      NATIVE_MODULE_NAMES.Device,
+      NATIVE_MODULE_METHODS.Device.setStatusBarStyle,
       [style],
     );
   },
 };
 
 /**
- * DeviceInfo module. Accepts either a structured bridge result or the legacy
+ * Device module. Accepts either a structured bridge result or the legacy
  * JSON envelope, matching the Autolink package facade.
  */
 export async function getDeviceInfo(): Promise<DeviceInfo> {
   const [payload] = await invokeNative<[unknown]>(
-    NATIVE_MODULE_NAMES.DeviceInfo,
-    NATIVE_MODULE_METHODS.DeviceInfo.getInfo,
+    NATIVE_MODULE_NAMES.Device,
+    NATIVE_MODULE_METHODS.Device.getInfo,
     [],
   );
   return decodeDeviceInfo(payload);
 }
 
-/** Reads the current native safe area from the Autolinked DeviceInfo module. */
+/** Reads the current native safe area from the Autolinked Device module. */
 export async function getSafeAreaInsets(): Promise<SafeAreaInsets> {
   const [payload] = await invokeNative<[unknown]>(
-    NATIVE_MODULE_NAMES.DeviceInfo,
-    NATIVE_MODULE_METHODS.DeviceInfo.getSafeAreaInsets,
+    NATIVE_MODULE_NAMES.Device,
+    NATIVE_MODULE_METHODS.Device.getSafeAreaInsets,
     [],
   );
   return decodeSafeAreaInsets(payload);
@@ -239,7 +246,7 @@ function decodeSafeAreaInsets(payload: unknown): SafeAreaInsets {
     typeof value.left !== 'number' ||
     !Number.isFinite(value.left)
   ) {
-    throw new NativeBridgeError('DeviceInfo returned invalid safe-area insets');
+    throw new NativeBridgeError('Device returned invalid safe-area insets');
   }
   return {
     top: Math.max(0, value.top),
@@ -255,7 +262,7 @@ function decodeDeviceInfo(payload: unknown): DeviceInfo {
     'device info',
   ) as Partial<DeviceInfo> | null;
   if (typeof info !== 'object' || info === null) {
-    throw new NativeBridgeError('DeviceInfo returned an invalid payload');
+    throw new NativeBridgeError('Device returned an invalid payload');
   }
   if (
     typeof info.model !== 'string' ||
@@ -270,7 +277,7 @@ function decodeDeviceInfo(payload: unknown): DeviceInfo {
     typeof info.isTablet !== 'boolean' ||
     typeof info.isFoldable !== 'boolean'
   ) {
-    throw new NativeBridgeError('DeviceInfo returned an invalid payload');
+    throw new NativeBridgeError('Device returned an invalid payload');
   }
   return info as DeviceInfo;
 }
@@ -281,11 +288,11 @@ function decodeEnvelopeValue(payload: unknown, label: string): unknown {
     try {
       parsed = JSON.parse(payload) as unknown;
     } catch {
-      throw new NativeBridgeError(`DeviceInfo returned invalid ${label} JSON`);
+      throw new NativeBridgeError(`Device returned invalid ${label} JSON`);
     }
   }
   if (typeof parsed !== 'object' || parsed === null) {
-    throw new NativeBridgeError('DeviceInfo returned an invalid payload');
+    throw new NativeBridgeError('Device returned an invalid payload');
   }
   const result = parsed as {
     value?: unknown;

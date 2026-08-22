@@ -21,7 +21,7 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.lynxapp.DevelopmentSettings
-import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
+import com.lynxapp.autolink.device.DeviceSystemUI
 
 /** Native configuration UI compiled only into the Android Debug variant. */
 class DebugSettingsActivity : Activity() {

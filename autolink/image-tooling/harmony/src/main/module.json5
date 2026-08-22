@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_image_tooling",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 import type { ReactNode } from '@lynx-js/react';
 import { useInitData } from '@lynx-js/react';
-import { readSafeAreaInsets } from '@lynx-template/autolink-device-info';
+import { readSafeAreaInsets } from '@lynx-template/autolink-device';
 
 /** Detail-page scaffold: nav bar with a back chevron plus a scrollable body. */
 export function PageFrame(props: {

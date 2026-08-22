@@ -45,7 +45,7 @@ private final class EmbeddedBundleFallback: NSObject, LynxViewLifecycle {
 }
 
 /// Reusable native host for both the storyboard root and routed Lynx bundles.
-class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
+class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
   private let bundleRepository = LynxBundleRepository()
   private let bundleName: String
   private let route: [String: Any]?
@@ -60,6 +60,12 @@ class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
   private var hasLoadedInitialBundle = false
   private var canUpdateTemplate = false
   private var lastSafeAreaInsets: UIEdgeInsets?
+
+  #if DEBUG
+  private var developmentButton: UIButton?
+  private var isDraggingDevelopmentButton = false
+  private var developmentButtonDragOrigin: CGPoint = .zero
+  #endif
 
   init(
     bundleName: String,
@@ -145,6 +151,9 @@ class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
     lynxView?.preferredLayoutHeight = view.bounds.height
     loadInitialBundleIfReady()
     updateNativeEnvironmentIfNeeded()
+    #if DEBUG
+    layoutDevelopmentButton()
+    #endif
   }
 
   override func viewDidAppear(_ animated: Bool) {
@@ -205,7 +214,7 @@ class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
     if let route {
       additionalData["route"] = route
     }
-    return LynxDeviceInfoTemplateData(insets, additionalData)
+    return LynxDeviceTemplateData(insets, additionalData)
   }
 
   private func sameInsets(_ lhs: UIEdgeInsets, _ rhs: UIEdgeInsets?) -> Bool {
@@ -217,6 +226,14 @@ class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
   }
 
   #if DEBUG
+  private enum DevelopmentButton {
+    static let size = CGSize(width: 54, height: 34)
+    static let margin: CGFloat = 12
+    static let topOffset: CGFloat = 10
+    static let centerXKey = "developmentButtonCenterX"
+    static let centerYKey = "developmentButtonCenterY"
+  }
+
   private func installDevelopmentButton() {
     let button = UIButton(type: .system)
     button.translatesAutoresizingMaskIntoConstraints = false
@@ -237,13 +254,72 @@ class LynxPageViewController: UIViewController, LynxDeviceInfoStatusBarHost {
       action: #selector(openDevelopmentSettings),
       for: .touchUpInside
     )
+    // The pan recognizer only wins once the finger travels far enough, so taps
+    // still reach .touchUpInside while drags reposition the pill.
+    button.addGestureRecognizer(
+      UIPanGestureRecognizer(target: self, action: #selector(dragDevelopmentButton(_:)))
+    )
     view.addSubview(button)
     NSLayoutConstraint.activate([
-      button.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-      button.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
-      button.widthAnchor.constraint(equalToConstant: 54),
-      button.heightAnchor.constraint(equalToConstant: 34),
+      button.widthAnchor.constraint(equalToConstant: DevelopmentButton.size.width),
+      button.heightAnchor.constraint(equalToConstant: DevelopmentButton.size.height),
     ])
+    developmentButton = button
+  }
+
+  private func layoutDevelopmentButton() {
+    guard let button = developmentButton, !isDraggingDevelopmentButton else { return }
+    let bounds = view.bounds
+    guard bounds.width > 0, bounds.height > 0 else { return }
+    let defaults = UserDefaults.standard
+    if let storedX = defaults.object(forKey: DevelopmentButton.centerXKey) as? Double,
+       let storedY = defaults.object(forKey: DevelopmentButton.centerYKey) as? Double {
+      button.center = clampedDevelopmentButtonCenter(CGPoint(x: storedX, y: storedY))
+    } else {
+      button.center = clampedDevelopmentButtonCenter(
+        CGPoint(
+          x: bounds.maxX - view.safeAreaInsets.right - DevelopmentButton.margin
+            - DevelopmentButton.size.width / 2,
+          y: view.safeAreaInsets.top + DevelopmentButton.topOffset
+            + DevelopmentButton.size.height / 2
+        )
+      )
+    }
+  }
+
+  private func clampedDevelopmentButtonCenter(_ center: CGPoint) -> CGPoint {
+    let safeArea = view.safeAreaInsets
+    let minX = safeArea.left + DevelopmentButton.size.width / 2
+    let minY = safeArea.top + DevelopmentButton.size.height / 2
+    let maxX = max(view.bounds.width - safeArea.right - DevelopmentButton.size.width / 2, minX)
+    let maxY = max(view.bounds.height - safeArea.bottom - DevelopmentButton.size.height / 2, minY)
+    return CGPoint(
+      x: min(max(center.x, minX), maxX),
+      y: min(max(center.y, minY), maxY)
+    )
+  }
+
+  @objc private func dragDevelopmentButton(_ gesture: UIPanGestureRecognizer) {
+    guard let button = developmentButton else { return }
+    switch gesture.state {
+    case .began:
+      isDraggingDevelopmentButton = true
+      developmentButtonDragOrigin = button.center
+    case .changed:
+      button.center = clampedDevelopmentButtonCenter(
+        developmentButtonDragOrigin + gesture.translation(in: view)
+      )
+    case .ended:
+      isDraggingDevelopmentButton = false
+      let defaults = UserDefaults.standard
+      defaults.set(Double(button.center.x), forKey: DevelopmentButton.centerXKey)
+      defaults.set(Double(button.center.y), forKey: DevelopmentButton.centerYKey)
+    case .cancelled:
+      isDraggingDevelopmentButton = false
+      layoutDevelopmentButton()
+    default:
+      break
+    }
   }
 
   @objc private func openDevelopmentSettings() {

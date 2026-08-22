@@ -39,22 +39,6 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
-    case 'Back':
-      switch (methodName) {
-        case 'setEnabled':
-          return 2;
-        case 'configure':
-          return 5;
-        default:
-          return -1;
-      }
-    case 'Battery':
-      switch (methodName) {
-        case 'getInfo':
-          return 1;
-        default:
-          return -1;
-      }
     case 'Biometric':
       switch (methodName) {
         case 'checkSupport':
@@ -77,7 +61,7 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
-    case 'DeviceInfo':
+    case 'Device':
       switch (methodName) {
         case 'getInfo':
           return 1;
@@ -85,11 +69,6 @@ export function nativeModuleMethodArity(
           return 1;
         case 'setStatusBarStyle':
           return 2;
-        default:
-          return -1;
-      }
-    case 'Display':
-      switch (methodName) {
         case 'screenWidth':
           return 1;
         case 'windowWidth':
@@ -101,6 +80,14 @@ export function nativeModuleMethodArity(
         case 'setBrightness':
           return 2;
         case 'setKeepScreenOn':
+          return 2;
+        case 'getBatteryInfo':
+          return 1;
+        case 'isAvailable':
+          return 2;
+        case 'start':
+          return 2;
+        case 'stop':
           return 2;
         default:
           return -1;
@@ -137,17 +124,21 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
-    case 'KV':
+    case 'ImageTooling':
       switch (methodName) {
-        case 'setString':
-          return 3;
-        case 'getString':
-          return 3;
-        case 'remove':
+        case 'info':
           return 2;
-        case 'clear':
-          return 1;
-        case 'contains':
+        case 'compress':
+          return 2;
+        case 'crop':
+          return 2;
+        case 'compose':
+          return 2;
+        case 'readExif':
+          return 2;
+        case 'writeExif':
+          return 2;
+        case 'removeExif':
           return 2;
         default:
           return -1;
@@ -163,22 +154,37 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
-    case 'Permissions':
-      switch (methodName) {
-        case 'check':
-          return 2;
-        case 'request':
-          return 2;
-        default:
-          return -1;
-      }
-    case 'Router':
+    case 'Navigation':
       switch (methodName) {
         case 'open':
           return 2;
         case 'close':
           return 1;
         case 'openURL':
+          return 2;
+        case 'setEnabled':
+          return 2;
+        case 'configure':
+          return 5;
+        default:
+          return -1;
+      }
+    case 'NetworkInfo':
+      switch (methodName) {
+        case 'getInfo':
+          return 1;
+        case 'start':
+          return 1;
+        case 'stop':
+          return 1;
+        default:
+          return -1;
+      }
+    case 'Permissions':
+      switch (methodName) {
+        case 'check':
+          return 2;
+        case 'request':
           return 2;
         default:
           return -1;
@@ -201,24 +207,34 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
-    case 'Sensors':
+    case 'Share':
       switch (methodName) {
-        case 'isAvailable':
-          return 2;
-        case 'start':
-          return 2;
-        case 'stop':
+        case 'share':
           return 2;
         default:
           return -1;
       }
-    case 'SecureStorage':
+    case 'Storage':
       switch (methodName) {
         case 'setString':
           return 3;
         case 'getString':
           return 3;
+        case 'getStringOrNull':
+          return 2;
         case 'remove':
+          return 2;
+        case 'clear':
+          return 1;
+        case 'contains':
+          return 2;
+        case 'secureSetString':
+          return 3;
+        case 'secureGetString':
+          return 3;
+        case 'secureGetStringOrNull':
+          return 2;
+        case 'secureRemove':
           return 2;
         default:
           return -1;

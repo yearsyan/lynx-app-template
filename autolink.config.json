@@ -8,27 +8,18 @@
       "name": "audio-player"
     },
     {
-      "name": "back"
-    },
-    {
-      "name": "battery"
-    },
-    {
       "name": "biometric"
     },
     {
       "name": "clipboard"
     },
     {
-      "name": "device-info",
+      "name": "device",
       "requiredFor": [
         "android",
         "ios",
         "harmony"
       ]
-    },
-    {
-      "name": "display"
     },
     {
       "name": "file-system"
@@ -37,14 +28,24 @@
       "name": "haptics"
     },
     {
+      "name": "image-tooling"
+    },
+    {
       "name": "liquid-glass"
     },
     {
       "name": "local-notification"
     },
     {
-      "name": "mmkv",
-      "label": "MMKV"
+      "name": "navigation",
+      "requiredFor": [
+        "android",
+        "ios",
+        "harmony"
+      ]
+    },
+    {
+      "name": "network-info"
     },
     {
       "name": "permissions"
@@ -53,24 +54,16 @@
       "name": "pressable-view"
     },
     {
-      "name": "router",
-      "requiredFor": [
-        "android",
-        "ios",
-        "harmony"
-      ]
-    },
-    {
       "name": "scanner"
     },
     {
       "name": "screenshot"
     },
     {
-      "name": "secure-storage"
+      "name": "share"
     },
     {
-      "name": "sensors"
+      "name": "storage"
     },
     {
       "name": "toast"

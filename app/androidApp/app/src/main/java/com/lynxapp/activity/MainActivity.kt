@@ -1,109 +1,60 @@
 package com.lynxapp.activity
 
 import android.os.Bundle
-import android.util.Log
-import android.widget.FrameLayout
-import androidx.fragment.app.FragmentActivity
-import com.lynx.tasm.LynxView
-import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
-import com.lynxapp.autolink.deviceinfo.NativeEnvironmentBridge
 import com.lynxapp.DebugSettingsEntry
 import com.lynxapp.LynxBundleRepository
-import com.lynxapp.component.createLynxView
+import com.lynxapp.component.LoadingOverlay
+import com.lynxapp.deeplink.DeepLinkRouteResolver
 
-// Extends FragmentActivity (like LynxPageActivity) so the autolinked Back and
-// Biometric modules can use AndroidX lifecycle-aware host APIs.
-class MainActivity : FragmentActivity() {
-    private lateinit var lynxView: LynxView
-    private lateinit var bundleRepository: LynxBundleRepository
-    private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
-    private lateinit var root: FrameLayout
-    private var fellBackToEmbedded = false
+/**
+ * Root launcher route hosting the `main` bundle: a thin LynxPageActivity
+ * that states its route configuration instead of reading route extras, and
+ * applies a pending OTA update behind a loading overlay once the first
+ * render is under way. A `lynxapp://` VIEW intent instead feeds the standard
+ * route extras from the shared deep link config before the base class reads
+ * them, so a deep-linked root reuses the pushed-route init-data pipeline.
+ */
+class MainActivity : LynxPageActivity() {
+    internal override val isRootRoute = true
+
+    protected override val bundleName: String
+        get() = intent.getStringExtra(EXTRA_BUNDLE) ?: LynxBundleRepository.BUNDLE_NAME
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        applyDeepLinkExtras()
         super.onCreate(savedInstanceState)
-        DeviceSystemUI.enableEdgeToEdge(this)
-        bundleRepository = LynxBundleRepository(this)
-        lynxView = createLynxView(
-            bundleRepository,
-            LynxBundleRepository.BUNDLE_NAME,
-            onBundleLoadFailure = ::fallBackToEmbeddedBundle,
-        )
-        root = FrameLayout(this).apply {
-            addView(
-                lynxView,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
-            )
-        }
-        setContentView(root)
         DebugSettingsEntry.attach(this, root)
-        nativeEnvironmentBridge = NativeEnvironmentBridge(lynxView)
-        nativeEnvironmentBridge.attach(::loadInitialBundle)
     }
 
-    override fun onDestroy() {
-        nativeEnvironmentBridge.detach()
-        lynxView.destroy()
-        super.onDestroy()
+    /** Standard launch mode stacks a fresh root instance for warm deep links. */
+    private fun applyDeepLinkExtras() {
+        if (intent.hasExtra(EXTRA_BUNDLE)) return
+        val resolution = DeepLinkRouteResolver.resolve(applicationContext, intent.data) ?: return
+        intent.putExtra(EXTRA_BUNDLE, resolution.bundle)
+        intent.putExtra(EXTRA_PARAMS_JSON, resolution.paramsJson)
     }
 
-    private fun renderBundle(url: String) {
-        lynxView.renderTemplateUrl(url, nativeEnvironmentBridge.initialData())
-        nativeEnvironmentBridge.onTemplateLoadStarted()
-    }
-
-    // A dev server or OTA cache that cannot serve the bundle must not leave a
-    // white screen; render the embedded bundle instead. Runs at most once:
-    // if the embedded bundle itself fails, the error stays visible. The view
-    // is rebuilt because its LynxViewGroup is bound to the failed URL —
-    // re-rendering in place would refetch that URL instead of the fallback.
-    private fun fallBackToEmbeddedBundle() {
-        if (fellBackToEmbedded) return
-        fellBackToEmbedded = true
-        Log.w(TAG, "Startup bundle failed to load; falling back to the embedded bundle")
-
-        val embedded = bundleRepository.embeddedUrlForBundle(LynxBundleRepository.BUNDLE_NAME)
-        nativeEnvironmentBridge.detach()
-        root.removeView(lynxView)
-        lynxView.destroy()
-
-        lynxView = createLynxView(
-            bundleRepository,
-            LynxBundleRepository.BUNDLE_NAME,
-            groupUrl = embedded,
-        )
-        root.addView(
-            lynxView,
-            0,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            ),
-        )
-        nativeEnvironmentBridge = NativeEnvironmentBridge(lynxView)
-        nativeEnvironmentBridge.attach { renderBundle(embedded) }
-    }
-
-    private fun loadInitialBundle() {
-        renderBundle(bundleRepository.startupUrl())
-        bundleRepository.checkForUpdate { updated ->
-            if (updated) {
+    override fun onInitialBundleRendered() {
+        bundleRepository.runWhenManifestReady { hasManifest ->
+            if (!hasManifest) return@runWhenManifestReady
+            val update = bundleRepository.pendingUpdateFor(bundleName)
+                ?: return@runWhenManifestReady
+            runOnUiThread { LoadingOverlay.show(this, UPDATE_LOADING_TEXT) }
+            bundleRepository.download(update) { updated ->
                 runOnUiThread {
+                    LoadingOverlay.hide(this)
                     // The current view's group caches its parsed TemplateBundle
                     // for the group's lifetime, so re-rendering in place would
                     // reuse the pre-update bundle. Recreate the activity: the
                     // fresh view resolves the cache URL, joins a fresh group,
                     // and loads the verified update.
-                    recreate()
+                    if (updated && !isFinishing && !isDestroyed) recreate()
                 }
             }
         }
     }
 
     private companion object {
-        const val TAG = "MainActivity"
+        const val UPDATE_LOADING_TEXT = "正在更新…"
     }
 }

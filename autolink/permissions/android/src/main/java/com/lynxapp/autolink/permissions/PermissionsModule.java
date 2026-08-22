@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
@@ -87,27 +89,33 @@ public final class PermissionsModule extends LynxContextModule {
             return;
         }
 
-        final FragmentActivity activity = resolveFragmentActivity();
-        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
-            requestActive.set(false);
-            callback.invoke(errorResult(
-                    "Permissions prompts require the host activity to be a FragmentActivity"));
-            return;
-        }
-        final String[] permissions = androidPermissionsFor(type);
-        try {
-            PermissionPrompt.request(activity, permissions, result -> {
+        // The fragment transaction and ActivityResult launcher must run on the
+        // main thread; the Lynx JS thread posts the request, then resolves the
+        // host before touching FragmentActivity (mirrors BiometricModule).
+        Handler main = new Handler(Looper.getMainLooper());
+        main.post(() -> {
+            final FragmentActivity activity = resolveFragmentActivity();
+            if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
                 requestActive.set(false);
-                try {
-                    callback.invoke(stateResult(statusAfterRequest(type, result)));
-                } catch (Throwable error) {
-                    callback.invoke(errorResult(messageOf(error, "Unable to query the permission")));
-                }
-            });
-        } catch (Throwable error) {
-            requestActive.set(false);
-            callback.invoke(errorResult(messageOf(error, "Unable to show the permission prompt")));
-        }
+                callback.invoke(errorResult(
+                        "Permissions prompts require the host activity to be a FragmentActivity"));
+                return;
+            }
+            final String[] permissions = androidPermissionsFor(type);
+            try {
+                PermissionPrompt.request(activity, permissions, result -> {
+                    requestActive.set(false);
+                    try {
+                        callback.invoke(stateResult(statusAfterRequest(type, result)));
+                    } catch (Throwable error) {
+                        callback.invoke(errorResult(messageOf(error, "Unable to query the permission")));
+                    }
+                });
+            } catch (Throwable error) {
+                requestActive.set(false);
+                callback.invoke(errorResult(messageOf(error, "Unable to show the permission prompt")));
+            }
+        });
     }
 
     private String checkStatus(String type) {

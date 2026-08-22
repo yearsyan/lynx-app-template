@@ -1,7 +1,10 @@
 import { useCallback, useState } from '@lynx-js/react';
-import { statusBar } from '@lynx-template/autolink-device-info';
-import { display } from '@lynx-template/autolink-display';
+import { display, statusBar } from '@lynx-template/autolink-device';
 import { localNotification } from '@lynx-template/autolink-local-notification';
+import {
+  type PermissionStatus,
+  permissions,
+} from '@lynx-template/autolink-permissions';
 import { toast } from '@lynx-template/autolink-toast';
 
 import {
@@ -10,6 +13,14 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+
+const PERMISSION_STATUS_TEXT: Record<PermissionStatus, string> = {
+  granted: '已授权',
+  limited: '部分授权',
+  denied: '已拒绝',
+  notDetermined: '未请求',
+  restricted: '受系统限制',
+};
 
 export function ToastPage() {
   const [result, setResult] = useState<string | null>(null);
@@ -160,24 +171,26 @@ export function LocalNotificationPage() {
       .catch((error: Error) => setResult(`${label} · ${error.message}`));
   }, []);
 
+  /** Ensures the notification permission is granted before posting. */
   const notify = useCallback(
     (delayMs: number) => {
       'background only';
-      run(delayMs === 0 ? '立即通知' : '5 秒定时', () =>
-        localNotification
-          .notify({
-            id: `demo-${delayMs}`,
-            title: delayMs === 0 ? 'Lynx 本地通知' : 'Lynx 定时通知',
-            body:
-              delayMs === 0
-                ? '来自 LocalNotification 模块的即时通知。'
-                : '这条通知在 5 秒前由 AlarmManager / 系统触发器排期。',
-            delayMs,
-          })
-          .then((outcome) =>
-            outcome.success ? '已发送（或已排期）' : outcome.code,
-          ),
-      );
+      run(delayMs === 0 ? '立即通知' : '5 秒定时', async () => {
+        const state = await permissions.request('notifications');
+        if (state.status !== 'granted' && state.status !== 'limited') {
+          return `未获得通知权限（${PERMISSION_STATUS_TEXT[state.status]}）`;
+        }
+        const outcome = await localNotification.notify({
+          id: `demo-${delayMs}`,
+          title: delayMs === 0 ? 'Lynx 本地通知' : 'Lynx 定时通知',
+          body:
+            delayMs === 0
+              ? '来自 LocalNotification 模块的即时通知。'
+              : '这条通知在 5 秒前由 AlarmManager / 系统触发器排期。',
+          delayMs,
+        });
+        return outcome.success ? '已发送（或已排期）' : outcome.code;
+      });
     },
     [run],
   );
@@ -209,10 +222,7 @@ export function LocalNotificationPage() {
             )
           }
         />
-        <ResultLine
-          text={result}
-          placeholder="先在「运行时权限」页申请通知权限"
-        />
+        <ResultLine text={result} placeholder="点击发送时自动申请通知权限" />
       </DemoCard>
     </view>
   );

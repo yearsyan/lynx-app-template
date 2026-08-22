@@ -1,6 +1,7 @@
 #import "ScreenshotModule.h"
 
 #import <Lynx/LynxContext.h>
+#import <Lynx/LynxUI.h>
 #import <Lynx/LynxView.h>
 #import <UIKit/UIKit.h>
 
@@ -64,16 +65,31 @@ static const NSUInteger kMaxFileNameLength = 120;
       callback([self errorJSON:@"LynxView is not attached yet"]);
       return;
     }
-    UIView *target = lynxView;
     if (request.idSelector.length > 0) {
-      target = [lynxView viewWithIdSelector:request.idSelector];
-    }
-    if (target == nil) {
-      callback([self errorJSON:[NSString
-          stringWithFormat:@"No view matches idSelector: %@", request.idSelector]]);
+      LynxUI *targetUI = [lynxView uiWithIdSelector:request.idSelector];
+      if (targetUI == nil) {
+        callback([self errorJSON:[NSString
+            stringWithFormat:@"No view matches idSelector: %@", request.idSelector]]);
+        return;
+      }
+      // A Lynx element's UIView can be only a layout carrier while its pixels
+      // are composited by an ancestor. Snapshot the rendered LynxView and crop
+      // with LynxUI geometry so those elements do not produce blank images.
+      CGRect targetRect = CGRectIntersection(
+          [targetUI getBoundingClientRect],
+          CGRectMake(0, 0, lynxView.bounds.size.width, lynxView.bounds.size.height));
+      if (CGRectIsNull(targetRect) || CGRectIsEmpty(targetRect) ||
+          CGRectIsInfinite(targetRect)) {
+        callback([self errorJSON:@"Screenshot target has not been laid out yet"]);
+        return;
+      }
+      [self saveSnapshotOfView:lynxView
+                      cropRect:targetRect
+                       request:request
+                      callback:callback];
       return;
     }
-    [self saveSnapshotOfView:target request:request callback:callback];
+    [self saveSnapshotOfView:lynxView request:request callback:callback];
   });
 }
 
@@ -99,6 +115,16 @@ static const NSUInteger kMaxFileNameLength = 120;
 - (void)saveSnapshotOfView:(UIView *)view
                    request:(LynxScreenshotRequest *)request
                   callback:(LynxCallbackBlock)callback {
+  [self saveSnapshotOfView:view
+                  cropRect:CGRectNull
+                   request:request
+                  callback:callback];
+}
+
+- (void)saveSnapshotOfView:(UIView *)view
+                  cropRect:(CGRect)cropRect
+                   request:(LynxScreenshotRequest *)request
+                  callback:(LynxCallbackBlock)callback {
   if (view.bounds.size.width <= 0 || view.bounds.size.height <= 0) {
     callback([self errorJSON:@"Screenshot target has not been laid out yet"]);
     return;
@@ -107,6 +133,13 @@ static const NSUInteger kMaxFileNameLength = 120;
   if (image == nil) {
     callback([self errorJSON:@"Unable to render the screenshot target"]);
     return;
+  }
+  if (!CGRectIsNull(cropRect)) {
+    image = [self image:image croppedToRectInPoints:cropRect];
+    if (image == nil) {
+      callback([self errorJSON:@"Unable to crop the screenshot target"]);
+      return;
+    }
   }
   dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
     NSError *writeError = nil;
@@ -138,6 +171,36 @@ static const NSUInteger kMaxFileNameLength = 120;
       [view.layer renderInContext:context.CGContext];
     }
   }];
+}
+
+- (nullable UIImage *)image:(UIImage *)image croppedToRectInPoints:(CGRect)rect {
+  CGImageRef source = image.CGImage;
+  if (source == nil || image.scale <= 0) {
+    return nil;
+  }
+  CGFloat scale = image.scale;
+  CGRect pixelRect = CGRectIntegral(CGRectMake(rect.origin.x * scale,
+                                               rect.origin.y * scale,
+                                               rect.size.width * scale,
+                                               rect.size.height * scale));
+  CGRect pixelBounds = CGRectMake(0,
+                                  0,
+                                  (CGFloat)CGImageGetWidth(source),
+                                  (CGFloat)CGImageGetHeight(source));
+  pixelRect = CGRectIntersection(pixelRect, pixelBounds);
+  if (CGRectIsNull(pixelRect) || CGRectIsEmpty(pixelRect) ||
+      CGRectIsInfinite(pixelRect)) {
+    return nil;
+  }
+  CGImageRef cropped = CGImageCreateWithImageInRect(source, pixelRect);
+  if (cropped == nil) {
+    return nil;
+  }
+  UIImage *result = [UIImage imageWithCGImage:cropped
+                                        scale:scale
+                                  orientation:image.imageOrientation];
+  CGImageRelease(cropped);
+  return result;
 }
 
 - (nullable NSURL *)writeImage:(UIImage *)image

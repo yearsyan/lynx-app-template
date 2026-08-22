@@ -7,35 +7,36 @@
 生命周期；需要 React 的能力通过包内 `/react` 子路径导出 hooks。每个包的
 `bridge.generated.ts` 按 facade 的实际使用情况生成该模块专用的 resolver、callback 转
 Promise 和结构化值/旧 JSON 兼容解码，不依赖中心 runtime 或 host facade。Back 的原生
-实现、事件校验、Promise facade、拦截栈与 React hook 也全部位于 `autolink/back`。
+实现、事件校验、Promise facade、拦截栈与 React hook 与 Router 一起位于
+`autolink/navigation`。
 Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
 
-- `KV`：以 MMKV 保存字符串；JSON 编解码由共享 TypeScript 层完成；
-- `Router`：打开另一个 bundle 对应的原生页面，或关闭当前页面；
-- `Back`：让当前 Lynx 页面同步声明是否接管系统返回，并接收返回生命周期事件；
+- `Storage`：一个模块承载两个后端——`kv` 以共享 MMKV 保存字符串（JSON 编解码由共享 TypeScript 层完成）；`secureStorage` 面向小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
+- `Navigation`：打开另一个 bundle 对应的原生页面、关闭当前页面或打开系统 URL，同时让当前 Lynx 页面同步声明是否接管系统返回并接收返回生命周期事件；
 - `Clipboard`：读写系统剪贴板纯文本；
 - `Haptics`：单击式震动反馈，分 light / medium / heavy 三档；
 - `Biometric`：静默查询生物识别（指纹 / 面容）可用性，并拉起系统认证弹窗，可选降级到锁屏凭证；
 - `AlbumUtils`：从系统相册选择一张或多张图片，或把图片 URI 保存回系统相册；
 - `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64，并在缓存沙箱内写入 / 删除 / 列举文件；
-- `DeviceInfo`：按需读取机型、OS/App 版本、密度、locale、平板/折叠屏与当前安全区，并负责状态栏前景样式；TypeScript 仍提供易用的 `deviceInfo`、`safeArea`、`statusBar` facade；
-- `Battery`：按需读取电量（0..1，读不到时为 null）与充电状态；
+- `Device`：按需读取机型、OS/App 版本、密度、locale、平板/折叠屏与当前安全区，负责状态栏前景样式，读取电量（0..1，读不到时为 null）与充电状态，查询屏幕/窗口/LynxView 宽度（统一为 Lynx 逻辑像素）、窗口亮度与屏幕常亮，并提供加速度计与罗盘（磁北方位角）流式读数（经 `GlobalEventEmitter` 事件回传，监听计数归零自动停流）；TypeScript 提供 `deviceInfo`、`safeArea`、`statusBar`、`display`、`battery`、`sensors` facade；
 - `Toast`：一次性原生轻提示（info / success / error），替代 bundle 内自绘的 `<ToastHost />` 组件；
-- `Display`：按需查询屏幕宽度、当前窗口宽度与当前 LynxView 宽度（统一为 Lynx 逻辑像素），以及窗口亮度读取/设置与屏幕常亮；
-- `Sensors`：加速度计与罗盘（磁北方位角）流式读数，经 `GlobalEventEmitter` 事件回传，监听计数归零自动停流；
+- `NetworkInfo`：按需查询当前网络类型（wifi / cellular / ethernet / other / none），变化经 `networkInfo` 事件回传；
+- `ImageTooling`：读取图片元数据，完成缩放、单区域裁剪、横拼/竖拼/图层叠加，并读取、修改或清除 EXIF/GPS；位图不经过 JS 通道；
 - `WebSocket`：提供不依赖 DevTool 的长连接、文本/二进制收发和生命周期事件；
 - `Screenshot`：把整个 LynxView、某个元素或当前原生页面截为 PNG/JPEG 写入应用缓存目录；
+- `Share`：调起系统分享面板发送文本、链接与本地文件（截图 / 相册 / 文件产物）；
 - `Scanner`：拉起全屏扫码页识别 QR / 条形码，并支持对相册图片本地识码；
 - `AudioPlayer`：播放本地音频文件（`file://` / Android `content://`），按 `media` / `ambient` / `alarm` / `notification` 四种流路由音量键与音频焦点，进度与状态经 `audioPlayer` 事件回传；
-- `SecureStorage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
-`Router`、`WebSocket`、`KV`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
-`Biometric`、`DeviceInfo`、`Battery`、`Display`、`Sensors`、`Screenshot`、`Scanner`、
-`AudioPlayer`、`SecureStorage`、`Toast` 与 `Back` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
+- `Storage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
+`Navigation`、`WebSocket`、`Storage`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
+`Biometric`、`Device`、`NetworkInfo`、`ImageTooling`、`Screenshot`、`Scanner`、
+`AudioPlayer`、`Toast` 与 `Share` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
 （见下文「Lynx Autolink 集成」）。HarmonyOS 使用 4.2 nightly 的官方 Hvigor Autolink
-（源码 HAR + 全局 Registry + AppStartup）。HarmonyOS 的 Back 模块仍由 Autolink 注册，
+（源码 HAR + 全局 Registry + AppStartup）。HarmonyOS 的 Back 能力由 Autolink 注册的
+Navigation 模块承载，
 宿主只将 ArkUI 的离散 `onBackPress` 与 route registration 通过 `LynxContext.contextData`
-接到包内控制器。`DeviceInfoRegistration` 同样逐 `LynxView` 接入安全区监听和路由状态栏
-状态，但模块类与系统 API 实现都属于 `autolink/device-info`。Router 的 ArkUI 导航策略
+接到包内控制器。`DeviceRegistration` 同样逐 `LynxView` 接入安全区监听和路由状态栏
+状态，但模块类与系统 API 实现都属于 `autolink/device`。Navigation 的 ArkUI 导航策略
 留在宿主，通过 contextData 注入，不参与模块注册。
 
 三个平台都使用 MMKV ID `lynx.native.kv`。同一 App 内的所有 bundle 共享这个实例，但不同平台、不同设备之间不会自动同步数据。
@@ -43,11 +44,12 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 ### 契约来源与分层
 
 每个 Autolink NativeModule 的原始调用签名定义在所属包的
-`types/platform-native-module.d.ts`，例如 `KV` 位于
-`autolink/mmkv/types/platform-native-module.d.ts`。声明类本身就是 JS 侧的原始类型，
-不再在聚合包里复制一遍方法签名。Back 的声明位于
-`autolink/back/types/platform-native-module.d.ts`；StatusBar 与 SafeArea 的声明位于
-`autolink/device-info/types/platform-native-module.d.ts`。仓库不再需要 `lib/native-host`。
+`types/platform-native-module.d.ts`，例如 `Storage` 位于
+`autolink/storage/types/platform-native-module.d.ts`（KV 原语与 `secure` 前缀的机密原语在同一声明中）。声明类本身就是 JS 侧的原始类型，
+不再在聚合包里复制一遍方法签名。路由与 Back 的声明位于
+`autolink/navigation/types/platform-native-module.d.ts`；设备、StatusBar、SafeArea、
+电量、显示与传感器的声明位于
+`autolink/device/types/platform-native-module.d.ts`。仓库不再需要 `lib/native-host`。
 
 `contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
 映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
@@ -77,12 +79,12 @@ NativeModule 可直接传输的对象/数组；尚未迁移的三端实现可以
 
 ```tsx
 import { albumUtils } from '@lynx-template/autolink-album-utils';
-import { backStack } from '@lynx-template/autolink-back';
-import { battery } from '@lynx-template/autolink-battery';
-import { statusBar } from '@lynx-template/autolink-device-info';
+import { backStack } from '@lynx-template/autolink-navigation';
+import { battery } from '@lynx-template/autolink-device';
+import { statusBar } from '@lynx-template/autolink-device';
 import { fileSystem } from '@lynx-template/autolink-file-system';
-import { kv } from '@lynx-template/autolink-mmkv';
-import { router } from '@lynx-template/autolink-router';
+import { kv } from '@lynx-template/autolink-storage';
+import { router } from '@lynx-template/autolink-navigation';
 
 async function saveSession() {
   'background only';
@@ -119,9 +121,8 @@ async function openSheet() {
 async function openExternalPage() {
   'background only';
   // The system resolves the scheme: any installed app that registered it can
-  // handle the URL, including this app's own `lynxapp://` pages.
+  // handle the URL.
   await router.openURL('weixin://');
-  await router.openURL('lynxapp://main');
 }
 
 async function selectAttachments() {
@@ -136,7 +137,7 @@ async function selectAttachments() {
 
 Lynx NativeModules 在后台线程使用，因此直接或间接访问它们的函数要包含 `'background only'`。共享封装把原生 callback 转为 Promise，并在原生返回非空错误字符串时 reject。
 
-### KV 能力
+### kv 能力（Storage 模块）
 
 | 方法 | 说明 |
 | --- | --- |
@@ -150,7 +151,7 @@ Lynx NativeModules 在后台线程使用，因此直接或间接访问它们的�
 
 当前契约刻意保持为字符串原语，不包含二进制、大对象、跨设备同步或事务。业务需要命名空间时，应在 key 前增加 bundle 或业务前缀。
 
-### SecureStorage 能力
+### secureStorage 能力（Storage 模块）
 
 | 方法 | 说明 |
 | --- | --- |
@@ -158,13 +159,13 @@ Lynx NativeModules 在后台线程使用，因此直接或间接访问它们的�
 | `getString(key, defaultValue?)` | 读取并解密；缺失（或校验失败，见下文）时返回默认值或 `null` |
 | `remove(key)` | 删除一个键（键不存在同样视为成功） |
 
-`SecureStorage` 面向 token、会话凭证等小型机密数据，value 上限 65536 字符；三端实现：
+`secureStorage`（Storage 模块的 `secure` 前缀方法）面向 token、会话凭证等小型机密数据，value 上限 65536 字符；三端实现：
 
-- **Android**（`autolink/secure-storage`）：AES-256-GCM 密钥保存在 AndroidKeyStore 中且不可导出，落盘的只有随机 IV 与密文（应用私有 `SharedPreferences`）；
-- **iOS**（`autolink/secure-storage`）：Keychain 通用密码条目（`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`，不随备份迁移到其他设备）；
-- **HarmonyOS**（宿主 `native/SecureStorageModule.ets`）：AES-256-GCM 密钥保存在 HUKS 中，密文存放在专用 MMKV 实例 `lynx.secure.storage`。
+- **Android**（`autolink/storage`）：AES-256-GCM 密钥保存在 AndroidKeyStore 中且不可导出，落盘的只有随机 IV 与密文（应用私有 `SharedPreferences`）；
+- **iOS**（`autolink/storage`）：Keychain 通用密码条目（`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`，不随备份迁移到其他设备）；
+- **HarmonyOS**（`autolink/storage` HAR）：AES-256-GCM 密钥保存在 HUKS 中，密文存放在专用 MMKV 实例 `lynx.secure.storage`。
 
-与 `KV` 不同，数据不跨平台、不跨设备同步。密文被篡改或系统密钥被清除时，
+与 `kv` 不同，数据不跨平台、不跨设备同步。密文被篡改或系统密钥被清除时，
 GCM 校验失败，`getString` 按缺失处理并返回默认值；`remove` 与 KV 一致（幂等）。
 存放结构化机密时仍由调用方自行 JSON 编解码。
 
@@ -203,16 +204,16 @@ interface RouteOptions {
 }
 ```
 
-页面调用 `router.close()` 返回上一层；根页面不会被关闭，并会返回错误。
+页面调用 `router.close()` 返回上一层。根路由上 Android/Harmony 宿主会把应用
+退到后台（Android `moveTaskToBack`、Harmony `moveAbilityToBackground`，保留
+任务栈，再次进入即时恢复）；iOS 宿主则返回「根路由不可关闭」错误。
 
 ### 系统路由
 
 `router.openURL(url)` 把 URL 交给操作系统解析：注册了该 scheme 的任意 App
-都可以响应（`weixin://`、`imeituan://`、`alipay://xxx`、`https://…`），
-当前 App 自己注册的 scheme 也会命中（本模板注册了 `lynxapp://main`，
-`bundle/main` 的 "System URL" 卡片演示了这一用法）。没有 App 能处理时
-Promise 会以宿主错误消息 reject。共享层要求 URL 非空、声明 scheme 且
-不含首尾空白，并拒绝 `javascript:` 与 `data:`。
+都可以响应（`weixin://`、`imeituan://`、`alipay://xxx`、`https://…`）。没有
+App 能处理时 Promise 会以宿主错误消息 reject。共享层要求 URL 非空、声明
+scheme 且不含首尾空白，并拒绝 `javascript:` 与 `data:`。
 
 三端实现：Android 用 `ACTION_VIEW` 隐式 Intent（直接 `startActivity` 不受
 Android 11+ 包可见性限制，无需 `<queries>`；只有 `resolveActivity` 之类的
@@ -222,6 +223,50 @@ Android 11+ 包可见性限制，无需 `<queries>`；只有 `resolveActivity` �
 `AndroidManifest.xml` 里给目标 Activity 加 `VIEW`/`BROWSABLE` intent-filter，
 iOS 在 `Info.plist` 声明 `CFBundleURLTypes`，HarmonyOS 在 `module.json5`
 的 ability `skills` 里声明 `uris.scheme`。
+
+外部打进来的 `lynxapp://www.lynxjs.org/<path>?<query>` 深链由三端共同接收。
+唯一配置处是 `contracts/deeplinks.json`：
+
+```json
+{
+  "schemaVersion": 1,
+  "scheme": "lynxapp",
+  "host": "www.lynxjs.org",
+  "defaultBundle": "main",
+  "routes": [
+    { "path": "/", "bundle": "main" },
+    { "path": "/networkinfo", "bundle": "main", "params": { "page": "networkinfo" } }
+  ]
+}
+```
+
+`pnpm native:sync`（包含在 `pnpm build:lynx` 中）校验该文件（scheme/host
+格式、path 唯一、映射的 bundle 必须存在于 workspace）并把它分发到三端资源
+目录（Android `assets/lynxbundle/`、iOS `lynxbundle/`、HarmonyOS
+`rawfile/lynxbundle/`），与 `lynx-bundles.json` 并列；三端宿主运行时读取
+同一份映射。解析规则：host 必须与配置一致，path 精确匹配路由表映射到目标
+bundle；路由条目可携带静态 `params`，与 URL query 合并（query 优先）；最终
+参数注入页面的 `route.params`，与 Navigation 推送页的 init data 结构一致——
+`lynxapp://www.lynxjs.org/networkinfo?a=1` 打开 `main` bundle 且
+`useRouteParams()` 返回 `{ a: '1', page: 'networkinfo' }`。host 或 path 未
+命中时回退 `defaultBundle` 首页（无参数）；其他 scheme 不属于本应用。
+
+三端捕获与消费：Android 在 `AndroidManifest.xml` 注册 `VIEW`/`BROWSABLE`
+intent-filter（scheme 取自同一配置，经 Gradle `manifestPlaceholders` 注入），
+`MainActivity` 在创建前把解析结果写入标准路由 extras；iOS 在 `Info.plist`
+声明 `CFBundleURLTypes`（系统只能按 scheme 级捕获，host 校验在
+`SceneDelegate` 内按配置执行）；HarmonyOS 在 `module.json5` 的 `skills`
+声明 scheme，`EntryAbility` 的 `onCreate`/`onNewWant` 解析 Want URI。冷启动
+时深链页作为根页面打开；应用已在前台时（热深链）三端统一叠加新页面
+（Android 新 Activity 实例入栈、iOS push、HarmonyOS push NavDestination），
+返回键回到进入前的状态。自定义 scheme 没有所有权验证，其他 App 也能注册
+`lynxapp`，冲突时 Android 弹选择框、iOS 行为未定义。
+
+调试入口：`adb shell am start -a android.intent.action.VIEW -d
+"lynxapp://www.lynxjs.org/networkinfo?a=1"`、`xcrun simctl openurl
+"lynxapp://www.lynxjs.org/networkinfo"`、`hdc shell aa start -U
+"lynxapp://www.lynxjs.org/networkinfo"`。旧的 `lynxapp://<bundle>?<query>`
+格式（host 即 bundle 名）已移除，此类链接现在按未命中回退首页。
 
 ### 状态栏样式
 
@@ -557,6 +602,49 @@ HarmonyOS 额外报告系统特有的 `multifunctional`，iOS 按系统行为把
 HarmonyOS 的用户取消以 Scan Kit 错误码 `1000500002`
 （`scanCore.ScanErrorCode.SCAN_SERVICE_CANCELED`）识别并映射为 `userCancel`。
 
+### 系统分享
+
+`Share` 调起系统分享面板发送纯文本、链接与本地文件（`screenshot.capture`、
+`fileSystem.copyToCache` 或 `albumUtils.pick` 的产物），取消是正常业务分支：
+
+```ts
+import { share } from '@lynx-template/autolink-share';
+
+const outcome = await share.open({
+  title: 'Lynx 截图',                 // 邮件类目标的主题 / 面板标题
+  text: '来自 Lynx Template 的分享',  // 纯文本，≤10000 字符
+  url: 'https://lynxjs.org',          // 链接：必须带 scheme，拒绝 javascript:/data:
+});
+// { success, code: 'sent' | 'dismissed' | 'busy', activityType, message }
+
+const shot = await screenshot.capture({ format: 'jpeg' });
+await share.open({ files: [shot.uri] }); // files 接受 1-9 个本地 URI
+```
+
+`text` / `url` / `files` 至少一项非空，否则共享层直接抛错；`files` 只接受
+`file://`（Android 另接受 Picker 的 `content://`），`http(s)://` 会被拒绝并提示
+先经网络层下载——与 `audioPlayer` 的“仅本地”原则一致。Android 没有独立的链接
+字段，`url` 合并进 `EXTRA_TEXT`；iOS 把文本、链接与文件作为独立 activity item；
+HarmonyOS 的链接以 `HYPERLINK` 记录分享（`text` 作为描述），与文件混合时链接
+降级忽略（记录类型不可混）。
+
+**结果保真度三端不同**，`success` 恒等于 `code === 'sent'`：
+
+| code | Android | iOS | HarmonyOS |
+| --- | --- | --- | --- |
+| `sent` | 用户在 chooser 选中目标（`EXTRA_CHOSEN_COMPONENT`，`activityType` = 目标包名） | `completed = true`（`activityType` = `UIActivityType`） | 面板正常关闭即 resolve `sent`：Share Kit 只有 `dismiss` 事件，不区分送达与取消 |
+| `dismissed` | chooser 未选中即关闭（best-effort：宿主 Activity resume 后的宽限窗口内仍无选中广播；平台本身不上报取消） | `completed = false` | 不产生 |
+| `busy` | 同一页面已有进行中的分享，三端一致 | 同左 | 同左 |
+
+参数非法、无宿主 Activity/窗口、面板拉不起来才 reject。同一页面同时只允许一个
+进行中的分享。
+
+| 平台 | 实现 |
+| --- | --- |
+| Android | `ACTION_SEND` / `ACTION_SEND_MULTIPLE` + `Intent.createChooser`（携带 chosen-component PendingIntent，API 22+）；沙箱 `file://` 经库内 FileProvider（`${applicationId}.lynx.share.fileprovider`，暴露 cache/files 根）转 content URI，Picker `content://` 直传；`ClipData` + `FLAG_GRANT_READ_URI_PERMISSION` 给目标应用临时读授权 |
+| iOS | `UIActivityViewController`，从 LynxView 顶层 VC present；iPad 以无箭头 popover 锚定 LynxView 中心；`title` 经 KVC `subject` 传给邮件类目标 |
+| HarmonyOS | Share Kit `systemShare.SharedData` + `ShareController.show`（`PLAIN_TEXT` / `HYPERLINK` / 按文件后缀映射的 UTD 记录，多文件 `BATCH` 选择）；面板运行在系统侧，无需权限；文件须在应用沙箱内（Picker URI 先 `fileSystem.copyToCache`） |
+
 ### 音频播放
 
 `AudioPlayer` 播放本地音频文件，「选择 → 播放」的标准管线是 `fileSystem.pick()`
@@ -666,19 +754,112 @@ JPEG 输出先合成白色底（JPEG 没有透明通道）；视图绘制在主�
 IO 在后台线程完成。目标未布局（宽高为 0）、`idSelector` 无匹配或 LynxView 尚未
 attach 时 reject。
 
+### 图片工具
+
+`ImageTooling` 提供图片信息、缩放、单区域裁剪、多图拼接/叠加与 EXIF 管理。输入是
+`albumUtils.pick()`、`fileSystem` 或 `screenshot` 产出的平台图片 URI，位图不经过 JS bridge：
+
+```ts
+import { imageTooling } from '@lynx-template/autolink-image-tooling';
+
+const info = await imageTooling.info(uri);
+// { width, height, mimeType, sizeBytes }（尺寸已应用 EXIF 方向）
+
+const result = await imageTooling.compress({
+  uri,
+  maxWidth: 1024,
+  maxHeight: 1024, // 等比缩到矩形框内，不放大小图；两个都省略时按原尺寸重编码
+  quality: 80,     // 仅 JPEG 使用，1-100，默认 80
+  format: 'jpeg',  // 或 'png'（保留透明通道，忽略 quality）
+});
+// { uri: 'file:///…/LynxImages/<uuid>-compressed.jpg', width, height, sizeBytes }
+
+// 坐标基于应用 EXIF 方向后的显示像素；裁剪后再按 maxWidth/maxHeight 等比缩小。
+const crop = await imageTooling.crop({
+  uri,
+  x: 100,
+  y: 60,
+  width: 640,
+  height: 480,
+  maxWidth: 320,
+  maxHeight: 320,
+  format: 'png',
+});
+
+const row = await imageTooling.compose({
+  images: [uri, crop.uri],
+  layout: 'horizontal', // 也可为 vertical
+  spacing: 12,
+  maxWidth: 1200,
+  maxHeight: 800,
+});
+
+const overlay = await imageTooling.compose({
+  images: [uri, { uri: crop.uri, x: 24, y: 24, opacity: 0.7 }],
+  layout: 'overlay',
+  maxWidth: 1024,
+  maxHeight: 1024,
+  format: 'png',
+});
+
+const exif = await imageTooling.readExif(uri);
+// { tags: { Make, Model, DateTimeOriginal, ... }, gps: { latitude, longitude, altitude? } | null }
+
+const tagged = await imageTooling.writeExif({
+  uri,
+  tags: { Software: 'lynx-template', ImageDescription: 'processed' },
+  gps: { latitude: 1.23, longitude: 103.45 },
+});
+
+// null 删除单个字段；gps: null 删除完整 GPS 分区。源文件不会被原地修改。
+const privateCopy = await imageTooling.writeExif({
+  uri: tagged.uri,
+  tags: { ImageDescription: null },
+  gps: null,
+});
+
+// 重新编码正向像素，删除全部 EXIF/GPS。
+const scrubbed = await imageTooling.removeExif({ uri: privateCopy.uri });
+```
+
+横拼按从左到右、顶部对齐，竖拼按从上到下、左侧对齐；叠加模式以 `(0, 0)` 为画布
+原点，后面的图层覆盖前面的图层。`maxWidth` / `maxHeight` 作用于完整裁剪结果或完整拼图，
+始终保持比例且不放大小图。一次拼图允许 1-16 张图片。
+
+`readExif()` 将 GPS 统一返回为有符号十进制度数。`writeExif()` 保持源编码与未修改的元数据，
+在缓存里生成副本；tag 的 `null` 删除该 tag，`gps: null` 删除全部 GPS 字段。
+`removeExif()` 则通过解码/重编码删除全部 EXIF/GPS，像素方向会被固定为正向。跨端支持的
+tag 白名单由包导出的 `EXIF_TAGS` 给出，包括 Orientation、相机/镜头、拍摄时间、曝光参数、
+描述、作者与版权等字段。GPS 属于敏感信息，对外分享前可优先调用 `gps: null` 或
+`removeExif()`。
+
+所有写操作都在与 Screenshot 相同的缓存目录（`<cache>/LynxImages/`）创建新文件，源 URI
+不会被原地修改；产物可以直接渲染、交给 `fileSystem` 读取或用
+`albumUtils.saveToAlbum` 存回相册。JPEG 输出把透明像素显式合成到白底；超过 50 MP 的
+输入/输出或单边超过 16,384 px 的输出会 reject。Android 接受 `content://` / `file://`，
+iOS 接受 `file://`；HarmonyOS 可读 Picker/file URI，但 EXIF 修改要求 `file://`。
+该模块不新增任何权限。
+
+| 平台 | 实现 |
+| --- | --- |
+| Android | `BitmapFactory` / `Canvas` + AndroidX `ExifInterface`；`ContentResolver` 读取 `content://` / `file://` |
+| iOS | ImageIO 读取方向/元数据与写 EXIF，UIKit 裁剪、合成和 JPEG/PNG 编码；仅 `file://` |
+| HarmonyOS | ImageKit `ImageSource` / `PixelMap` / `ImagePacker`；Picker 与 `file://` URI，EXIF 修改仅 `file://` |
+
 ### 设备信息、显示宽度与亮度
 
-`DeviceInfo` 返回设备与应用事实，也按需读取当前安全区和设置状态栏；`Display` 提供三种
+`Device` 的 `deviceInfo` 返回设备与应用事实，也按需读取当前安全区和设置状态栏；
+`display` 提供三种
 宽度与亮度/常亮控制。按需 API 都在调用时现查，旋转、折叠/展开、多窗口拖拽与配置变更后
 立即反映最新值：
 
 ```ts
 import {
   deviceInfo,
+  display,
   safeArea,
   statusBar,
-} from '@lynx-template/autolink-device-info';
-import { display } from '@lynx-template/autolink-display';
+} from '@lynx-template/autolink-device';
 
 const info = await deviceInfo.getInfo();
 // { model, manufacturer, osVersion, osApiLevel, appVersion, appBuild,
@@ -819,10 +1000,10 @@ HarmonyOS 的延迟通知是进程内定时器，**不保证跨进程存活**，
 
 ### 电量
 
-`Battery` 按需读取当前电量与充电状态，三端均免权限：
+`Device` 的 `battery` 按需读取当前电量与充电状态，三端均免权限：
 
 ```ts
-import { battery } from '@lynx-template/autolink-battery';
+import { battery } from '@lynx-template/autolink-device';
 
 const info = await battery.getInfo();
 // { level: 0.85, charging: true }
@@ -840,14 +1021,14 @@ const info = await battery.getInfo();
 
 ### 传感器（加速度计 / 罗盘）
 
-`Sensors` 以「命令 + 事件」模型提供流式传感器读数，与 `WebSocket` 一致：契约方法
+`Device` 的 `sensors` 以「命令 + 事件」模型提供流式传感器读数，与 `WebSocket` 一致：契约方法
 只有 `isAvailable` / `start` / `stop`（error-string ack），读数经 Lynx
 `GlobalEventEmitter` 的 `sensors` 事件回传。共享层 `sensors.observe()` 按类型做
 监听引用计数——第一个监听者出现时调用原生 `start`，最后一个取消时调用 `stop`，
 业务不需要手动管理传感器开关：
 
 ```ts
-import { sensors } from '@lynx-template/autolink-sensors';
+import { sensors } from '@lynx-template/autolink-device';
 
 if (await sensors.available('compass')) {
   const stop = sensors.observe(
@@ -883,18 +1064,48 @@ if (await sensors.available('compass')) {
 `destroy()` 反注册、iOS `-destroy`、HarmonyOS 模块挂载的 `LynxViewClient.onDestroy()`
 只移除该实例的 sensor callbacks）。
 
+### 网络状态
+
+`NetworkInfo` 提供按需查询与变化监听两级 API，与 `Device` 的 `sensors` 同一「命令 + 事件」模型：
+第一个监听者注册原生监听并立即回推当前快照，最后一个取消时移除；能力回调可能因
+信号强度变化频繁触发，三端都会按（connected, type, cellularGeneration）去重，只有
+真实切换才产生事件：
+
+```ts
+import { networkInfo } from '@lynx-template/autolink-network-info';
+
+const snapshot = await networkInfo.getInfo();
+// { connected: true, type: 'wifi', cellularGeneration: null, timestamp: … }
+
+const stop = networkInfo.observe((next) => {
+  'background only';
+  // next 与 getInfo 同一结构；type 为 wifi / cellular / ethernet / other / none / unknown
+});
+```
+
+`cellularGeneration`（`'2g' | '3g' | '4g' | '5g' | null`）是尽力而为的附加信息：
+Android 只有宿主持有 `READ_PHONE_STATE`（本模板未声明）才能上报；iOS 依赖已被系统
+标记废弃（但仍在工作）的 `CTTelephonyNetworkInfo`，模拟器与无基带设备为 `null`；
+HarmonyOS 无免权限的制式查询，恒为 `null`。业务文案不应依赖该字段。
+
+| 平台 | 实现 | 权限 |
+| --- | --- | --- |
+| Android | `ConnectivityManager` 当前网络 + `registerDefaultNetworkCallback` | `ACCESS_NETWORK_STATE`（normal，库 manifest 声明并合并） |
+| iOS | 常驻 `NWPathMonitor` + `CTTelephonyNetworkInfo` 制式映射 | 免权限 |
+| HarmonyOS | `@kit.NetworkKit` `connection`：`getAllNetsSync`/`getNetCapabilitiesSync` + `createNetConnection` 事件 | `ohos.permission.GET_NETWORK_INFO`（system_grant，已在宿主声明） |
+
 ### React hooks
 
 React 相关入口按需拆分，避免普通 Promise API 强制依赖 React：
 
-- `@lynx-template/autolink-router/react#useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失字段为 `undefined`，使用前自行校验）；
-- `@lynx-template/autolink-back/react#usePredictiveBackOverlay(initiallyOpen?)`：管理弹层的 `open`、`setOpen`、`present()`、`dismiss()` 与 `toggle()`；
-- `@lynx-template/autolink-back/react#PredictiveBackOverlay`：包装 `position: fixed` 弹层，并把 Android/iOS 预测返回直接绑定到原生动画目标；
-- `@lynx-template/autolink-back/react#useBackInterceptor(onEvent, enabled?)`：无 UI 的高级入口，适用于关闭路由或自定义生命周期；`enabled` 变化时自动注册/移除，仍遵循后进先出栈语义。
+- `@lynx-template/autolink-navigation/react#useRouteParams<T>()`：返回当前路由 init data 中类型化的 `route.params`（缺失字段为 `undefined`，使用前自行校验）；
+- `@lynx-template/autolink-navigation/react#usePredictiveBackOverlay(initiallyOpen?)`：管理弹层的 `open`、`setOpen`、`present()`、`dismiss()` 与 `toggle()`；
+- `@lynx-template/autolink-navigation/react#PredictiveBackOverlay`：包装 `position: fixed` 弹层，并把 Android/iOS 预测返回直接绑定到原生动画目标；
+- `@lynx-template/autolink-navigation/react#useBackInterceptor(onEvent, enabled?)`：无 UI 的高级入口，适用于关闭路由或自定义生命周期；`enabled` 变化时自动注册/移除，仍遵循后进先出栈语义。
 
 ### 返回拦截与进度
 
-`Back` 使用“预先声明栈顶快照”的模型。`autolink/back` 每次入栈或出栈都把完整的
+`Back` 使用“预先声明栈顶快照”的模型。`autolink/navigation` 每次入栈或出栈都把完整的
 `enabled + interceptorId + animationTargetId + revision` 同步给原生端；宿主不会在手势
 开始后等待异步 JavaScript 决定是否拦截。原生端在 `start` 固定本次手势的拦截器和动画
 目标，栈在过程中变化只影响下一次手势。
@@ -986,15 +1197,15 @@ Android 的 `windowIsTranslucent` 必须在 Activity 窗口创建前由 Manifest
 
 同一 LynxView 内的菜单、Dialog 和 Sheet 不需要额外创建透明原生页面。Lynx 支持
 `position: fixed`，`PredictiveBackOverlay` 在这个层级绘制全屏背景和面板，同时由
-`autolink/back` 内的原生 Element 完成系统返回预览。业务只管理是否展示，不需要处理
+`autolink/navigation` 内的原生 Element 完成系统返回预览。业务只管理是否展示，不需要处理
 逐帧 transform，也不会另建一套原生返回栈。
-只有确实需要独立原生页面、跨 bundle 生命周期或原生窗口层级时，才使用 Router 的
+只有确实需要独立原生页面、跨 bundle 生命周期或原生窗口层级时，才使用 Navigation 的
 `presentation: 'sheet'`。
 
 NativeModules 由应用级 Autolink Registry 自动提供；Android/iOS 新路由页无需补充 Back
 注册。HarmonyOS 页面只把 route registration 放入 `LynxContext.contextData`，并转发 ArkUI
-离散返回事件。页面同时把 `DeviceInfo` 包提供的状态栏/安全区适配器接到当前 LynxView，
-继续注入 Router handler 与 `nativeEnvironment.safeAreaInsets`。因此
+离散返回事件。页面同时把 `Device` 包提供的状态栏/安全区适配器接到当前 LynxView，
+继续注入 Navigation handler 与 `nativeEnvironment.safeAreaInsets`。因此
 第二个 bundle 可以独立处理安全区、状态栏、返回接管和 WebSocket，也可以继续打开下一层
 bundle。
 
@@ -1063,34 +1274,33 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 交互创建时可在多选 TUI 中取消可选库；只有启用库会作为根直接依赖出现在
 `node_modules`，从而被 Android、iOS 与 HarmonyOS 的官方扫描器发现。未启用库仍保留
 源码、原始声明与生成契约，修改清单并依次运行 `pnpm native:autolink:apply`、
-`pnpm install` 即可重新启用。`router` 与 `device-info` 是三端宿主必需项；后者向宿主提供
+`pnpm install` 即可重新启用。`navigation` 与 `device` 是三端宿主必需项；后者向宿主提供
 首帧安全区和页面状态栏适配器。Android/iOS 还会强制保留 `webview-bridge`，这两个宿主
 直接引用了它的适配器类型。
 
 ```text
 autolink/
 ├── album-utils/   # AlbumUtils（相册选图 + 存图）
-├── back/          # Back（系统返回拦截 + Android/iOS 预测进度）
-├── battery/       # Battery（电量 + 充电状态）
+├── navigation/    # Navigation（应用内导航 + 系统 scheme 打开 + 系统返回拦截 + Android/iOS 预测进度）
 ├── biometric/     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
-├── device-info/   # DeviceInfo（设备事实、安全区、状态栏）
-├── display/       # Display（屏幕宽 / 窗口宽 / LynxView 宽 / 亮度 / 常亮）
-├── sensors/       # Sensors（加速度计 + 罗盘流式读数）
+├── device/        # Device（设备事实、安全区、状态栏、电量、显示宽度/亮度/常亮、加速度计 + 罗盘流式读数）
 ├── toast/         # Toast（原生轻提示；iOS 为模块自绘气泡）
 ├── file-system/   # FileSystem（系统文件选择器 + URI 元数据、缓存复制、受限读取与缓存沙箱写入/删除/列举）
 ├── websocket/     # WebSocket（Android OkHttp / iOS NSURLSession）
-├── mmkv/          # KV（MMKV 字符串存储）
-├── secure-storage/ # SecureStorage（小机密数据：Keystore 加密 / Keychain）
+├── storage/       # Storage（KV 共享 MMKV 字符串存储 + SecureStorage 小机密数据：Keystore 加密 / Keychain / HUKS）
 ├── clipboard/     # Clipboard（系统剪贴板纯文本）
 ├── haptics/       # Haptics（单击式触感反馈）
 ├── scanner/       # Scanner（全屏扫码 + 相册图片识码）
 ├── audio-player/  # AudioPlayer（本地文件音频播放 + 四种音频流）
+├── network-info/  # NetworkInfo（网络类型查询 + 变化监听）
+├── image-tooling/ # ImageTooling（缩放/裁剪/拼图 + EXIF/GPS 管理）
 ├── pressable-view/ # PressableView（原生按压反馈视图组件）
 ├── screenshot/    # Screenshot（LynxView 截图为 Base64）
+├── share/         # Share（系统分享面板：文本 / 链接 / 本地文件）
 ├── webview-bridge/ # WebView 原生桥（Android/iOS；宿主直接引用其适配器）
 ├── permissions/   # Permissions（统一运行时权限：通知 / 相机 / 相册 / 麦克风）
 ├── local-notification/ # LocalNotification（本地通知：立即 / 延迟发送与取消）
-└── router/        # Router（应用内导航 + 系统 scheme 打开）
+└── liquid-glass/  # liquid-glass（iOS-only Element 库，见下）
 ```
 
 `autolink/liquid-glass/` 是 iOS-only Element 库，自动注册 `glass-switch` 与
@@ -1100,12 +1310,12 @@ autolink/
 `types/platform-native-module.d.ts` 原始调用声明；生成的 `src/index.ts` 从包根导出该
 类型及模块名常量。
 
-`router` 是唯一需要宿主参与的库：`open`/`close` 的应用内导航是宿主专属逻辑
+`navigation` 是唯一需要宿主参与的库：`open`/`close` 的应用内导航是宿主专属逻辑
 （Activity / ViewController / Navigation），模块从自身 `LynxContext` 解析出调用方
 所在的宿主后委托给宿主安装的无状态 handler（Android 在 `LynxTemplateApplication`、
-iOS 在 `AppDelegate` 中各调用一次 `RouterModule.setRouteHandler(AppRouteHandler())`）；
+iOS 在 `AppDelegate` 中各调用一次 `NavigationModule.setRouteHandler(AppRouteHandler())`）；
 `openURL` 则完全在库内直通系统，详见[系统路由](#系统路由)。
-`biometric` 与 `back` 对 Android 宿主有相同的形态要求：`BiometricPrompt` 和
+`biometric` 与 Navigation 的 Back 能力对 Android 宿主有相同的形态要求：`BiometricPrompt` 和
 `OnBackPressedDispatcher` callback 都托管在 `FragmentActivity` 上，本模板所有创建
 LynxView 的 Activity 均继承 `FragmentActivity`。iOS 使用 Face ID 还需要宿主声明
 `NSFaceIDUsageDescription`。
@@ -1140,11 +1350,11 @@ Provider Registry。
 仓库暂时原样固定同一 Lynx 提交 `a573c3b8` 下的官方插件源码，位于
 `app/harmonyApp/vendor/lynx-library-plugin`；正式包发布后可换成 Hvigor 依赖而无需改 HAR。
 相册、文件选择器、扫码、Display 与 Screenshot 从 `LynxContext` 取得窗口、组件或
-`UIAbilityContext`；Sensors、WebSocket 通过 `LynxViewClient` 清理实例资源，因此 Provider
-不需要页面参数。Router 从 `LynxContext.contextData` 取得宿主导航 handler；Back 从同一
+`UIAbilityContext`；Device（sensors）、WebSocket 通过 `LynxViewClient` 清理实例资源，因此 Provider
+不需要页面参数。Navigation 的路由从 `LynxContext.contextData` 取得宿主导航 handler；Back 从同一
 容器取得 `BackRegistration`，而模块、route session、事件载荷和同步控制器均由自身源码
 HAR 导出。宿主只在 ArkUI `onBackPress` 中调用控制器，因为 HarmonyOS 没有独立订阅或
-返回进度 API。DeviceInfo 的页面注册对象、SafeArea 监听和 StatusBar 控制器也由自身源码
+返回进度 API。Device 的页面注册对象、SafeArea 监听和 StatusBar 控制器也由自身源码
 HAR 导出。
 
 **新增一个 autolink 库**：最简单的方式是 `pnpm new:native-module <name>`，脚手架会生成
@@ -1156,6 +1366,9 @@ workspace 依赖后执行 `pnpm install`、`pnpm native:contracts:generate`；�
 直接重新构建，Gradle 插件会扫描并生成 Registry；iOS 重新执行
 `bundle exec pod install`；HarmonyOS 直接重新构建，Hvigor
 插件会重新扫描并生成 Registry。
+注意 Lynx 4.0.1 Gradle 插件的 Registry 生成任务不会把「新出现的库」算作输入变化：
+如果构建后新模块报 `not registered by the host`，执行一次
+`./gradlew :app:generateDebugLynxLibraryRegistry --rerun`（或 clean 构建）即可强制重扫。
 
 已有模块的共享样板（`harmony/hvigorfile.ts`、`build-profile.json5`、`module.json5`，以及
 ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm native:modules:sync`
@@ -1164,8 +1377,8 @@ ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm nativ
 
 ## 原生实现位置
 
-- Autolink NativeModule 库（三端）：`autolink/back`、`autolink/websocket`、`autolink/mmkv`、`autolink/secure-storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device-info`、`autolink/battery`、`autolink/display`、`autolink/sensors`、`autolink/file-system`、`autolink/router`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/navigation`、`autolink/websocket`、`autolink/storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device`、`autolink/network-info`、`autolink/image-tooling`、`autolink/file-system`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`、`autolink/share`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
-- Android 宿主：`nativemodule/` 下只保留 `AppRouteHandler.kt`（Router 的宿主导航）以及 `LynxPageActivity.kt`；Back 位于 `autolink/back/android`，StatusBar/SafeArea 位于 `autolink/device-info/android`，Autolink Registry 只存在于 Gradle 生成目录；
-- iOS 宿主：`NativeModules/AppRouteHandler.swift` 提供 Router 导航策略，`LynxPageViewController.swift` 创建页面；Back 与 DeviceInfo 都从自身 pod 自动定位页面；
-- HarmonyOS 宿主：`host/NativeRouterHost.ets` 提供 Router 的 ArkUI 导航策略；`pages/Index.ets` 接入 `autolink/back/harmony` 和 `autolink/device-info/harmony` 导出的薄页面适配器，不再实现宿主 NativeModule。
+- Android 宿主：`nativemodule/` 下只保留 `AppRouteHandler.kt`（Navigation 的宿主导航）以及 `LynxPageActivity.kt`；Back 与路由导航位于 `autolink/navigation/android`，StatusBar/SafeArea/电量/传感器位于 `autolink/device/android`，Autolink Registry 只存在于 Gradle 生成目录；
+- iOS 宿主：`NativeModules/AppRouteHandler.swift` 提供 Navigation 导航策略，`LynxPageViewController.swift` 创建页面；Back 与 Device 都从自身 pod 自动定位页面；
+- HarmonyOS 宿主：`host/NativeRouterHost.ets` 提供 Navigation 的 ArkUI 导航策略；`pages/Index.ets` 接入 `autolink/navigation/harmony` 和 `autolink/device/harmony` 导出的薄页面适配器，不再实现宿主 NativeModule。

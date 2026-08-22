@@ -9,7 +9,7 @@ answer a JSON envelope `{ "value": { "uri", "width", "height" } }` or
 
 | Method | Android | iOS | HarmonyOS |
 | --- | --- | --- | --- |
-| `capture` | resolves the `LynxView` from `LynxContext` (or the element matching `idSelector` via `LynxView.findViewByIdSelector`) and draws it into a bitmap; flattened elements that expose no platform View are captured by drawing the LynxView and cropping to the UI's `getBoundingClientRect()` | resolves the `LynxView` from `LynxContext` (or the element matching `idSelector` via `viewWithIdSelector:`) and renders it with `drawViewHierarchyInRect`, falling back to `layer.renderInContext` | `LynxContext.getComponentSnapshot(idSelector)`; an empty selector captures the Lynx root |
+| `capture` | resolves the `LynxView` from `LynxContext` (or the element matching `idSelector` via `LynxView.findViewByIdSelector`) and draws it into a bitmap; flattened elements that expose no platform View are captured by drawing the LynxView and cropping to the UI's `getBoundingClientRect()` | resolves the `LynxView` from `LynxContext`; an `idSelector` resolves its `LynxUI` geometry, renders the whole LynxView, then crops to that rectangle so ancestor-composited elements are included | `LynxContext.getComponentSnapshot(idSelector)`; an empty selector captures the Lynx root |
 | `capturePage` | `PixelCopy` of the Activity window (API 24/25 fall back to drawing the decor view) — the composited result including native chrome, no screenshot permission | key-window snapshot of the foreground-active scene | `LynxContext.getCurrentWindow().snapshot()` |
 
 Notes:

@@ -73,6 +73,11 @@
         "name": "ohos.permission.ACCELEROMETER"
       },
       {
+        // System-granted permission required by the NetworkInfo native
+        // module to read the default network state; no runtime dialog.
+        "name": "ohos.permission.GET_NETWORK_INFO"
+      },
+      {
         // User-granted permission prompted by the Permissions native module.
         "name": "ohos.permission.CAMERA",
         "reason": "$string:camera_permission",

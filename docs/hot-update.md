@@ -25,7 +25,7 @@
 
 `url` 可以是 HTTPS 绝对地址，也可以相对 manifest 所在目录。客户端只选择与请求名称匹配的条目。
 
-当前三端客户端只对 `main` 自动检查 OTA；其他路由 bundle 使用随 App 发布的内置资源。若要独立热更新次级 bundle，需要把缓存和检查流程扩展为按 bundle 名索引。
+Android 宿主解析 manifest 的全部条目并按 bundle 名索引缓存：`main` 在启动时自动检查，其他 bundle 在 Navigation 打开路由前按内存中的 manifest 对比缓存（有更新时先在 loading 遮罩下下载再进页）。iOS/Harmony 目前只对 `main` 自动检查；次级 bundle 在这两端使用随 App 发布的内置资源。
 
 ## 客户端校验
 
@@ -36,6 +36,12 @@
 5. 文件 SHA-256 必须等于 manifest；
 6. 校验后先写临时文件，再替换正式缓存；
 7. 任意步骤失败都继续使用上次有效缓存或安装包内资源。
+
+Android 宿主的检查入口有两处：`LynxTemplateApplication` 启动时预取 manifest
+（不阻塞进程启动），根页面首帧渲染完成后对比 `main` 缓存，有更新则在
+loading 遮罩下下载并重建 Activity 使新缓存生效；`AppRouteHandler` 打开任意
+bundle 路由前也会做同样的对比与下载。开发服务器覆盖生效时（debug 构建或
+DevelopmentSettings 配置）以上检查全部跳过。
 
 ## 本地缓存元数据
 
@@ -51,7 +57,7 @@ OTA 校验通过后，三个宿主把同一份 JSON 元数据与 bundle 一起�
 
 启动时宿主重新计算缓存 bundle 的 SHA-256 并与 `sha256` 比对；`engineVersion` 不匹配或校验失败都会回退到安装包内资源。运行期拉取或解析缓存 bundle 失败时同样会回退到内置 bundle 重新渲染一次，见 [development-settings.md](development-settings.md) 的「加载失败回退」。
 
-manifest 中的 `engineVersion` 与 `sdkVersion` 来源于根目录 `package.json` 的 `lynx` 字段，由 `pnpm native:sync` 读取写入。各 bundle 通过 `@lynx-template/bundle-config` 在构建时读取同一 `engineVersion`；三个宿主的 `engineVersion` 常量由 `pnpm native:apply` 直接写入，`pnpm native:check` 校验一致性。
+manifest 中的 `engineVersion` 与 `sdkVersion` 来源于根目录 `package.json` 的 `lynx` 字段，由 `pnpm native:sync` 读取写入。三个宿主的 `engineVersion` 常量由 `pnpm native:apply` 直接写入，`pnpm native:check` 校验一致性；bundle 构建使用 `pluginReactLynx()` 的默认兼容目标。
 
 ## 发布建议
 

@@ -30,9 +30,8 @@ const managedFiles = {
 };
 
 // package.json#lynx.engineVersion is the single source for the engine version
-// stamped into release manifests. Bundle configs read it through
-// @lynx-template/bundle-config at build time; native hosts cannot read
-// package.json, so this script writes the value into their config sources.
+// stamped into release manifests. Native hosts cannot read package.json, so
+// this script writes the value into their config sources.
 // The Kotlin file is found by name because its package directory differs per
 // app (java/com.lynxapp here, java/<dotted bundle id segments> when
 // scaffolded).

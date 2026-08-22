@@ -395,10 +395,21 @@
   background-color: #07c160;
 }
 
+.NativePressable__surface--secondary {
+  border: 1px solid #07c160;
+  background-color: #ffffff;
+}
+
 .NativePressable__primaryLabel {
   font-size: 15px;
   font-weight: 500;
   color: #ffffff;
+}
+
+.NativePressable__secondaryLabel {
+  font-size: 15px;
+  font-weight: 500;
+  color: #07c160;
 }
 
 .NativePressable--disabled {
@@ -478,7 +489,7 @@
   color: #555555;
 }
 
-/* ============ autolink-back: predictive overlay ============ */
+/* ============ autolink-navigation: predictive overlay ============ */
 
 .BackOverlayDemo__flow {
   display: flex;

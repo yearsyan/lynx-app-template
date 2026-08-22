@@ -13,9 +13,6 @@ if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) {
 const directory = join(workspaceDirectory, name);
 await mkdir(join(directory, 'src'), { recursive: true });
 
-// The rspeedy config comes from @lynx-template/bundle-config so every bundle
-// shares one output/plugins setup and one engineVersion source (the root
-// package.json). Add plugins per bundle by editing lynx.config.ts there.
 const files = {
   'package.json': `${JSON.stringify(
     {
@@ -33,16 +30,17 @@ const files = {
       dependencies: { '@lynx-js/react': 'catalog:' },
       devDependencies: {
         '@lynx-js/preact-devtools': 'catalog:',
+        '@lynx-js/qrcode-rsbuild-plugin': 'catalog:',
+        '@lynx-js/react-rsbuild-plugin': 'catalog:',
         '@lynx-js/rspeedy': 'catalog:',
         '@lynx-js/types': 'catalog:',
-        '@lynx-template/bundle-config': 'workspace:*',
         '@types/react': 'catalog:',
       },
     },
     null,
     2,
   )}\n`,
-  'lynx.config.ts': `import { defineBundleConfig } from '@lynx-template/bundle-config'\n\nexport default defineBundleConfig()\n`,
+  'lynx.config.ts': `import { pluginQRCode } from '@lynx-js/qrcode-rsbuild-plugin'\nimport { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin'\nimport { defineConfig } from '@lynx-js/rspeedy'\n\nexport default defineConfig({\n  output: { dataUriLimit: Number.MAX_SAFE_INTEGER },\n  plugins: [\n    pluginQRCode({ schema: url => url + '?fullscreen=true' }),\n    pluginReactLynx(),\n  ],\n})\n`,
   'tsconfig.json': `{
   "extends": "../../tsconfig.base.json",
   "files": [],

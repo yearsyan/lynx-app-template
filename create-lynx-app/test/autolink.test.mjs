@@ -29,13 +29,13 @@ test.before(async () => {
 test('checkbox state defaults to all and keeps required modules locked', () => {
   const choices = [
     {
-      name: 'router',
-      label: 'Router',
+      name: 'navigation',
+      label: 'Navigation',
       platforms: ['android', 'ios', 'harmony'],
       requiredFor: ['android', 'ios', 'harmony'],
     },
     {
-      name: 'mmkv',
+      name: 'storage',
       label: 'MMKV',
       platforms: ['android', 'ios', 'harmony'],
       requiredFor: [],
@@ -48,31 +48,31 @@ test('checkbox state defaults to all and keeps required modules locked', () => {
     },
   ];
   let state = createAutolinkSelectionState(choices, ['android']);
-  assert.deepEqual(state.selected, ['router', 'mmkv']);
+  assert.deepEqual(state.selected, ['navigation', 'storage']);
   assert.deepEqual(
     state.choices.map((choice) => choice.name),
-    ['router', 'mmkv'],
+    ['navigation', 'storage'],
   );
 
   state = updateAutolinkSelectionState(state, 'toggle');
-  assert.deepEqual(state.selected, ['router', 'mmkv']);
+  assert.deepEqual(state.selected, ['navigation', 'storage']);
   state = updateAutolinkSelectionState(state, 'down');
   state = updateAutolinkSelectionState(state, 'toggle');
-  assert.deepEqual(state.selected, ['router']);
+  assert.deepEqual(state.selected, ['navigation']);
   state = updateAutolinkSelectionState(state, 'toggle-all');
-  assert.deepEqual(state.selected, ['router', 'mmkv']);
+  assert.deepEqual(state.selected, ['navigation', 'storage']);
 });
 
 test('non-interactive CLI selection adds host-required integrations', async () => {
   const options = await resolveOptions(
-    ['--yes', '--platforms', 'android', '--autolink', 'mmkv', 'fixture'],
+    ['--yes', '--platforms', 'android', '--autolink', 'storage', 'fixture'],
     { autolinkModules: modules, resolveAutolinkSelection },
   );
   assert.equal(options.name, 'fixture');
   assert.deepEqual(options.autolinkModules, [
-    'device-info',
-    'mmkv',
-    'router',
+    'device',
+    'navigation',
+    'storage',
     'webview-bridge',
   ]);
 });
@@ -93,8 +93,8 @@ test('installed links must match the selected modules', async () => {
       '',
     );
     await symlink(
-      join(repositoryDirectory, 'autolink', 'router'),
-      join(scopeDirectory, 'autolink-router'),
+      join(repositoryDirectory, 'autolink', 'navigation'),
+      join(scopeDirectory, 'autolink-navigation'),
       'dir',
     );
     await symlink(
@@ -106,10 +106,10 @@ test('installed links must match the selected modules', async () => {
     const issues = await autolinkNodeModulesIssues(
       temporaryDirectory,
       modules,
-      ['router', 'mmkv'],
+      ['navigation', 'storage'],
     );
     assert.equal(issues.length, 2);
-    assert.ok(issues.some((issue) => issue.includes('autolink-mmkv')));
+    assert.ok(issues.some((issue) => issue.includes('autolink-storage')));
     assert.ok(issues.some((issue) => issue.includes('autolink-websocket')));
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });

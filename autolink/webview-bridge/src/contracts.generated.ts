@@ -23,19 +23,6 @@ export const NATIVE_MODULE_CONTRACT = {
       getProps: { name: 'getProps', arity: 2 },
     },
   },
-  Back: {
-    name: 'Back',
-    methods: {
-      setEnabled: { name: 'setEnabled', arity: 2 },
-      configure: { name: 'configure', arity: 5 },
-    },
-  },
-  Battery: {
-    name: 'Battery',
-    methods: {
-      getInfo: { name: 'getInfo', arity: 1 },
-    },
-  },
   Biometric: {
     name: 'Biometric',
     methods: {
@@ -52,23 +39,22 @@ export const NATIVE_MODULE_CONTRACT = {
       getString: { name: 'getString', arity: 1 },
     },
   },
-  DeviceInfo: {
-    name: 'DeviceInfo',
+  Device: {
+    name: 'Device',
     methods: {
       getInfo: { name: 'getInfo', arity: 1 },
       getSafeAreaInsets: { name: 'getSafeAreaInsets', arity: 1 },
       setStatusBarStyle: { name: 'setStatusBarStyle', arity: 2 },
-    },
-  },
-  Display: {
-    name: 'Display',
-    methods: {
       screenWidth: { name: 'screenWidth', arity: 1 },
       windowWidth: { name: 'windowWidth', arity: 1 },
       lynxViewWidth: { name: 'lynxViewWidth', arity: 1 },
       getBrightness: { name: 'getBrightness', arity: 1 },
       setBrightness: { name: 'setBrightness', arity: 2 },
       setKeepScreenOn: { name: 'setKeepScreenOn', arity: 2 },
+      getBatteryInfo: { name: 'getBatteryInfo', arity: 1 },
+      isAvailable: { name: 'isAvailable', arity: 2 },
+      start: { name: 'start', arity: 2 },
+      stop: { name: 'stop', arity: 2 },
     },
   },
   FileSystem: {
@@ -92,14 +78,16 @@ export const NATIVE_MODULE_CONTRACT = {
       impact: { name: 'impact', arity: 2 },
     },
   },
-  KV: {
-    name: 'KV',
+  ImageTooling: {
+    name: 'ImageTooling',
     methods: {
-      setString: { name: 'setString', arity: 3 },
-      getString: { name: 'getString', arity: 3 },
-      remove: { name: 'remove', arity: 2 },
-      clear: { name: 'clear', arity: 1 },
-      contains: { name: 'contains', arity: 2 },
+      info: { name: 'info', arity: 2 },
+      compress: { name: 'compress', arity: 2 },
+      crop: { name: 'crop', arity: 2 },
+      compose: { name: 'compose', arity: 2 },
+      readExif: { name: 'readExif', arity: 2 },
+      writeExif: { name: 'writeExif', arity: 2 },
+      removeExif: { name: 'removeExif', arity: 2 },
     },
   },
   LocalNotification: {
@@ -110,19 +98,29 @@ export const NATIVE_MODULE_CONTRACT = {
       cancelAll: { name: 'cancelAll', arity: 1 },
     },
   },
+  Navigation: {
+    name: 'Navigation',
+    methods: {
+      open: { name: 'open', arity: 2 },
+      close: { name: 'close', arity: 1 },
+      openURL: { name: 'openURL', arity: 2 },
+      setEnabled: { name: 'setEnabled', arity: 2 },
+      configure: { name: 'configure', arity: 5 },
+    },
+  },
+  NetworkInfo: {
+    name: 'NetworkInfo',
+    methods: {
+      getInfo: { name: 'getInfo', arity: 1 },
+      start: { name: 'start', arity: 1 },
+      stop: { name: 'stop', arity: 1 },
+    },
+  },
   Permissions: {
     name: 'Permissions',
     methods: {
       check: { name: 'check', arity: 2 },
       request: { name: 'request', arity: 2 },
-    },
-  },
-  Router: {
-    name: 'Router',
-    methods: {
-      open: { name: 'open', arity: 2 },
-      close: { name: 'close', arity: 1 },
-      openURL: { name: 'openURL', arity: 2 },
     },
   },
   Scanner: {
@@ -139,20 +137,25 @@ export const NATIVE_MODULE_CONTRACT = {
       capturePage: { name: 'capturePage', arity: 2 },
     },
   },
-  Sensors: {
-    name: 'Sensors',
+  Share: {
+    name: 'Share',
     methods: {
-      isAvailable: { name: 'isAvailable', arity: 2 },
-      start: { name: 'start', arity: 2 },
-      stop: { name: 'stop', arity: 2 },
+      share: { name: 'share', arity: 2 },
     },
   },
-  SecureStorage: {
-    name: 'SecureStorage',
+  Storage: {
+    name: 'Storage',
     methods: {
       setString: { name: 'setString', arity: 3 },
       getString: { name: 'getString', arity: 3 },
+      getStringOrNull: { name: 'getStringOrNull', arity: 2 },
       remove: { name: 'remove', arity: 2 },
+      clear: { name: 'clear', arity: 1 },
+      contains: { name: 'contains', arity: 2 },
+      secureSetString: { name: 'secureSetString', arity: 3 },
+      secureGetString: { name: 'secureGetString', arity: 3 },
+      secureGetStringOrNull: { name: 'secureGetStringOrNull', arity: 2 },
+      secureRemove: { name: 'secureRemove', arity: 2 },
     },
   },
   Toast: {
@@ -175,22 +178,20 @@ export const NATIVE_MODULE_CONTRACT = {
 export const NATIVE_MODULE_NAMES = {
   AlbumUtils: NATIVE_MODULE_CONTRACT.AlbumUtils.name,
   AudioPlayer: NATIVE_MODULE_CONTRACT.AudioPlayer.name,
-  Back: NATIVE_MODULE_CONTRACT.Back.name,
-  Battery: NATIVE_MODULE_CONTRACT.Battery.name,
   Biometric: NATIVE_MODULE_CONTRACT.Biometric.name,
   Clipboard: NATIVE_MODULE_CONTRACT.Clipboard.name,
-  DeviceInfo: NATIVE_MODULE_CONTRACT.DeviceInfo.name,
-  Display: NATIVE_MODULE_CONTRACT.Display.name,
+  Device: NATIVE_MODULE_CONTRACT.Device.name,
   FileSystem: NATIVE_MODULE_CONTRACT.FileSystem.name,
   Haptics: NATIVE_MODULE_CONTRACT.Haptics.name,
-  KV: NATIVE_MODULE_CONTRACT.KV.name,
+  ImageTooling: NATIVE_MODULE_CONTRACT.ImageTooling.name,
   LocalNotification: NATIVE_MODULE_CONTRACT.LocalNotification.name,
+  Navigation: NATIVE_MODULE_CONTRACT.Navigation.name,
+  NetworkInfo: NATIVE_MODULE_CONTRACT.NetworkInfo.name,
   Permissions: NATIVE_MODULE_CONTRACT.Permissions.name,
-  Router: NATIVE_MODULE_CONTRACT.Router.name,
   Scanner: NATIVE_MODULE_CONTRACT.Scanner.name,
   Screenshot: NATIVE_MODULE_CONTRACT.Screenshot.name,
-  Sensors: NATIVE_MODULE_CONTRACT.Sensors.name,
-  SecureStorage: NATIVE_MODULE_CONTRACT.SecureStorage.name,
+  Share: NATIVE_MODULE_CONTRACT.Share.name,
+  Storage: NATIVE_MODULE_CONTRACT.Storage.name,
   Toast: NATIVE_MODULE_CONTRACT.Toast.name,
   WebSocket: NATIVE_MODULE_CONTRACT.WebSocket.name,
 } as const;
@@ -211,13 +212,6 @@ export const NATIVE_MODULE_METHODS = {
     setVolume: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.setVolume.name,
     getProps: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.getProps.name,
   },
-  Back: {
-    setEnabled: NATIVE_MODULE_CONTRACT.Back.methods.setEnabled.name,
-    configure: NATIVE_MODULE_CONTRACT.Back.methods.configure.name,
-  },
-  Battery: {
-    getInfo: NATIVE_MODULE_CONTRACT.Battery.methods.getInfo.name,
-  },
   Biometric: {
     checkSupport: NATIVE_MODULE_CONTRACT.Biometric.methods.checkSupport.name,
     authenticate: NATIVE_MODULE_CONTRACT.Biometric.methods.authenticate.name,
@@ -229,21 +223,22 @@ export const NATIVE_MODULE_METHODS = {
     setString: NATIVE_MODULE_CONTRACT.Clipboard.methods.setString.name,
     getString: NATIVE_MODULE_CONTRACT.Clipboard.methods.getString.name,
   },
-  DeviceInfo: {
-    getInfo: NATIVE_MODULE_CONTRACT.DeviceInfo.methods.getInfo.name,
+  Device: {
+    getInfo: NATIVE_MODULE_CONTRACT.Device.methods.getInfo.name,
     getSafeAreaInsets:
-      NATIVE_MODULE_CONTRACT.DeviceInfo.methods.getSafeAreaInsets.name,
+      NATIVE_MODULE_CONTRACT.Device.methods.getSafeAreaInsets.name,
     setStatusBarStyle:
-      NATIVE_MODULE_CONTRACT.DeviceInfo.methods.setStatusBarStyle.name,
-  },
-  Display: {
-    screenWidth: NATIVE_MODULE_CONTRACT.Display.methods.screenWidth.name,
-    windowWidth: NATIVE_MODULE_CONTRACT.Display.methods.windowWidth.name,
-    lynxViewWidth: NATIVE_MODULE_CONTRACT.Display.methods.lynxViewWidth.name,
-    getBrightness: NATIVE_MODULE_CONTRACT.Display.methods.getBrightness.name,
-    setBrightness: NATIVE_MODULE_CONTRACT.Display.methods.setBrightness.name,
-    setKeepScreenOn:
-      NATIVE_MODULE_CONTRACT.Display.methods.setKeepScreenOn.name,
+      NATIVE_MODULE_CONTRACT.Device.methods.setStatusBarStyle.name,
+    screenWidth: NATIVE_MODULE_CONTRACT.Device.methods.screenWidth.name,
+    windowWidth: NATIVE_MODULE_CONTRACT.Device.methods.windowWidth.name,
+    lynxViewWidth: NATIVE_MODULE_CONTRACT.Device.methods.lynxViewWidth.name,
+    getBrightness: NATIVE_MODULE_CONTRACT.Device.methods.getBrightness.name,
+    setBrightness: NATIVE_MODULE_CONTRACT.Device.methods.setBrightness.name,
+    setKeepScreenOn: NATIVE_MODULE_CONTRACT.Device.methods.setKeepScreenOn.name,
+    getBatteryInfo: NATIVE_MODULE_CONTRACT.Device.methods.getBatteryInfo.name,
+    isAvailable: NATIVE_MODULE_CONTRACT.Device.methods.isAvailable.name,
+    start: NATIVE_MODULE_CONTRACT.Device.methods.start.name,
+    stop: NATIVE_MODULE_CONTRACT.Device.methods.stop.name,
   },
   FileSystem: {
     pick: NATIVE_MODULE_CONTRACT.FileSystem.methods.pick.name,
@@ -260,26 +255,35 @@ export const NATIVE_MODULE_METHODS = {
   Haptics: {
     impact: NATIVE_MODULE_CONTRACT.Haptics.methods.impact.name,
   },
-  KV: {
-    setString: NATIVE_MODULE_CONTRACT.KV.methods.setString.name,
-    getString: NATIVE_MODULE_CONTRACT.KV.methods.getString.name,
-    remove: NATIVE_MODULE_CONTRACT.KV.methods.remove.name,
-    clear: NATIVE_MODULE_CONTRACT.KV.methods.clear.name,
-    contains: NATIVE_MODULE_CONTRACT.KV.methods.contains.name,
+  ImageTooling: {
+    info: NATIVE_MODULE_CONTRACT.ImageTooling.methods.info.name,
+    compress: NATIVE_MODULE_CONTRACT.ImageTooling.methods.compress.name,
+    crop: NATIVE_MODULE_CONTRACT.ImageTooling.methods.crop.name,
+    compose: NATIVE_MODULE_CONTRACT.ImageTooling.methods.compose.name,
+    readExif: NATIVE_MODULE_CONTRACT.ImageTooling.methods.readExif.name,
+    writeExif: NATIVE_MODULE_CONTRACT.ImageTooling.methods.writeExif.name,
+    removeExif: NATIVE_MODULE_CONTRACT.ImageTooling.methods.removeExif.name,
   },
   LocalNotification: {
     notify: NATIVE_MODULE_CONTRACT.LocalNotification.methods.notify.name,
     cancel: NATIVE_MODULE_CONTRACT.LocalNotification.methods.cancel.name,
     cancelAll: NATIVE_MODULE_CONTRACT.LocalNotification.methods.cancelAll.name,
   },
+  Navigation: {
+    open: NATIVE_MODULE_CONTRACT.Navigation.methods.open.name,
+    close: NATIVE_MODULE_CONTRACT.Navigation.methods.close.name,
+    openURL: NATIVE_MODULE_CONTRACT.Navigation.methods.openURL.name,
+    setEnabled: NATIVE_MODULE_CONTRACT.Navigation.methods.setEnabled.name,
+    configure: NATIVE_MODULE_CONTRACT.Navigation.methods.configure.name,
+  },
+  NetworkInfo: {
+    getInfo: NATIVE_MODULE_CONTRACT.NetworkInfo.methods.getInfo.name,
+    start: NATIVE_MODULE_CONTRACT.NetworkInfo.methods.start.name,
+    stop: NATIVE_MODULE_CONTRACT.NetworkInfo.methods.stop.name,
+  },
   Permissions: {
     check: NATIVE_MODULE_CONTRACT.Permissions.methods.check.name,
     request: NATIVE_MODULE_CONTRACT.Permissions.methods.request.name,
-  },
-  Router: {
-    open: NATIVE_MODULE_CONTRACT.Router.methods.open.name,
-    close: NATIVE_MODULE_CONTRACT.Router.methods.close.name,
-    openURL: NATIVE_MODULE_CONTRACT.Router.methods.openURL.name,
   },
   Scanner: {
     scan: NATIVE_MODULE_CONTRACT.Scanner.methods.scan.name,
@@ -289,15 +293,24 @@ export const NATIVE_MODULE_METHODS = {
     capture: NATIVE_MODULE_CONTRACT.Screenshot.methods.capture.name,
     capturePage: NATIVE_MODULE_CONTRACT.Screenshot.methods.capturePage.name,
   },
-  Sensors: {
-    isAvailable: NATIVE_MODULE_CONTRACT.Sensors.methods.isAvailable.name,
-    start: NATIVE_MODULE_CONTRACT.Sensors.methods.start.name,
-    stop: NATIVE_MODULE_CONTRACT.Sensors.methods.stop.name,
+  Share: {
+    share: NATIVE_MODULE_CONTRACT.Share.methods.share.name,
   },
-  SecureStorage: {
-    setString: NATIVE_MODULE_CONTRACT.SecureStorage.methods.setString.name,
-    getString: NATIVE_MODULE_CONTRACT.SecureStorage.methods.getString.name,
-    remove: NATIVE_MODULE_CONTRACT.SecureStorage.methods.remove.name,
+  Storage: {
+    setString: NATIVE_MODULE_CONTRACT.Storage.methods.setString.name,
+    getString: NATIVE_MODULE_CONTRACT.Storage.methods.getString.name,
+    getStringOrNull:
+      NATIVE_MODULE_CONTRACT.Storage.methods.getStringOrNull.name,
+    remove: NATIVE_MODULE_CONTRACT.Storage.methods.remove.name,
+    clear: NATIVE_MODULE_CONTRACT.Storage.methods.clear.name,
+    contains: NATIVE_MODULE_CONTRACT.Storage.methods.contains.name,
+    secureSetString:
+      NATIVE_MODULE_CONTRACT.Storage.methods.secureSetString.name,
+    secureGetString:
+      NATIVE_MODULE_CONTRACT.Storage.methods.secureGetString.name,
+    secureGetStringOrNull:
+      NATIVE_MODULE_CONTRACT.Storage.methods.secureGetStringOrNull.name,
+    secureRemove: NATIVE_MODULE_CONTRACT.Storage.methods.secureRemove.name,
   },
   Toast: {
     show: NATIVE_MODULE_CONTRACT.Toast.methods.show.name,

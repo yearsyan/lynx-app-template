@@ -1,10 +1,10 @@
 import { useCallback, useState } from '@lynx-js/react';
-import type { BackEvent } from '@lynx-template/autolink-back';
+import type { BackEvent } from '@lynx-template/autolink-navigation';
 import {
   PredictiveBackOverlay,
   type PredictiveBackOverlayDismissReason,
   usePredictiveBackOverlay,
-} from '@lynx-template/autolink-back/react';
+} from '@lynx-template/autolink-navigation/react';
 
 import {
   ApiName,

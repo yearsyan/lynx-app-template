@@ -9,8 +9,9 @@ Native Modules。Android、iOS、HarmonyOS 使用相同的请求/响应协议；
 
 1. 原生组件不维护第二份模块注册表。每个宿主适配器复用该 LynxView 已安装的模块注册表；
 2. 原生组件与宿主策略分离。Android/iOS 组件由 `autolink/webview-bridge` 注册，宿主只
-   负责把当前 view 的模块注册表交给组件；HarmonyOS 版本依赖当前页面的显式模块表，
-   因此不做全局 Provider，仍保留 behavior 适配器。
+   负责把当前 view 的模块注册表交给组件；HarmonyOS 的全局 Autolink 注册表对页面不可
+   枚举，因此不做全局 Provider，由 behavior 适配器把全局注册表与页面模块表合层后持
+   有。
 
 ## 页面协议
 
@@ -31,7 +32,7 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
 
 `@lynx-template/autolink-webview-bridge/client` 提供 `kv`、`clipboard`、`haptics`、
 `statusBar`、`getDeviceInfo`、`getSafeAreaInsets` 等类型化封装；后三者都调用底层
-`DeviceInfo` 模块，并使用同包生成的 RPC 契约。普通浏览器或未接入的宿主中，
+`Device` 模块，并使用同包生成的 RPC 契约。普通浏览器或未接入的宿主中，
 `isNativeBridgeAvailable()` 返回 false，调用抛出 `NativeBridgeUnavailableError`。
 
 ## 能力授权
@@ -82,8 +83,11 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
 
 ### HarmonyOS
 
-- `WebviewModuleBridgeHostAdapter` 直接持有传给 `LynxView` 的
-  `Map<string, ModuleClassWrapper>`；
+- `WebviewModuleBridgeHostAdapter` 持有「全局 Autolink 模块表 + 页面模块表」的合层结
+  果，与 LynxView 的解析顺序一致（页面表覆盖全局表，例如携带宿主状态的 Device）；
+- 全局表来自生成的 `@lynx/lynx_autolink_registry` 包导出的 `collectGlobalModules()`——
+  它与 `setupGlobal()` 使用同一份 provider 列表（由 vendored `lynx-library-plugin` 生
+  成），不维护第二份模块清单；
 - `createModuleWebviewBehavior` 把 `ModuleWebviewUI` 以 `module-webview` 注册到该页面；
 - ArkWeb 通过 `registerJavaScriptProxy` 接收请求，bootstrap 由
   `javaScriptOnDocumentStart` 注入；
@@ -92,8 +96,8 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
 
 ## 演示与验收标记
 
-`bundle/main` 首页内嵌 HTML，显式暴露 `KV`、`Clipboard`、`Haptics`、`DeviceInfo`。
-文档收到 bridge-ready 事件后自动执行 KV 写入/读取和 DeviceInfo 解码；成功时页面显示：
+`bundle/main` 首页内嵌 HTML，显式暴露 `KV`、`Clipboard`、`Haptics`、`Device`。
+文档收到 bridge-ready 事件后自动执行 KV 写入/读取和 Device 解码；成功时页面显示：
 
 ```text
 WEBVIEW_BRIDGE_OK · <manufacturer> <model>

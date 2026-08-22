@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Screenshot, ImageTooling and FileSystem products all live here. -->
+    <cache-path name="lynx_share_cache" path="." />
+    <files-path name="lynx_share_files" path="." />
+</paths>

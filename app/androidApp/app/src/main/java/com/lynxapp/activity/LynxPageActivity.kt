@@ -8,14 +8,17 @@ import android.widget.FrameLayout
 import androidx.fragment.app.FragmentActivity
 import com.google.gson.Gson
 import com.lynx.tasm.LynxView
-import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
-import com.lynxapp.autolink.deviceinfo.NativeEnvironmentBridge
 import com.lynxapp.LynxBundleRepository
+import com.lynxapp.LynxTemplateApplication
+import com.lynxapp.autolink.device.DeviceSystemUI
+import com.lynxapp.autolink.device.NativeEnvironmentBridge
 import com.lynxapp.component.createLynxView
-import com.lynxapp.autolink.router.RouterModule
+import com.lynxapp.autolink.navigation.NavigationModule
 
 /**
- * Hosts a secondary embedded Lynx bundle as an opaque page or transparent overlay.
+ * Hosts an embedded Lynx bundle as an opaque page or transparent overlay.
+ * The app root (MainActivity) subclasses this: a pushed page reads its route
+ * from intent extras, the root states its configuration via overrides.
  *
  * Extends FragmentActivity (not plain Activity) so the autolinked Back and
  * Biometric modules can use AndroidX lifecycle-aware host APIs.
@@ -23,20 +26,25 @@ import com.lynxapp.autolink.router.RouterModule
 open class LynxPageActivity : FragmentActivity() {
     private lateinit var lynxView: LynxView
     private lateinit var nativeEnvironmentBridge: NativeEnvironmentBridge
-    private lateinit var bundleRepository: LynxBundleRepository
-    private lateinit var root: FrameLayout
+    protected lateinit var bundleRepository: LynxBundleRepository
+    protected lateinit var root: FrameLayout
     private var fellBackToEmbedded = false
+
+    /** Root routes answer `router.close()` by leaving the app instead of finishing. */
+    internal open val isRootRoute: Boolean
+        get() = false
+
+    /** Bundle to host. Pushed routes read it from route extras; roots state it. */
+    protected open val bundleName: String
+        get() = intent.getStringExtra(EXTRA_BUNDLE) ?: DEFAULT_BUNDLE
 
     internal val routePresentation: String
         get() = intent.getStringExtra(EXTRA_PRESENTATION)
-            ?: RouterModule.PRESENTATION_PUSH
+            ?: NavigationModule.PRESENTATION_PUSH
 
     internal val routeAnimation: String
         get() = intent.getStringExtra(EXTRA_ANIMATION)
-            ?: RouterModule.ANIMATION_DEFAULT
-
-    private val bundleName: String
-        get() = intent.getStringExtra(EXTRA_BUNDLE) ?: DEFAULT_BUNDLE
+            ?: NavigationModule.ANIMATION_DEFAULT
 
     private val isTransparent: Boolean
         get() = intent.getBooleanExtra(EXTRA_TRANSPARENT, false)
@@ -52,7 +60,7 @@ open class LynxPageActivity : FragmentActivity() {
             window.decorView.setBackgroundColor(Color.TRANSPARENT)
         }
         DeviceSystemUI.enableEdgeToEdge(this, statusBarStyle)
-        bundleRepository = LynxBundleRepository(this)
+        bundleRepository = (application as LynxTemplateApplication).bundleRepository
         lynxView = createLynxView(
             bundleRepository,
             bundleName,
@@ -85,13 +93,22 @@ open class LynxPageActivity : FragmentActivity() {
 
     private fun loadBundle() {
         renderBundle(bundleRepository.urlForBundle(bundleName))
+        onInitialBundleRendered()
     }
+
+    /** Called after the first render request; the root overrides it to apply OTA updates. */
+    protected open fun onInitialBundleRendered() {}
 
     private fun renderBundle(url: String) {
         lynxView.renderTemplateUrl(url, nativeEnvironmentBridge.initialData())
         nativeEnvironmentBridge.onTemplateLoadStarted()
     }
 
+    // A dev server or OTA cache that cannot serve the bundle must not leave a
+    // white screen; render the embedded bundle instead. Runs at most once:
+    // if the embedded bundle itself fails, the error stays visible. The view
+    // is rebuilt because its LynxViewGroup is bound to the failed URL —
+    // re-rendering in place would refetch that URL instead of the fallback.
     private fun fallBackToEmbeddedBundle() {
         if (fellBackToEmbedded) return
         fellBackToEmbedded = true

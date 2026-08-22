@@ -38,42 +38,6 @@
       }
     },
     {
-      "name": "Back",
-      "interfaceName": "BackModule",
-      "declaration": "autolink/back/types/platform-native-module.d.ts",
-      "declarationName": "Back",
-      "autolink": {
-        "directory": "back",
-        "exportName": "BACK_MODULE_NAME"
-      },
-      "implementations": {
-        "android": {
-          "searchRoot": "autolink/back/android/src/main/java",
-          "fileName": "BackModule.java"
-        },
-        "ios": "autolink/back/ios/src/BackModule.m",
-        "harmony": "autolink/back/harmony/src/main/ets/BackModule.ets"
-      }
-    },
-    {
-      "name": "Battery",
-      "interfaceName": "BatteryModule",
-      "declaration": "autolink/battery/types/platform-native-module.d.ts",
-      "declarationName": "Battery",
-      "autolink": {
-        "directory": "battery",
-        "exportName": "BATTERY_MODULE_NAME"
-      },
-      "implementations": {
-        "android": {
-          "searchRoot": "autolink/battery/android/src/main/java",
-          "fileName": "BatteryModule.java"
-        },
-        "ios": "autolink/battery/ios/src/BatteryModule.m",
-        "harmony": "autolink/battery/harmony/src/main/ets/BatteryModule.ets"
-      }
-    },
-    {
       "name": "Biometric",
       "interfaceName": "BiometricModule",
       "declaration": "autolink/biometric/types/platform-native-module.d.ts",
@@ -110,39 +74,21 @@
       }
     },
     {
-      "name": "DeviceInfo",
-      "interfaceName": "DeviceInfoModule",
-      "declaration": "autolink/device-info/types/platform-native-module.d.ts",
-      "declarationName": "DeviceInfo",
+      "name": "Device",
+      "interfaceName": "DeviceModule",
+      "declaration": "autolink/device/types/platform-native-module.d.ts",
+      "declarationName": "Device",
       "autolink": {
-        "directory": "device-info",
-        "exportName": "DEVICE_INFO_MODULE_NAME"
+        "directory": "device",
+        "exportName": "DEVICE_MODULE_NAME"
       },
       "implementations": {
         "android": {
-          "searchRoot": "autolink/device-info/android/src/main/java",
-          "fileName": "DeviceInfoModule.java"
+          "searchRoot": "autolink/device/android/src/main/java",
+          "fileName": "DeviceModule.java"
         },
-        "ios": "autolink/device-info/ios/src/DeviceInfoModule.m",
-        "harmony": "autolink/device-info/harmony/src/main/ets/DeviceInfoModule.ets"
-      }
-    },
-    {
-      "name": "Display",
-      "interfaceName": "DisplayModule",
-      "declaration": "autolink/display/types/platform-native-module.d.ts",
-      "declarationName": "Display",
-      "autolink": {
-        "directory": "display",
-        "exportName": "DISPLAY_MODULE_NAME"
-      },
-      "implementations": {
-        "android": {
-          "searchRoot": "autolink/display/android/src/main/java",
-          "fileName": "DisplayModule.java"
-        },
-        "ios": "autolink/display/ios/src/DisplayModule.m",
-        "harmony": "autolink/display/harmony/src/main/ets/DisplayModule.ets"
+        "ios": "autolink/device/ios/src/DeviceModule.m",
+        "harmony": "autolink/device/harmony/src/main/ets/DeviceModule.ets"
       }
     },
     {
@@ -182,21 +128,21 @@
       }
     },
     {
-      "name": "KV",
-      "interfaceName": "KVModule",
-      "declaration": "autolink/mmkv/types/platform-native-module.d.ts",
-      "declarationName": "KV",
+      "name": "ImageTooling",
+      "interfaceName": "ImageToolingModule",
+      "declaration": "autolink/image-tooling/types/platform-native-module.d.ts",
+      "declarationName": "ImageTooling",
       "autolink": {
-        "directory": "mmkv",
-        "exportName": "KV_MODULE_NAME"
+        "directory": "image-tooling",
+        "exportName": "IMAGE_TOOLING_MODULE_NAME"
       },
       "implementations": {
         "android": {
-          "searchRoot": "autolink/mmkv/android/src/main/java",
-          "fileName": "KVModule.java"
+          "searchRoot": "autolink/image-tooling/android/src/main/java",
+          "fileName": "ImageToolingModule.java"
         },
-        "ios": "autolink/mmkv/ios/src/KVModule.m",
-        "harmony": "autolink/mmkv/harmony/src/main/ets/KVModule.ets"
+        "ios": "autolink/image-tooling/ios/src/ImageToolingModule.m",
+        "harmony": "autolink/image-tooling/harmony/src/main/ets/ImageToolingModule.ets"
       }
     },
     {
@@ -218,6 +164,42 @@
       }
     },
     {
+      "name": "Navigation",
+      "interfaceName": "NavigationModule",
+      "declaration": "autolink/navigation/types/platform-native-module.d.ts",
+      "declarationName": "Navigation",
+      "autolink": {
+        "directory": "navigation",
+        "exportName": "NAVIGATION_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/navigation/android/src/main/java",
+          "fileName": "NavigationModule.java"
+        },
+        "ios": "autolink/navigation/ios/src/LynxNavigationModule.m",
+        "harmony": "autolink/navigation/harmony/src/main/ets/NavigationModule.ets"
+      }
+    },
+    {
+      "name": "NetworkInfo",
+      "interfaceName": "NetworkInfoModule",
+      "declaration": "autolink/network-info/types/platform-native-module.d.ts",
+      "declarationName": "NetworkInfo",
+      "autolink": {
+        "directory": "network-info",
+        "exportName": "NETWORK_INFO_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/network-info/android/src/main/java",
+          "fileName": "NetworkInfoModule.java"
+        },
+        "ios": "autolink/network-info/ios/src/NetworkInfoModule.m",
+        "harmony": "autolink/network-info/harmony/src/main/ets/NetworkInfoModule.ets"
+      }
+    },
+    {
       "name": "Permissions",
       "interfaceName": "PermissionsModule",
       "declaration": "autolink/permissions/types/platform-native-module.d.ts",
@@ -233,24 +215,6 @@
         },
         "ios": "autolink/permissions/ios/src/PermissionsModule.m",
         "harmony": "autolink/permissions/harmony/src/main/ets/PermissionsModule.ets"
-      }
-    },
-    {
-      "name": "Router",
-      "interfaceName": "RouterModule",
-      "declaration": "autolink/router/types/platform-native-module.d.ts",
-      "declarationName": "Router",
-      "autolink": {
-        "directory": "router",
-        "exportName": "ROUTER_MODULE_NAME"
-      },
-      "implementations": {
-        "android": {
-          "searchRoot": "autolink/router/android/src/main/java",
-          "fileName": "RouterModule.java"
-        },
-        "ios": "autolink/router/ios/src/RouterModule.m",
-        "harmony": "autolink/router/harmony/src/main/ets/RouterModule.ets"
       }
     },
     {
@@ -290,39 +254,39 @@
       }
     },
     {
-      "name": "Sensors",
-      "interfaceName": "SensorsModule",
-      "declaration": "autolink/sensors/types/platform-native-module.d.ts",
-      "declarationName": "Sensors",
+      "name": "Share",
+      "interfaceName": "ShareModule",
+      "declaration": "autolink/share/types/platform-native-module.d.ts",
+      "declarationName": "Share",
       "autolink": {
-        "directory": "sensors",
-        "exportName": "SENSORS_MODULE_NAME"
+        "directory": "share",
+        "exportName": "SHARE_MODULE_NAME"
       },
       "implementations": {
         "android": {
-          "searchRoot": "autolink/sensors/android/src/main/java",
-          "fileName": "SensorsModule.java"
+          "searchRoot": "autolink/share/android/src/main/java",
+          "fileName": "ShareModule.java"
         },
-        "ios": "autolink/sensors/ios/src/SensorsModule.m",
-        "harmony": "autolink/sensors/harmony/src/main/ets/SensorsModule.ets"
+        "ios": "autolink/share/ios/src/ShareModule.m",
+        "harmony": "autolink/share/harmony/src/main/ets/ShareModule.ets"
       }
     },
     {
-      "name": "SecureStorage",
-      "interfaceName": "SecureStorageModule",
-      "declaration": "autolink/secure-storage/types/platform-native-module.d.ts",
-      "declarationName": "SecureStorage",
+      "name": "Storage",
+      "interfaceName": "StorageModule",
+      "declaration": "autolink/storage/types/platform-native-module.d.ts",
+      "declarationName": "Storage",
       "autolink": {
-        "directory": "secure-storage",
-        "exportName": "SECURE_STORAGE_MODULE_NAME"
+        "directory": "storage",
+        "exportName": "STORAGE_MODULE_NAME"
       },
       "implementations": {
         "android": {
-          "searchRoot": "autolink/secure-storage/android/src/main/java",
-          "fileName": "SecureStorageModule.java"
+          "searchRoot": "autolink/storage/android/src/main/java",
+          "fileName": "StorageModule.java"
         },
-        "ios": "autolink/secure-storage/ios/src/SecureStorageModule.m",
-        "harmony": "autolink/secure-storage/harmony/src/main/ets/SecureStorageModule.ets"
+        "ios": "autolink/storage/ios/src/StorageModule.m",
+        "harmony": "autolink/storage/harmony/src/main/ets/StorageModule.ets"
       }
     },
     {

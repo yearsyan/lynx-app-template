@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
-import { router } from '@lynx-template/autolink-router';
+import { router } from '@lynx-template/autolink-navigation';
+import {
+  type NetworkInfoSnapshot,
+  networkInfo,
+} from '@lynx-template/autolink-network-info';
 import { WebSocketConnection } from '@lynx-template/autolink-websocket';
 
 import {
@@ -200,11 +204,102 @@ export function OpenUrlPage() {
           primary
           onTap={() => open('https://www.lynxjs.org')}
         />
-        <DemoButton
-          label="打开 lynxapp://main"
-          onTap={() => open('lynxapp://main')}
-        />
         <ResultLine text={result} placeholder="选择一个链接交给系统打开" />
+      </DemoCard>
+    </view>
+  );
+}
+
+function formatNetworkSnapshot(snapshot: NetworkInfoSnapshot): string {
+  'background only';
+  const generation = snapshot.cellularGeneration ?? '—';
+  const time = new Date(snapshot.timestamp).toLocaleTimeString();
+  return `${snapshot.connected ? '已连接' : '未连接'} · ${snapshot.type} · 代际 ${generation} · ${time}`;
+}
+
+export function NetworkInfoPage() {
+  const [current, setCurrent] = useState<string | null>(null);
+  const [lines, setLines] = useState<string[]>([]);
+  const [observing, setObserving] = useState(false);
+  const stopRef = useRef<(() => void) | null>(null);
+
+  const append = useCallback((line: string) => {
+    'background only';
+    setLines((existing) => [...existing.slice(-11), line]);
+  }, []);
+
+  const refresh = useCallback(() => {
+    'background only';
+    networkInfo
+      .getInfo()
+      .then((snapshot) => setCurrent(formatNetworkSnapshot(snapshot)))
+      .catch((error: Error) => setCurrent(`查询失败：${error.message}`));
+  }, []);
+
+  const stopObserving = useCallback(() => {
+    'background only';
+    stopRef.current?.();
+    stopRef.current = null;
+    setObserving(false);
+  }, []);
+
+  const startObserving = useCallback(() => {
+    'background only';
+    if (stopRef.current !== null) return;
+    append('→ 开始监听网络变化');
+    stopRef.current = networkInfo.observe(
+      (snapshot) => {
+        'background only';
+        append(`← ${formatNetworkSnapshot(snapshot)}`);
+      },
+      (message) => {
+        'background only';
+        append(`! ${message}`);
+      },
+    );
+    setObserving(true);
+  }, [append]);
+
+  useEffect(() => {
+    'background only';
+    refresh();
+    return () => {
+      'background only';
+      stopRef.current?.();
+      stopRef.current = null;
+    };
+  }, [refresh]);
+
+  return (
+    <view>
+      <ApiName name="networkInfo" />
+      <DemoCard
+        title="当前网络"
+        desc="进入页面自动查询一次；type 为 wifi / cellular / ethernet / other / none，cellularGeneration 由平台能力决定（Android 需 READ_PHONE_STATE）。"
+      >
+        <DemoButton label="重新查询" primary onTap={refresh} />
+        <ResultLine text={current} placeholder="正在查询网络状态…" />
+      </DemoCard>
+      <DemoCard
+        title="变化监听"
+        desc="第一个监听者注册原生监听并立即回推当前快照，最后一个取消时移除。可切换飞行模式 / Wi-Fi 观察事件流。"
+      >
+        <DemoButton
+          label={observing ? '停止监听' : '开始监听'}
+          primary={!observing}
+          onTap={observing ? stopObserving : startObserving}
+        />
+        <view className="LogBox">
+          {lines.length === 0 ? (
+            <text className="LogBox__empty">事件日志展示在这里</text>
+          ) : (
+            lines.map((line, index) => (
+              <text key={index} className="LogBox__line">
+                {line}
+              </text>
+            ))
+          )}
+        </view>
       </DemoCard>
     </view>
   );

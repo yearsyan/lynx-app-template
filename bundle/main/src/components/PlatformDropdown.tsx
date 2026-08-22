@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
-import type { LayoutChangeEvent, TouchEvent } from '@lynx-js/types';
-import { PredictiveBackOverlay } from '@lynx-template/autolink-back/react';
+import type {
+  LayoutChangeEvent,
+  TouchEvent,
+  TransitionEvent,
+} from '@lynx-js/types';
+import { PredictiveBackOverlay } from '@lynx-template/autolink-navigation/react';
 
 import type { GlassDropdownEvent } from './native-elements.js';
 
@@ -37,6 +41,7 @@ interface TriggerSize {
 const DROPDOWN_GAP = 6;
 const MENU_EDGE_INSET = 8;
 const OPTION_HEIGHT = 42;
+const MENU_TRANSITION_FALLBACK_MS = 400;
 // Finger travel (layout px) past which a touch on the backdrop counts as a
 // scroll drag rather than a sloppy tap.
 const SCROLL_DISMISS_SLOP = 10;
@@ -44,11 +49,9 @@ const SCROLL_DISMISS_SLOP = 10;
 const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
 
 /**
- * iOS renders the native Liquid Glass menu button; other platforms get a
- * Lynx-built dropdown whose menu floats above the page via `position: fixed`
- * (recommended over <overlay> for fully Lynx-rendered pages) and closes on
- * backdrop tap, a scroll drag behind it, or the system back button
- * (back interception).
+ * Every platform renders the trigger and selected state with Lynx. On iOS, a
+ * transparent native button above the trigger only presents the system UIMenu
+ * (Liquid Glass on iOS 26); Android and HarmonyOS use the Lynx-built menu.
  */
 export function PlatformDropdown(props: PlatformDropdownProps) {
   const { title, options, selected, disabled = false, onSelect } = props;
@@ -66,6 +69,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     width: 0,
   });
   const gestureStart = useRef<{ x: number; y: number } | null>(null);
+  const closeTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (isIOS) {
@@ -87,6 +91,44 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
     [onSelect],
   );
 
+  const finishClose = useCallback(() => {
+    'background only';
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpen(false);
+  }, []);
+
+  const close = useCallback(() => {
+    'background only';
+    if (!open || !expanded) {
+      finishClose();
+      return;
+    }
+    setExpanded(false);
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+    }
+    // Lynx emits transitionend for height on the fallback hosts. Keep a small
+    // fallback so a platform interruption cannot leave the full-screen hit
+    // layer mounted indefinitely.
+    closeTimer.current = setTimeout(finishClose, MENU_TRANSITION_FALLBACK_MS);
+  }, [expanded, finishClose, open]);
+
+  const finishMenuTransition = useCallback(
+    (event: TransitionEvent) => {
+      'background only';
+      const isHeightTransition =
+        event.params.animation_name === 'height' ||
+        event.params.animation_type === 'transition-height';
+      if (isHeightTransition && open && !expanded) {
+        finishClose();
+      }
+    },
+    [expanded, finishClose, open],
+  );
+
   const toggle = useCallback(
     (event: TouchEvent) => {
       'background only';
@@ -95,7 +137,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
       }
 
       if (open) {
-        setOpen(false);
+        close();
         return;
       }
 
@@ -159,7 +201,14 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
       });
       setOpen(true);
     },
-    [disabled, open, options.length, triggerSize.height, triggerSize.width],
+    [
+      close,
+      disabled,
+      open,
+      options.length,
+      triggerSize.height,
+      triggerSize.width,
+    ],
   );
 
   const trackTriggerSize = useCallback((event: LayoutChangeEvent) => {
@@ -170,11 +219,6 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
         ? current
         : { width, height },
     );
-  }, []);
-
-  const close = useCallback(() => {
-    'background only';
-    setOpen(false);
   }, []);
 
   // While open, the fixed backdrop is hit-tested before the page, so every
@@ -190,20 +234,23 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
       touch === undefined ? null : { x: touch.clientX, y: touch.clientY };
   }, []);
 
-  const dismissOnScrollDrag = useCallback((event: TouchEvent) => {
-    'background only';
-    const start = gestureStart.current;
-    const touch = event.changedTouches[0] ?? event.touches[0];
-    if (start === null || touch === undefined) {
-      return;
-    }
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (deltaX * deltaX + deltaY * deltaY > SCROLL_DISMISS_SLOP ** 2) {
-      gestureStart.current = null;
-      setOpen(false);
-    }
-  }, []);
+  const dismissOnScrollDrag = useCallback(
+    (event: TouchEvent) => {
+      'background only';
+      const start = gestureStart.current;
+      const touch = event.changedTouches[0] ?? event.touches[0];
+      if (start === null || touch === undefined) {
+        return;
+      }
+      const deltaX = touch.clientX - start.x;
+      const deltaY = touch.clientY - start.y;
+      if (deltaX * deltaX + deltaY * deltaY > SCROLL_DISMISS_SLOP ** 2) {
+        gestureStart.current = null;
+        close();
+      }
+    },
+    [close],
+  );
 
   const endGestureTracking = useCallback(() => {
     'background only';
@@ -217,24 +264,21 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
   const interruptGesture = useCallback(() => {
     'background only';
     gestureStart.current = null;
-    setOpen(false);
-  }, []);
+    close();
+  }, [close]);
+
+  const handleOverlayOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      'background only';
+      if (!nextOpen) {
+        close();
+      }
+    },
+    [close],
+  );
 
   const label =
     selected >= 0 && selected < options.length ? options[selected] : title;
-
-  if (isIOS) {
-    return (
-      <glass-dropdown
-        style={{ width: '100%', height: '44px' }}
-        title={title}
-        options={options}
-        selected={selected}
-        disabled={disabled}
-        bindselect={handleNativeSelect}
-      />
-    );
-  }
 
   return (
     <view className="FallbackDropdown">
@@ -245,64 +289,85 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
         bindlayoutchange={trackTriggerSize}
       >
         <text className="FallbackDropdown__label">{label}</text>
-        <text className="FallbackDropdown__chevron">{open ? '▲' : '▼'}</text>
-        <view className="FallbackDropdown__hitTarget" bindtap={toggle} />
+        <text className="FallbackDropdown__chevron">
+          {expanded ? '▲' : '▼'}
+        </text>
+        {isIOS ? (
+          <glass-dropdown
+            className="FallbackDropdown__hitTarget"
+            title={label}
+            options={options}
+            selected={selected}
+            disabled={disabled}
+            bindselect={handleNativeSelect}
+          />
+        ) : (
+          <view className="FallbackDropdown__hitTarget" bindtap={toggle} />
+        )}
       </view>
-      <PredictiveBackOverlay
-        open={open}
-        onOpenChange={(nextOpen) => setOpen(nextOpen)}
-        backdropColor="transparent"
-        motion="horizontal"
-        dismissOnBackdropPress={false}
-        style={{ zIndex: 0 }}
-        contentStyle={{ width: '100%', height: '100%' }}
-      >
-        <view
-          className="FallbackDropdown__backdrop"
-          bindtap={close}
-          bindtouchstart={trackGestureStart}
-          bindtouchmove={dismissOnScrollDrag}
-          bindtouchend={endGestureTracking}
-          bindtouchcancel={interruptGesture}
+      {!isIOS ? (
+        <PredictiveBackOverlay
+          open={open}
+          onOpenChange={handleOverlayOpenChange}
+          backdropColor="transparent"
+          motion="none"
+          animated={false}
+          dismissOnBackdropPress={false}
+          style={{ zIndex: 0 }}
+          contentStyle={{ width: '100%', height: '100%' }}
         >
           <view
-            className="FallbackDropdown__menu"
-            style={{
-              position: 'absolute',
-              left: `${menuRect.left}px`,
-              width: `${menuRect.width}px`,
-              height: expanded ? `${options.length * OPTION_HEIGHT}px` : '0px',
-              ...(menuRect.direction === 'up'
-                ? { bottom: `${menuRect.bottom}px` }
-                : { top: `${menuRect.top}px` }),
-            }}
+            className="FallbackDropdown__backdrop"
+            bindtap={close}
+            bindtouchstart={trackGestureStart}
+            bindtouchmove={dismissOnScrollDrag}
+            bindtouchend={endGestureTracking}
+            bindtouchcancel={interruptGesture}
           >
-            {options.map((option, index) => (
-              <view
-                key={option}
-                className={`FallbackDropdown__option ${
-                  index === selected ? 'FallbackDropdown__option--selected' : ''
-                }`}
-                bindtap={() => {
-                  'background only';
-                  setOpen(false);
-                  onSelect(index, option);
-                }}
-              >
-                <text
-                  className={`FallbackDropdown__optionLabel ${
+            <view
+              className="FallbackDropdown__menu"
+              style={{
+                position: 'absolute',
+                left: `${menuRect.left}px`,
+                width: `${menuRect.width}px`,
+                height: expanded
+                  ? `${options.length * OPTION_HEIGHT}px`
+                  : '0px',
+                ...(menuRect.direction === 'up'
+                  ? { bottom: `${menuRect.bottom}px` }
+                  : { top: `${menuRect.top}px` }),
+              }}
+              bindtransitionend={finishMenuTransition}
+            >
+              {options.map((option, index) => (
+                <view
+                  key={option}
+                  className={`FallbackDropdown__option ${
                     index === selected
-                      ? 'FallbackDropdown__optionLabel--selected'
+                      ? 'FallbackDropdown__option--selected'
                       : ''
                   }`}
+                  bindtap={() => {
+                    'background only';
+                    close();
+                    onSelect(index, option);
+                  }}
                 >
-                  {option}
-                </text>
-              </view>
-            ))}
+                  <text
+                    className={`FallbackDropdown__optionLabel ${
+                      index === selected
+                        ? 'FallbackDropdown__optionLabel--selected'
+                        : ''
+                    }`}
+                  >
+                    {option}
+                  </text>
+                </view>
+              ))}
+            </view>
           </view>
-        </view>
-      </PredictiveBackOverlay>
+        </PredictiveBackOverlay>
+      ) : null}
     </view>
   );
 }

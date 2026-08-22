@@ -35,15 +35,17 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Demo deep link so router.openURL('lynxapp://main') can open
-                 this app's own registered page. -->
+            <!-- The scheme comes from contracts/deeplinks.json; the configured
+                 host and path table are validated in-app by
+                 DeepLinkRouteResolver. Standard launch mode stacks a fresh
+                 root instance when a deep link arrives warm. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="lynxapp" android:host="main" />
+                <data android:scheme="${lynxDeepLinkScheme}" />
             </intent-filter>
         </activity>
     </application>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Exposes the app cache (LynxImages / LynxFiles) to share targets.
+          ${applicationId} keeps the authority unique per host build, so the
+          debug and release apps never collide on one device.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.lynx.share.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/lynx_share_file_paths" />
+        </provider>
+    </application>
+
+</manifest>

@@ -1,10 +1,10 @@
 # @lynx-template/autolink-toast
 
-Autolinked Lynx native library that registers `Toast` on Android and iOS
-hosts. Bundles import `toast` from this package root.
+Autolinked Lynx native library that registers `Toast` on Android, iOS and
+HarmonyOS hosts. Bundles import `toast` from this package root.
 
 `show(message, options)` renders the bubble **inside the app's own window**
-on both platforms — never through the system toast/notification pipeline —
+on every platform — never through the system toast/notification pipeline —
 so:
 
 - styling is fully custom and identical under any system theme;
@@ -27,10 +27,13 @@ Options:
   the current one.
 - **iOS** — the same bubble is drawn at the bottom of the LynxView's window
   (falling back to the key window).
+- **HarmonyOS** — the same bubble is built as a `ComponentContent` and added
+  to the window's `OverlayManager`, fading in/out; the overlay is
+  click-through, a new toast replaces the current one, and `durationMs` is
+  honored exactly. (`promptAction.showToast` is deliberately not used: its
+  theme blur material overrides custom background colors, it renders no
+  icons, and it clamps durations to 1500–10000ms.)
 
-HarmonyOS ships the `promptAction.showToast`-backed `ToastModule` as the
-`harmony/` source HAR. It resolves the current window from `LynxContext`, so
-the official global HarmonyOS Autolink provider needs no host parameter.
-The ArkUI toast is also in-window and permission-free; it honors
-`backgroundColor`/`textColor` natively, renders the icon as a text prefix,
-and clamps `durationMs` to the system range (1500–10000ms).
+The HarmonyOS `ToastModule` ships as the `harmony/` source HAR and resolves
+the current window from `LynxContext`, so the official global HarmonyOS
+Autolink provider needs no host parameter.

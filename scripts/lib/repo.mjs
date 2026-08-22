@@ -40,7 +40,7 @@ export async function readRootPackageJson() {
 
 /**
  * Read a pinned Lynx version from package.json#lynx. `engineVersion` and
- * `sdkVersion` feed bundles, manifests and Android/iOS pins;
+ * `sdkVersion` feed release manifests and native host pins;
  * `harmonySdkVersion` is the ohpm @lynx/* pin shared by the HarmonyOS host
  * and every autolink HAR.
  */

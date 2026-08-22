@@ -13,17 +13,18 @@ import {
 } from '@lynx/lynx';
 import { common } from '@kit.AbilityKit';
 import {
-  BACK_CONTEXT_DATA_KEY,
+  BACK_REGISTRATION_CONTEXT_DATA_KEY,
   BackRegistration,
   NativeBackController,
-} from '@lynx-template/autolink-back';
+  ROUTE_HANDLER_CONTEXT_DATA_KEY,
+} from '@lynx-template/autolink-navigation';
 import {
-  DeviceInfoModule,
-  DeviceInfoRegistration,
+  DeviceModule,
+  DeviceRegistration,
   NativeSafeAreaController,
   NativeStatusBarController,
   SafeAreaInsets,
-} from '@lynx-template/autolink-device-info';
+} from '@lynx-template/autolink-device';
 
 import { BundleConfig } from '../config/BundleConfig';
 import { DevelopmentSettings } from 'entry/ets/config/DevelopmentSettings';
@@ -35,8 +36,9 @@ import {
   NativeRoute,
   nativeRouteTransitionType,
   NativeRouterController,
-  ROUTER_CONTEXT_DATA_KEY,
 } from '../host/NativeRouterHost';
+import { DeepLinkResolution } from '../host/DeepLinkRouteResolver';
+import { StartupRoute } from '../host/StartupRoute';
 import { LaunchpadGenericResourceFetcher } from '../provider/LaunchpadGenericResourceFetcher';
 import { LaunchpadTemplateResourceFetcher } from '../provider/LaunchpadTemplateResourceFetcher';
 import { LynxBundleRepository } from '../provider/LynxBundleRepository';
@@ -155,6 +157,9 @@ struct LynxBundlePage {
   private webviewBehaviors: Map<string, Behavior> = new Map();
   private lynxContext: LynxContext | undefined = undefined;
   private hasStartedBundle: boolean = false;
+  // LynxView only reads `url` at creation; bumping this token flips the
+  // build branch below so a changed URL recreates the view and reloads.
+  @State private lynxReloadToken: number = 0;
   private lynxCreateCallback = (context: LynxContext): void => {
     this.installHostContext(context);
     this.lynxContext = context;
@@ -205,21 +210,29 @@ struct LynxBundlePage {
     );
   }
 
+  private setBundleURL(url: string): void {
+    if (url === this.url) {
+      return;
+    }
+    this.url = url;
+    this.lynxReloadToken += 1;
+  }
+
   private startBundle(context: common.UIAbilityContext): void {
     if (this.hasStartedBundle) {
       return;
     }
     this.hasStartedBundle = true;
-    this.url = this.initialURL();
+    this.setBundleURL(this.initialURL());
     if (this.route.bundle !== BundleConfig.BUNDLE_NAME ||
       this.bundleRepository.developmentURL(this.route.bundle).length > 0) {
       return;
     }
     this.bundleRepository.resolveStartupURL(context).then((url: string) => {
-      this.url = url;
+      this.setBundleURL(url);
       this.bundleRepository.checkForUpdate(context).then((updatedURL: string | null) => {
         if (updatedURL !== null) {
-          this.url = updatedURL;
+          this.setBundleURL(updatedURL);
         }
       }).catch((error: Error) => {
         console.error(`Lynx bundle update failed: ${error.message}`);
@@ -248,14 +261,14 @@ struct LynxBundlePage {
 
   private createModules(): Map<string, ModuleClassWrapper> {
     const modules = new Map<string, ModuleClassWrapper>();
-    // Package-owned libraries, including Back, are installed globally by the
-    // HarmonyOS Autolink AppStartup task. DeviceInfo additionally receives
+    // Package-owned libraries, including Navigation, are installed globally
+    // by the HarmonyOS Autolink AppStartup task. Device additionally receives
     // page-owned safe-area/status-bar state through its package adapter.
     modules.set(
-      DeviceInfoModule.NAME,
+      DeviceModule.NAME,
       new NativeModuleRegistration(
-        DeviceInfoModule,
-        new DeviceInfoRegistration(
+        DeviceModule,
+        new DeviceRegistration(
           this.safeAreaController,
           this.nativeStatusBarController,
           this.route.nativeBackID,
@@ -267,11 +280,11 @@ struct LynxBundlePage {
 
   private installHostContext(context: LynxContext): void {
     const contextData: Record<string, Object> = context.getContextData() ?? {};
-    contextData[BACK_CONTEXT_DATA_KEY] = new BackRegistration(
+    contextData[BACK_REGISTRATION_CONTEXT_DATA_KEY] = new BackRegistration(
       this.nativeBackController,
       this.route.nativeBackID,
     );
-    contextData[ROUTER_CONTEXT_DATA_KEY] = this.routerController;
+    contextData[ROUTE_HANDLER_CONTEXT_DATA_KEY] = this.routerController;
     context.setContextData(contextData);
   }
 
@@ -292,7 +305,7 @@ struct LynxBundlePage {
       return;
     }
     console.warn(`Lynx bundle ${this.url} failed to load; falling back to ${embedded}`);
-    this.url = embedded;
+    this.setBundleURL(embedded);
   }
 
   private publishNativeEnvironment(): void {
@@ -304,21 +317,32 @@ struct LynxBundlePage {
     );
   }
 
+  @Builder
+  private bundleView() {
+    LynxView({
+      templateResourceFetcher: this.templateResourceFetcher,
+      genericResourceFetcher: this.genericResourceFetcher,
+      modules: this.modules,
+      behaviors: this.webviewBehaviors,
+      metaData: this.metaData,
+      beforeLoadTemplate: this.lynxBeforeLoadTemplateCallback,
+      onCreate: this.lynxCreateCallback,
+      clients: [this.bundleLoadFallback],
+      url: this.url,
+    })
+      .width('100%')
+      .height('100%');
+  }
+
   build() {
     Column() {
-      LynxView({
-        templateResourceFetcher: this.templateResourceFetcher,
-        genericResourceFetcher: this.genericResourceFetcher,
-        modules: this.modules,
-        behaviors: this.webviewBehaviors,
-        metaData: this.metaData,
-        beforeLoadTemplate: this.lynxBeforeLoadTemplateCallback,
-        onCreate: this.lynxCreateCallback,
-        clients: [this.bundleLoadFallback],
-        url: this.url,
-      })
-        .width('100%')
-        .height('100%');
+      if (this.url.length > 0) {
+        if (this.lynxReloadToken % 2 === 0) {
+          this.bundleView();
+        } else {
+          this.bundleView();
+        }
+      }
     }
     .backgroundColor(Color.Transparent)
     .size({ width: '100%', height: '100%' });
@@ -334,11 +358,33 @@ struct Index {
   private nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
   private rootRoute: NativeRoute = NativeRoute.main();
   @State private showDevelopmentSettings: boolean = false;
+  private handleStartupDeepLink = (resolution: DeepLinkResolution): void => {
+    this.routerController.open(
+      {
+        bundle: resolution.bundle,
+        presentation: 'push',
+        params: resolution.params,
+      },
+      (_error: string): void => {},
+    );
+  };
 
   aboutToAppear(): void {
+    // A cold-start deep link replaces the root route before the first build;
+    // warm links arrive later through handleStartupDeepLink.
+    const pending: DeepLinkResolution | null = StartupRoute.consumePending();
+    if (pending !== null) {
+      this.rootRoute = new NativeRoute(pending.bundle);
+      this.rootRoute.params = pending.params;
+    }
+    StartupRoute.registerHandler(this.handleStartupDeepLink);
     this.routerController.attach(this.getUIContext());
     this.nativeBackController.attach(this.getUIContext());
     this.nativeStatusBarController.attach(this.getUIContext());
+  }
+
+  aboutToDisappear(): void {
+    StartupRoute.registerHandler(undefined);
   }
 
   @Builder

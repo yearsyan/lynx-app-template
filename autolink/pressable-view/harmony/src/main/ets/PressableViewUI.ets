@@ -1,10 +1,13 @@
 import { EventHandlerArray, UIBase, UIGroup } from '@lynx/lynx';
+import { vibrator } from '@kit.SensorServiceKit';
 import { NativeContent } from 'liblynx.so';
 
 const DEFAULT_ACTIVE_OPACITY: number = 0.7;
 const TRANSPARENT_OVERLAY_COLOR: string = '#00000000';
 const PRESS_FEEDBACK_DELAY_MS: number = 80;
 const MINIMUM_TAP_FLASH_MS: number = 72;
+const LONG_PRESS_DURATION_MS: number = 500;
+const LONG_PRESS_HAPTIC_FALLBACK_MS: number = 30;
 const SCROLL_COOLDOWN_MS: number = 120;
 const TOUCH_SLOP: number = 10;
 
@@ -13,6 +16,7 @@ class PressableViewState {
   @Trace activeOpacity: number = DEFAULT_ACTIVE_OPACITY;
   @Trace pressedOverlayColor: string = TRANSPARENT_OVERLAY_COLOR;
   @Trace disabled: boolean = false;
+  @Trace longPressHaptic: boolean = false;
   @Trace pressed: boolean = false;
   @Trace children: NativeContent[] = [];
   readonly ui: PressableViewUI;
@@ -20,7 +24,9 @@ class PressableViewState {
   private blocked: boolean = false;
   private hasCompletedTouch: boolean = false;
   private completedTouchAccepted: boolean = false;
+  private completedTouchLongPressed: boolean = false;
   private completedWithVisibleFeedback: boolean = false;
+  private longPressRecognized: boolean = false;
   private activeTouchId: number = -1;
   private downX: number = 0;
   private downY: number = 0;
@@ -52,9 +58,11 @@ class PressableViewState {
 
   handleClick(): void {
     const acceptedByTouch: boolean = !this.hasCompletedTouch || this.completedTouchAccepted;
+    const completedLongPress: boolean = this.completedTouchLongPressed;
     this.hasCompletedTouch = false;
     this.completedTouchAccepted = false;
-    if (this.disabled || this.isScrollingOrRecent() || !acceptedByTouch) {
+    this.completedTouchLongPressed = false;
+    if (this.disabled || this.isScrollingOrRecent() || !acceptedByTouch || completedLongPress) {
       this.reset();
       return;
     }
@@ -68,6 +76,8 @@ class PressableViewState {
       }, MINIMUM_TAP_FLASH_MS);
     }
     this.completedWithVisibleFeedback = false;
+    this.completedTouchLongPressed = false;
+    this.longPressRecognized = false;
     this.ui.emitPress();
   }
 
@@ -112,6 +122,17 @@ class PressableViewState {
         this.pressed = true;
       }
     }, PRESS_FEEDBACK_DELAY_MS);
+
+    setTimeout(() => {
+      if (sequence === this.sequence && this.tracking && !this.blocked && !this.disabled &&
+        !this.isScrollingOrRecent()) {
+        this.longPressRecognized = true;
+        this.pressed = true;
+        if (this.longPressHaptic) {
+          this.playLongPressHaptic();
+        }
+      }
+    }, LONG_PRESS_DURATION_MS);
   }
 
   private updateTouch(event: TouchEvent): void {
@@ -135,10 +156,12 @@ class PressableViewState {
       !this.isScrollingOrRecent();
     this.hasCompletedTouch = true;
     this.completedTouchAccepted = accepted;
+    this.completedTouchLongPressed = accepted && this.longPressRecognized;
     this.completedWithVisibleFeedback = accepted && this.pressed;
     this.tracking = false;
     this.blocked = false;
     this.activeTouchId = -1;
+    this.longPressRecognized = false;
     this.sequence += 1;
     this.pressed = false;
   }
@@ -148,7 +171,9 @@ class PressableViewState {
     this.blocked = false;
     this.hasCompletedTouch = false;
     this.completedTouchAccepted = false;
+    this.completedTouchLongPressed = false;
     this.activeTouchId = -1;
+    this.longPressRecognized = false;
     this.sequence += 1;
     this.pressed = false;
   }
@@ -181,6 +206,26 @@ class PressableViewState {
   private isScrollingOrRecent(): boolean {
     return this.lastAreaActivityMs >= 0 &&
       new Date().getTime() - this.lastAreaActivityMs <= SCROLL_COOLDOWN_MS;
+  }
+
+  private playLongPressHaptic(): void {
+    vibrator.startVibration(
+      {
+        type: 'preset',
+        effectId: vibrator.HapticFeedback.EFFECT_SHARP,
+      },
+      { usage: 'touch' },
+    ).catch((_error: Error) => {
+      vibrator.startVibration(
+        {
+          type: 'time',
+          duration: LONG_PRESS_HAPTIC_FALLBACK_MS,
+        },
+        { usage: 'touch' },
+      ).catch((_fallbackError: Error) => {
+        // Haptic feedback is best effort and may be disabled by system policy.
+      });
+    });
   }
 }
 
@@ -250,6 +295,10 @@ export class PressableViewUI extends UIGroup {
       if (disabled) {
         this.state.reset();
       }
+    }
+    const longPressHaptic = props['long-press-haptic'];
+    if (typeof longPressHaptic === 'boolean') {
+      this.state.longPressHaptic = longPressHaptic;
     }
   }
 

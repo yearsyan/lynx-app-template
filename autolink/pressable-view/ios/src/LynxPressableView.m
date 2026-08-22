@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
+#import <Lynx/LynxColorUtils.h>
 #import <Lynx/LynxEvent.h>
 #import <Lynx/LynxEventEmitter.h>
 #import <Lynx/LynxPropsProcessor.h>
@@ -9,6 +10,7 @@
 static const CGFloat kDefaultActiveOpacity = 0.7;
 static const NSTimeInterval kPressDelay = 0.06;
 static const NSTimeInterval kMinimumTapFlash = 0.072;
+static const NSTimeInterval kLongPressDuration = 0.5;
 static const NSTimeInterval kScrollCooldown = 0.12;
 static const CGFloat kTouchSlop = 10.0;
 static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
@@ -21,6 +23,7 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
 @property(nonatomic, assign) CGFloat activeOpacity;
 @property(nonatomic, strong) UIColor *pressedOverlayColor;
 @property(nonatomic, assign, getter=isPressDisabled) BOOL pressDisabled;
+@property(nonatomic, assign) BOOL longPressHapticEnabled;
 
 - (void)cancelPress;
 - (void)flashForAccessibility;
@@ -37,6 +40,7 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
   BOOL _trackingPress;
   BOOL _blocked;
   BOOL _pressVisualVisible;
+  BOOL _longPressRecognized;
   CGFloat _baseAlpha;
   CGPoint _downPoint;
   NSUInteger _sequence;
@@ -44,6 +48,7 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
   NSMutableArray<UIScrollView *> *_observedScrollViews;
   CFTimeInterval _lastScrollActivityTime;
   UIView *_pressedOverlayView;
+  UIImpactFeedbackGenerator *_longPressFeedbackGenerator;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -127,6 +132,13 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
   }
 }
 
+- (void)setLongPressHapticEnabled:(BOOL)longPressHapticEnabled {
+  _longPressHapticEnabled = longPressHapticEnabled;
+  if (!longPressHapticEnabled) {
+    _longPressFeedbackGenerator = nil;
+  }
+}
+
 - (void)didMoveToWindow {
   [super didMoveToWindow];
   if (self.window == nil) {
@@ -177,11 +189,18 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
   _sequence += 1;
   _trackingPress = YES;
   _blocked = [self ancestorScrollIsActive];
+  _longPressRecognized = NO;
   _downPoint = point;
   [self setPressVisual:NO];
 
   if (_blocked) {
     return;
+  }
+
+  if (self.longPressHapticEnabled) {
+    _longPressFeedbackGenerator =
+        [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+    [_longPressFeedbackGenerator prepare];
   }
 
   NSUInteger sequence = _sequence;
@@ -196,6 +215,25 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
           return;
         }
         [strongSelf setPressVisual:YES];
+      });
+
+  dispatch_after(
+      dispatch_time(DISPATCH_TIME_NOW,
+                    (int64_t)(kLongPressDuration * NSEC_PER_SEC)),
+      dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (strongSelf == nil || sequence != strongSelf->_sequence ||
+            !strongSelf->_trackingPress || strongSelf->_blocked ||
+            strongSelf.isPressDisabled ||
+            [strongSelf ancestorScrollIsActive]) {
+          return;
+        }
+        strongSelf->_longPressRecognized = YES;
+        [strongSelf setPressVisual:YES];
+        if (strongSelf.longPressHapticEnabled) {
+          [strongSelf->_longPressFeedbackGenerator impactOccurred];
+        }
+        strongSelf->_longPressFeedbackGenerator = nil;
       });
 }
 
@@ -215,13 +253,21 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
   BOOL accepted = _trackingPress && !_blocked && !self.pressDisabled &&
                   [self pointInsideRetentionBounds:point] &&
                   ![self ancestorScrollIsActive];
+  BOOL completedLongPress = accepted && _longPressRecognized;
   BOOL visualWasVisible = _pressVisualVisible;
 
   _trackingPress = NO;
   _blocked = NO;
+  _longPressRecognized = NO;
+  _longPressFeedbackGenerator = nil;
   _sequence += 1;
 
   if (!accepted) {
+    [self setPressVisual:NO];
+    return;
+  }
+
+  if (completedLongPress) {
     [self setPressVisual:NO];
     return;
   }
@@ -273,6 +319,7 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
 
 - (void)blockCurrentSequence {
   _blocked = YES;
+  _longPressFeedbackGenerator = nil;
   _sequence += 1;
   [self setPressVisual:NO];
 }
@@ -280,6 +327,8 @@ static void *kPressableScrollOffsetContext = &kPressableScrollOffsetContext;
 - (void)cancelPress {
   _trackingPress = NO;
   _blocked = NO;
+  _longPressRecognized = NO;
+  _longPressFeedbackGenerator = nil;
   _sequence += 1;
   [self setPressVisual:NO];
 }
@@ -388,14 +437,22 @@ LYNX_PROP_SETTER("active-opacity", setActiveOpacity, CGFloat) {
   container.activeOpacity = requestReset ? kDefaultActiveOpacity : value;
 }
 
-LYNX_PROP_SETTER("pressed-overlay-color", setPressedOverlayColor, UIColor *) {
+LYNX_PROP_SETTER("pressed-overlay-color", setPressedOverlayColor, NSString *) {
   LynxPressableContainer *container = (LynxPressableContainer *)self.view;
-  container.pressedOverlayColor = requestReset ? UIColor.clearColor : value;
+  UIColor *color = requestReset
+                       ? UIColor.clearColor
+                       : [LynxColorUtils convertNSStringToUIColor:value];
+  container.pressedOverlayColor = color ?: UIColor.clearColor;
 }
 
 LYNX_PROP_SETTER("disabled", setDisabled, BOOL) {
   LynxPressableContainer *container = (LynxPressableContainer *)self.view;
   container.pressDisabled = requestReset ? NO : value;
+}
+
+LYNX_PROP_SETTER("long-press-haptic", setLongPressHaptic, BOOL) {
+  LynxPressableContainer *container = (LynxPressableContainer *)self.view;
+  container.longPressHapticEnabled = requestReset ? NO : value;
 }
 
 - (void)emitPress {

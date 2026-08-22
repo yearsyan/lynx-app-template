@@ -5,7 +5,7 @@ import androidx.fragment.app.FragmentActivity
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.TemplateData
 import com.lynxapp.LynxBundleRepository
-import com.lynxapp.autolink.deviceinfo.DeviceSystemUI
+import com.lynxapp.autolink.device.DeviceSystemUI
 import com.lynxapp.component.createLynxView
 
 class DebugActivity : FragmentActivity() {

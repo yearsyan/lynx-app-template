@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { UIContext } from '@kit.ArkUI';
 
 import { BundleConfig } from '../config/BundleConfig';
-import { STATUS_BAR_STYLE_DARK_CONTENT } from '@lynx-template/autolink-device-info';
+import { STATUS_BAR_STYLE_DARK_CONTENT } from '@lynx-template/autolink-device';
 
 interface NativeRouteOptions {
   bundle: string;
@@ -12,9 +12,6 @@ interface NativeRouteOptions {
   animation?: string;
   params?: Record<string, Object>;
 }
-
-export const ROUTER_CONTEXT_DATA_KEY: string =
-  '@lynx-template/autolink-router/route-handler';
 
 const ROUTE_ANIMATION_DEFAULT: string = 'default';
 const ROUTE_ANIMATION_FADE: string = 'fade';
@@ -68,7 +65,7 @@ export class NativeRoute {
   }
 }
 
-/** Implements the app-specific ArkUI navigation policy used by RouterModule. */
+/** Implements the app-specific ArkUI navigation policy used by NavigationModule. */
 export class NativeRouterController {
   static readonly DESTINATION_NAME: string = 'lynx-bundle';
 
@@ -114,6 +111,12 @@ export class NativeRouterController {
   close(callback: (error: string) => void): void {
     this.runOnUI(() => {
       if (this.pathStack.size() === 0) {
+        if (this.abilityContext !== undefined) {
+          this.abilityContext.moveAbilityToBackground()
+            .then(() => callback(''))
+            .catch((error: Error) => callback(`Unable to background the app: ${error.message}`));
+          return;
+        }
         callback('The root route cannot be closed');
         return;
       }

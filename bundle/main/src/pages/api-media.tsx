@@ -10,9 +10,12 @@ import type {
   AudioPlayerStateEvent,
 } from '@lynx-template/autolink-audio-player';
 import { audioPlayer } from '@lynx-template/autolink-audio-player';
-import { readSafeAreaInsets } from '@lynx-template/autolink-device-info';
+import { readSafeAreaInsets } from '@lynx-template/autolink-device';
 import { fileSystem } from '@lynx-template/autolink-file-system';
+import { imageTooling } from '@lynx-template/autolink-image-tooling';
 import { screenshot } from '@lynx-template/autolink-screenshot';
+import type { ShareOutcome } from '@lynx-template/autolink-share';
+import { share } from '@lynx-template/autolink-share';
 
 import {
   ApiName,
@@ -620,6 +623,349 @@ export function WebViewPage() {
             },
           }}
         />
+      </DemoCard>
+    </view>
+  );
+}
+
+function formatBytes(size: number | null): string {
+  'background only';
+  if (size === null) return '大小未知';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+export function ImageToolingPage() {
+  const [lines, setLines] = useState<string[]>([]);
+  const [compressed, setCompressed] = useState<{
+    uri: string;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const append = useCallback((line: string) => {
+    'background only';
+    setLines((existing) => [...existing.slice(-15), line]);
+  }, []);
+
+  const exerciseAndShow = useCallback(
+    async (uri: string) => {
+      'background only';
+      const info = await imageTooling.info(uri);
+      append(
+        `← 输入 ${info.width}×${info.height} · ${info.mimeType ?? '未知类型'} · ${formatBytes(info.sizeBytes)}`,
+      );
+      const result = await imageTooling.compress({
+        uri,
+        maxWidth: 512,
+        maxHeight: 512,
+        quality: 60,
+      });
+      append(
+        `← 压缩 ${result.width}×${result.height} · ${formatBytes(result.sizeBytes)}`,
+      );
+
+      const cropWidth = Math.max(
+        1,
+        Math.min(256, Math.floor(result.width * 0.6)),
+      );
+      const cropHeight = Math.max(
+        1,
+        Math.min(256, Math.floor(result.height * 0.6)),
+      );
+      const cropped = await imageTooling.crop({
+        uri: result.uri,
+        x: Math.floor((result.width - cropWidth) / 2),
+        y: Math.floor((result.height - cropHeight) / 2),
+        width: cropWidth,
+        height: cropHeight,
+        maxWidth: 192,
+        maxHeight: 192,
+        format: 'png',
+      });
+      append(`← 中心裁剪 ${cropped.width}×${cropped.height}`);
+
+      const horizontal = await imageTooling.compose({
+        images: [result.uri, cropped.uri],
+        layout: 'horizontal',
+        spacing: 8,
+        maxWidth: 640,
+        maxHeight: 320,
+        quality: 70,
+      });
+      append(`← 横拼 ${horizontal.width}×${horizontal.height}`);
+
+      const vertical = await imageTooling.compose({
+        images: [result.uri, cropped.uri],
+        layout: 'vertical',
+        spacing: 8,
+        maxWidth: 320,
+        maxHeight: 640,
+        quality: 70,
+      });
+      append(`← 竖拼 ${vertical.width}×${vertical.height}`);
+
+      const overlay = await imageTooling.compose({
+        images: [
+          result.uri,
+          {
+            uri: cropped.uri,
+            x: Math.max(0, Math.floor((result.width - cropped.width) / 2)),
+            y: Math.max(0, Math.floor((result.height - cropped.height) / 2)),
+            opacity: 0.65,
+          },
+        ],
+        layout: 'overlay',
+        maxWidth: 512,
+        maxHeight: 512,
+        format: 'png',
+      });
+      append(`← 叠加 ${overlay.width}×${overlay.height} · 图层透明度 0.65`);
+      setCompressed({
+        uri: overlay.uri,
+        width: overlay.width,
+        height: overlay.height,
+      });
+
+      const tagged = await imageTooling.writeExif({
+        uri: result.uri,
+        tags: {
+          Software: 'lynx-template',
+          ImageDescription: 'ImageTooling demo',
+        },
+        // A deterministic synthetic coordinate; no device location is read.
+        gps: { latitude: 0, longitude: 0, altitude: 0 },
+      });
+      const writtenExif = await imageTooling.readExif(tagged.uri);
+      append(
+        `← EXIF 写入 Software=${writtenExif.tags.Software ?? '未读到'} · GPS=${writtenExif.gps ? '0,0' : '未读到'}`,
+      );
+
+      const redacted = await imageTooling.writeExif({
+        uri: tagged.uri,
+        tags: { ImageDescription: null },
+        gps: null,
+      });
+      const redactedExif = await imageTooling.readExif(redacted.uri);
+      append(
+        `← EXIF 定点删除 · GPS ${redactedExif.gps === null ? '已清除' : '仍存在'}`,
+      );
+
+      const scrubbed = await imageTooling.removeExif({
+        uri: redacted.uri,
+        quality: 90,
+      });
+      const scrubbedExif = await imageTooling.readExif(scrubbed.uri);
+      append(
+        `← EXIF 全量清除 · ${Object.keys(scrubbedExif.tags).length} 个 tag · GPS ${scrubbedExif.gps === null ? '无' : '仍存在'}`,
+      );
+    },
+    [append],
+  );
+
+  const runScreenshotPipeline = useCallback(() => {
+    'background only';
+    if (running) return;
+    setRunning(true);
+    setLines([]);
+    setCompressed(null);
+    void (async () => {
+      try {
+        append('→ 截取当前页面作为输入图');
+        const shot = await screenshot.capturePage({ format: 'png' });
+        await exerciseAndShow(shot.uri);
+      } catch (error) {
+        append(`! ${(error as Error).message}`);
+      } finally {
+        setRunning(false);
+      }
+    })();
+  }, [append, exerciseAndShow, running]);
+
+  const pickAndExercise = useCallback(() => {
+    'background only';
+    if (running) return;
+    setRunning(true);
+    setLines([]);
+    setCompressed(null);
+    void (async () => {
+      try {
+        append('→ 打开系统相册选择图片');
+        const [uri] = await albumUtils.pick();
+        if (!uri) {
+          append('· 已取消选择');
+          return;
+        }
+        await exerciseAndShow(uri);
+      } catch (error) {
+        append(`! ${(error as Error).message}`);
+      } finally {
+        setRunning(false);
+      }
+    })();
+  }, [append, exerciseAndShow, running]);
+
+  useEffect(() => {
+    'background only';
+    // Deterministic demo: no user interaction needed, the page screenshot
+    // itself becomes the compression input.
+    runScreenshotPipeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <view>
+      <ApiName name="imageTooling" />
+      <DemoCard
+        title="裁剪、拼图与 EXIF 管线"
+        desc="进入页面自动执行：读取/压缩 → 中心裁剪 → 横拼、竖拼、透明叠加（均限制 maxWidth/maxHeight）→ 写入/读取/定点删除/全量清除 EXIF。GPS 使用固定的 0,0 测试值，不读取设备位置。"
+      >
+        <DemoButton
+          label={running ? '执行中…' : '重新执行截图管线'}
+          primary
+          disabled={running}
+          onTap={runScreenshotPipeline}
+        />
+        <DemoButton
+          label="从相册选择图片验证"
+          disabled={running}
+          onTap={pickAndExercise}
+        />
+        <view className="LogBox">
+          {lines.length === 0 ? (
+            <text className="LogBox__empty">执行日志展示在这里</text>
+          ) : (
+            lines.map((line, index) => (
+              <text key={index} className="LogBox__line">
+                {line}
+              </text>
+            ))
+          )}
+        </view>
+        {compressed ? (
+          <view style={{ marginTop: '10px' }}>
+            <image
+              src={compressed.uri}
+              mode="aspectFit"
+              style={{
+                width: '100%',
+                height: '200px',
+                borderRadius: '8px',
+                backgroundColor: '#1f2022',
+              }}
+            />
+            <text className="DemoCard__desc">
+              叠加预览 {compressed.width}×{compressed.height}
+            </text>
+          </view>
+        ) : null}
+      </DemoCard>
+    </view>
+  );
+}
+
+/** System share panel for text, links and local files. */
+export function SharePage() {
+  const [result, setResult] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+
+  const run = useCallback(
+    (label: string, action: () => Promise<ShareOutcome>) => {
+      'background only';
+      if (sharing) {
+        return;
+      }
+      setSharing(true);
+      setResult(`${label}：分享面板已打开…`);
+      action()
+        .then((outcome) => {
+          if (outcome.code === 'sent') {
+            setResult(
+              `${label}：已交给目标${
+                outcome.activityType === null
+                  ? ''
+                  : `（${outcome.activityType}）`
+              }`,
+            );
+          } else if (outcome.code === 'dismissed') {
+            setResult(`${label}：已取消`);
+          } else {
+            setResult(`${label}：${outcome.message || outcome.code}`);
+          }
+        })
+        .catch((error: Error) => setResult(`${label}：${error.message}`))
+        .finally(() => setSharing(false));
+    },
+    [sharing],
+  );
+
+  const shareText = useCallback(() => {
+    'background only';
+    run('文本', () =>
+      share.open({
+        title: 'Lynx Template',
+        text: '来自 Lynx Template 的系统分享：三端一致的分享面板 API。',
+      }),
+    );
+  }, [run]);
+
+  const shareLink = useCallback(() => {
+    'background only';
+    run('链接', () =>
+      share.open({
+        title: 'Lynx',
+        text: 'Lynx 跨端框架',
+        url: 'https://lynxjs.org',
+      }),
+    );
+  }, [run]);
+
+  const shareScreenshot = useCallback(() => {
+    'background only';
+    run('截图', async () => {
+      const shot = await screenshot.capture({ format: 'jpeg', quality: 85 });
+      return share.open({
+        title: 'Lynx 截图',
+        text: 'screenshot.capture 的产物直接交给分享面板',
+        files: [shot.uri],
+      });
+    });
+  }, [run]);
+
+  const sharePicked = useCallback(() => {
+    'background only';
+    run('相册', async () => {
+      const uris = await albumUtils.pick({ maxSelection: 3 });
+      if (uris.length === 0) {
+        throw new Error('已取消选择');
+      }
+      return share.open({ files: uris });
+    });
+  }, [run]);
+
+  return (
+    <view>
+      <ApiName name="share.open" />
+      <DemoCard
+        title="系统分享"
+        desc="调起系统分享面板发送文本、链接与本地文件。iOS 报告真实送达/取消与目标；Android 报告选中目标包名，取消为尽力检测；HarmonyOS 只报告面板关闭。"
+      >
+        <DemoButton label="分享文本" disabled={sharing} onTap={shareText} />
+        <DemoButton label="分享链接" disabled={sharing} onTap={shareLink} />
+        <DemoButton
+          label="截图并分享"
+          primary
+          disabled={sharing}
+          onTap={shareScreenshot}
+        />
+        <DemoButton
+          label="选图并分享（最多 3 张）"
+          disabled={sharing}
+          onTap={sharePicked}
+        />
+        <ResultLine text={result} placeholder="分享结果展示在这里" />
       </DemoCard>
     </view>
   );

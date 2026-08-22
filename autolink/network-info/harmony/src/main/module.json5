@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_network_info",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

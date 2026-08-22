@@ -1,0 +1,26 @@
+{
+  "name": "@lynx-template/autolink-device",
+  "description": "Autolinked device, safe-area, status-bar, display, battery and sensors APIs for Lynx hosts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raw": "./src/native.generated.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "harmony",
+    "src",
+    "types",
+    "lynx.lib.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@lynx-js/react": "^0.123.0"
+  },
+  "devDependencies": {
+    "@lynx-js/react": "catalog:"
+  }
+}

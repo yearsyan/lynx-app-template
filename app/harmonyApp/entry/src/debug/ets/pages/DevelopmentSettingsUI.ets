@@ -8,15 +8,39 @@ import {
   DevelopmentSettingsSnapshot,
 } from '../config/DevelopmentSettings';
 
+const ENTRY_WIDTH = 72;
+const ENTRY_HEIGHT = 34;
+const ENTRY_MARGIN = 12;
+const ENTRY_TOP_OFFSET = 10;
+const POSITION_KEY_X = 'developmentEntryX';
+const POSITION_KEY_Y = 'developmentEntryY';
+
+// PersistentStorage must bind each key at most once per process; the entry
+// component remounts whenever the settings page opens and closes.
+let entryPositionPersistenceBound = false;
+
 /** Floating entry; renders only in Debug builds. */
 @Component
 export struct DevelopmentSettingsEntry {
   onOpen: () => void = (): void => {};
   @State private safeTop: number = 0;
+  @State private safeBottom: number = 0;
+  // -1 means window metrics have not loaded yet.
+  @State private posX: number = -1;
+  @State private posY: number = -1;
+  private windowWidth: number = 0;
+  private windowHeight: number = 0;
+  private panStartX: number = 0;
+  private panStartY: number = 0;
 
   aboutToAppear(): void {
     if (!BuildProfile.DEBUG) {
       return;
+    }
+    if (!entryPositionPersistenceBound) {
+      PersistentStorage.persistProp<number>(POSITION_KEY_X, -1);
+      PersistentStorage.persistProp<number>(POSITION_KEY_Y, -1);
+      entryPositionPersistenceBound = true;
     }
     const hostContext = this.getUIContext().getHostContext();
     if (hostContext === undefined) {
@@ -25,38 +49,92 @@ export struct DevelopmentSettingsEntry {
     const context: common.UIAbilityContext = hostContext as common.UIAbilityContext;
     window.getLastWindow(context).then((mainWindow: window.Window) => {
       let top: number = 0;
+      let bottom: number = 0;
       const types: window.AvoidAreaType[] = [
         window.AvoidAreaType.TYPE_SYSTEM,
         window.AvoidAreaType.TYPE_CUTOUT,
+        window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR,
       ];
       for (let index: number = 0; index < types.length; index++) {
         const area = mainWindow.getWindowAvoidArea(types[index]);
         if (area.visible) {
           top = Math.max(top, area.topRect.height);
+          bottom = Math.max(bottom, area.bottomRect.height);
         }
       }
       this.safeTop = this.getUIContext().px2vp(top);
+      this.safeBottom = this.getUIContext().px2vp(bottom);
+      const windowRect = mainWindow.getWindowProperties().windowRect;
+      this.windowWidth = this.getUIContext().px2vp(windowRect.width);
+      this.windowHeight = this.getUIContext().px2vp(windowRect.height);
+      const storedX: number = AppStorage.get<number>(POSITION_KEY_X) ?? -1;
+      const storedY: number = AppStorage.get<number>(POSITION_KEY_Y) ?? -1;
+      if (storedX >= 0 && storedY >= 0) {
+        this.posX = this.clampX(storedX);
+        this.posY = this.clampY(storedY);
+      } else {
+        this.posX = this.clampX(this.windowWidth - ENTRY_WIDTH - ENTRY_MARGIN);
+        this.posY = this.clampY(this.safeTop + ENTRY_TOP_OFFSET);
+      }
     }).catch((error: Error) => {
       console.error(`Unable to position Debug settings entry: ${error.message}`);
     });
   }
 
+  private clampX(value: number): number {
+    return Math.min(Math.max(value, 0), Math.max(0, this.windowWidth - ENTRY_WIDTH));
+  }
+
+  private clampY(value: number): number {
+    return Math.min(
+      Math.max(value, this.safeTop),
+      Math.max(this.safeTop, this.windowHeight - ENTRY_HEIGHT - this.safeBottom),
+    );
+  }
+
   build() {
-    if (BuildProfile.DEBUG) {
+    if (!BuildProfile.DEBUG) {
+      Blank()
+        .width(0)
+        .height(0);
+    } else if (this.posX < 0 || this.posY < 0) {
+      // Window metrics still loading; keep the pill visible in its old spot.
       Button('DEV')
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
         .fontColor(Color.White)
-        .width(72)
-        .height(34)
+        .width(ENTRY_WIDTH)
+        .height(ENTRY_HEIGHT)
         .backgroundColor('#E62B63F1')
         .borderRadius(17)
-        .margin({ top: this.safeTop + 10, right: 12 })
+        .margin({ top: this.safeTop + ENTRY_TOP_OFFSET, right: ENTRY_MARGIN })
         .onClick(() => this.onOpen());
     } else {
-      Blank()
-        .width(0)
-        .height(0);
+      Button('DEV')
+        .fontSize(12)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .width(ENTRY_WIDTH)
+        .height(ENTRY_HEIGHT)
+        .backgroundColor('#E62B63F1')
+        .borderRadius(17)
+        .position({ x: this.posX, y: this.posY })
+        .gesture(
+          PanGesture({ fingers: 1, distance: 5 })
+            .onActionStart((event: GestureEvent) => {
+              this.panStartX = this.posX;
+              this.panStartY = this.posY;
+            })
+            .onActionUpdate((event: GestureEvent) => {
+              this.posX = this.clampX(this.panStartX + event.offsetX);
+              this.posY = this.clampY(this.panStartY + event.offsetY);
+            })
+            .onActionEnd(() => {
+              AppStorage.setOrCreate<number>(POSITION_KEY_X, this.posX);
+              AppStorage.setOrCreate<number>(POSITION_KEY_Y, this.posY);
+            })
+        )
+        .onClick(() => this.onOpen());
     }
   }
 }

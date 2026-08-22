@@ -33,6 +33,10 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
     }
 
     let presentation = options["presentation"] as? String ?? "push"
+    guard presentation == "push" || presentation == "sheet" else {
+      completion("Invalid route presentation: \(presentation)")
+      return
+    }
     let transparent = (options["transparent"] as? Bool) ?? (presentation == "sheet")
     let rawAnimation = options["animation"] as? String
       ?? NativeRouteAnimation.standard.rawValue
@@ -71,7 +75,12 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
         page.modalPresentationStyle = .overFullScreen
         page.modalTransitionStyle = .crossDissolve
         host.present(page, animated: animation != .none) { completion("") }
-      } else if presentation == "push", let navigation = host.navigationController {
+      } else {
+        guard let navigation = host.navigationController else {
+          completion("Router push requires a UINavigationController host")
+          return
+        }
+        navigation.setNavigationBarHidden(true, animated: false)
         switch animation {
         case .standard:
           navigation.pushViewController(page, animated: true)
@@ -83,12 +92,6 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
           navigation.pushViewController(page, animated: false)
         }
         completion("")
-      } else {
-        page.modalPresentationStyle = .fullScreen
-        if animation == .fade {
-          page.modalTransitionStyle = .crossDissolve
-        }
-        host.present(page, animated: animation != .none) { completion("") }
       }
     }
   }

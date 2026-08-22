@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.networkinfo",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-network-info.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

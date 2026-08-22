@@ -4,9 +4,9 @@
 // this file provides both halves of Route B:
 //   1. a `module-webview` behavior whose UIBase renders an ArkUI Web component, and
 //   2. a JS bridge (window.__lynxNativeBridge, same wire protocol as the
-//      Android and iOS hosts) that reuses the page's module registry —
-//      the very Map<string, ModuleClassWrapper> passed to LynxView — to
-//      dispatch page calls to the same native modules the template reaches
+//      Android and iOS hosts) that reuses the module registry this LynxView
+//      can reach — the global Autolink registry overlaid with the page map —
+//      to dispatch page calls to the same native modules the template reaches
 //      through NativeModules.
 //
 // Page JS only gets access to modules explicitly listed by the element's
@@ -23,15 +23,24 @@ import {
   ModuleClassWrapper,
   UIBase,
 } from '@lynx/lynx';
+import { collectGlobalModules } from '@lynx/lynx_autolink_registry';
 
 import { nativeModuleMethodArity } from '../contracts/NativeModuleContracts';
 
-/** Shared per-LynxView host state: the module registry to reuse. */
+/**
+ * Shared per-LynxView host state: the module registry to reuse. LynxView
+ * resolves a module from the global Autolink registry first and the page map
+ * second, so the adapter mirrors that order — page entries win over global
+ * ones (the page-scoped DeviceInfo registration carries host state).
+ */
 export class WebviewModuleBridgeHostAdapter {
   readonly modules: Map<string, ModuleClassWrapper>;
 
-  constructor(modules: Map<string, ModuleClassWrapper>) {
-    this.modules = modules;
+  constructor(pageModules: Map<string, ModuleClassWrapper>) {
+    this.modules = collectGlobalModules();
+    pageModules.forEach((wrapper, name) => {
+      this.modules.set(name, wrapper);
+    });
   }
 }
 

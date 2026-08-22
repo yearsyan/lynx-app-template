@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 import { albumUtils } from '@lynx-template/autolink-album-utils';
-import { battery } from '@lynx-template/autolink-battery';
 import { biometric } from '@lynx-template/autolink-biometric';
 import { clipboard } from '@lynx-template/autolink-clipboard';
-import { deviceInfo } from '@lynx-template/autolink-device-info';
-import { display } from '@lynx-template/autolink-display';
+import {
+  battery,
+  deviceInfo,
+  display,
+  sensors,
+} from '@lynx-template/autolink-device';
 import { haptics } from '@lynx-template/autolink-haptics';
 import {
   type PermissionStatus,
@@ -12,7 +15,6 @@ import {
   permissions,
 } from '@lynx-template/autolink-permissions';
 import { scanner } from '@lynx-template/autolink-scanner';
-import { sensors } from '@lynx-template/autolink-sensors';
 
 import {
   ApiName,

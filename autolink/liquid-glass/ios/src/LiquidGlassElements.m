@@ -59,35 +59,24 @@ LYNX_PROP_SETTER("disabled", setDisabled, BOOL) {
 }
 
 - (UIButton *)createView {
-  UIButton *button;
-  if (@available(iOS 26.0, *)) {
-    button = [UIButton
-        buttonWithConfiguration:[UIButtonConfiguration glassButtonConfiguration]
-                  primaryAction:nil];
-  } else if (@available(iOS 15.0, *)) {
-    UIButtonConfiguration *configuration =
-        [UIButtonConfiguration filledButtonConfiguration];
-    configuration.baseBackgroundColor = UIColor.systemBlueColor;
-    configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    button = [UIButton buttonWithConfiguration:configuration primaryAction:nil];
-  } else {
-    button = [UIButton buttonWithType:UIButtonTypeSystem];
-  }
+  // Lynx owns the visible trigger and selected label. This transparent native
+  // button only gives UIMenu a correctly positioned presentation source; on
+  // iOS 26 the system menu receives Liquid Glass automatically.
+  UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+  button.backgroundColor = UIColor.clearColor;
 
   if (@available(iOS 14.0, *)) {
     button.showsMenuAsPrimaryAction = YES;
-  }
-  if (@available(iOS 15.0, *)) {
-    button.changesSelectionAsPrimaryAction = NO;
-    button.configuration.contentInsets =
-        NSDirectionalEdgeInsetsMake(0, 16, 0, 16);
+    if (@available(iOS 15.0, *)) {
+      // Keep selection controlled by Lynx. UIKit's automatic pop-up mode
+      // selects the first action as soon as the menu is assigned.
+      button.changesSelectionAsPrimaryAction = NO;
+    }
   } else {
-    button.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
     [button addTarget:self
                   action:@selector(handleLegacyTap)
         forControlEvents:UIControlEventTouchUpInside];
   }
-  button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
   return button;
 }
 
@@ -133,16 +122,7 @@ LYNX_PROP_SETTER("disabled", setDisabled, BOOL) {
           ? self.options[(NSUInteger)self.selectedIndex]
           : (self.placeholderTitle.length == 0 ? @"Select…"
                                                 : self.placeholderTitle);
-  UIButton *button = self.view;
-  if (@available(iOS 15.0, *)) {
-    button.configuration.title = label;
-    button.configuration.image =
-        [UIImage systemImageNamed:@"chevron.up.chevron.down"];
-    button.configuration.imagePlacement = NSDirectionalRectEdgeTrailing;
-    button.configuration.imagePadding = 8;
-  } else {
-    [button setTitle:label forState:UIControlStateNormal];
-  }
+  self.view.accessibilityLabel = label;
   [self rebuildMenu];
 }
 

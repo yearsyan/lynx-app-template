@@ -6,11 +6,13 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.SystemClock;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
+import android.view.accessibility.AccessibilityEvent;
 
 import com.lynx.tasm.behavior.LynxContext;
 import com.lynx.tasm.behavior.LynxElement;
@@ -76,6 +78,13 @@ public final class PressableViewElement extends UIView {
         }
     }
 
+    @LynxProp(name = "long-press-haptic", defaultBoolean = false)
+    public void setLongPressHaptic(boolean enabled) {
+        if (pressableView != null) {
+            pressableView.setLongPressHapticEnabled(enabled);
+        }
+    }
+
     private void emitPress() {
         // Lynx augments the detail map with event metadata before dispatching,
         // so it must be mutable even when the custom payload is empty.
@@ -93,10 +102,6 @@ public final class PressableViewElement extends UIView {
         super.destroy();
     }
 
-    private interface PressListener {
-        void onPress();
-    }
-
     /**
      * Intercepts descendants as one semantic target, while leaving every
      * ancestor free to intercept the sequence when scrolling wins.
@@ -104,12 +109,14 @@ public final class PressableViewElement extends UIView {
     private static final class PressableAndroidView extends AndroidView {
         private static final long MIN_TAP_FLASH_MS = 72L;
 
-        private final PressListener listener;
+        private final Runnable pressListener;
         private final int touchSlop;
         private final long scrollCooldownMs;
+        private final long longPressTimeoutMs;
         private final ScrollAncestorTracker scrollTracker;
         private final Runnable showPressedRunnable = this::showPressedIfEligible;
         private final Runnable clearTapFlashRunnable = this::clearTapFlashIfIdle;
+        private final Runnable longPressRunnable = this::recognizeLongPressIfEligible;
 
         private float activeOpacity = DEFAULT_ACTIVE_OPACITY;
         private float baseAlpha = 1f;
@@ -117,18 +124,22 @@ public final class PressableViewElement extends UIView {
         private boolean tracking;
         private boolean blocked;
         private boolean pressVisualVisible;
+        private boolean longPressRecognized;
+        private boolean longPressHapticEnabled;
         private int activePointerId = MotionEvent.INVALID_POINTER_ID;
         private float downX;
         private float downY;
 
-        PressableAndroidView(Context context, PressListener listener) {
+        PressableAndroidView(Context context, Runnable pressListener) {
             super(context);
-            this.listener = listener;
+            this.pressListener = pressListener;
             ViewConfiguration configuration = ViewConfiguration.get(context);
             touchSlop = configuration.getScaledTouchSlop();
             scrollCooldownMs = Math.max(64L, ViewConfiguration.getTapTimeout());
+            longPressTimeoutMs = ViewConfiguration.getLongPressTimeout();
             scrollTracker = new ScrollAncestorTracker(this::blockForAncestorScroll);
             setClickable(true);
+            setLongClickable(true);
             setFocusable(true);
         }
 
@@ -153,6 +164,11 @@ public final class PressableViewElement extends UIView {
                             new ColorDrawable(Color.WHITE)));
         }
 
+        void setLongPressHapticEnabled(boolean enabled) {
+            longPressHapticEnabled = enabled;
+            setHapticFeedbackEnabled(enabled);
+        }
+
         @Override
         public void setAlpha(float alpha) {
             baseAlpha = alpha;
@@ -168,6 +184,7 @@ public final class PressableViewElement extends UIView {
         public void setEnabled(boolean enabled) {
             super.setEnabled(enabled);
             setClickable(enabled);
+            setLongClickable(enabled);
             if (!enabled) {
                 cancelSequence();
             }
@@ -221,7 +238,9 @@ public final class PressableViewElement extends UIView {
         private void beginSequence(MotionEvent event) {
             removeCallbacks(showPressedRunnable);
             removeCallbacks(clearTapFlashRunnable);
+            removeCallbacks(longPressRunnable);
             setPressVisual(false);
+            longPressRecognized = false;
             tracking = isEnabled();
             blocked = !tracking || scrollTracker.isScrollingOrRecent(scrollCooldownMs);
             activePointerId = event.getPointerId(0);
@@ -230,6 +249,7 @@ public final class PressableViewElement extends UIView {
             drawableHotspotChanged(downX, downY);
             if (!blocked) {
                 postDelayed(showPressedRunnable, ViewConfiguration.getTapTimeout());
+                postDelayed(longPressRunnable, longPressTimeoutMs);
             }
         }
 
@@ -264,19 +284,26 @@ public final class PressableViewElement extends UIView {
                     && !scrollTracker.isScrollingOrRecent(scrollCooldownMs);
 
             removeCallbacks(showPressedRunnable);
+            removeCallbacks(longPressRunnable);
+            boolean completedLongPress = accepted && longPressRecognized;
             tracking = false;
             activePointerId = MotionEvent.INVALID_POINTER_ID;
             if (accepted) {
-                if (!pressVisualVisible) {
+                if (completedLongPress) {
+                    setPressVisual(false);
+                } else if (!pressVisualVisible) {
                     setPressVisual(true);
                     postDelayed(clearTapFlashRunnable, MIN_TAP_FLASH_MS);
                 } else {
                     setPressVisual(false);
                 }
-                performClick();
+                if (!completedLongPress) {
+                    performClick();
+                }
             } else {
                 setPressVisual(false);
             }
+            longPressRecognized = false;
             blocked = false;
         }
 
@@ -286,7 +313,19 @@ public final class PressableViewElement extends UIView {
             if (!isEnabled()) {
                 return false;
             }
-            listener.onPress();
+            pressListener.run();
+            return true;
+        }
+
+        @Override
+        public boolean performLongClick() {
+            if (!isEnabled()) {
+                return false;
+            }
+            if (longPressHapticEnabled) {
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            }
+            sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_LONG_CLICKED);
             return true;
         }
 
@@ -312,6 +351,18 @@ public final class PressableViewElement extends UIView {
             }
         }
 
+        private void recognizeLongPressIfEligible() {
+            if (!tracking
+                    || blocked
+                    || !isEnabled()
+                    || scrollTracker.isScrollingOrRecent(scrollCooldownMs)) {
+                return;
+            }
+            longPressRecognized = true;
+            setPressVisual(true);
+            performLongClick();
+        }
+
         private void setPressVisual(boolean pressed) {
             if (pressVisualVisible == pressed) {
                 return;
@@ -324,6 +375,7 @@ public final class PressableViewElement extends UIView {
         private void blockCurrentSequence() {
             blocked = true;
             removeCallbacks(showPressedRunnable);
+            removeCallbacks(longPressRunnable);
             setPressVisual(false);
         }
 
@@ -337,8 +389,10 @@ public final class PressableViewElement extends UIView {
             tracking = false;
             blocked = false;
             activePointerId = MotionEvent.INVALID_POINTER_ID;
+            longPressRecognized = false;
             removeCallbacks(showPressedRunnable);
             removeCallbacks(clearTapFlashRunnable);
+            removeCallbacks(longPressRunnable);
             setPressVisual(false);
         }
 

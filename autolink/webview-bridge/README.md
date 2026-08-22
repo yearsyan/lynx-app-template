@@ -7,8 +7,10 @@ The element exposes only the native modules named in
 
 The native library intentionally does not own an app module list. Each host
 attaches the module registry already used by its LynxView through a small
-explicit host adapter. HarmonyOS keeps an explicit behavior adapter because
-the global provider does not expose a page's host-scoped module map.
+explicit host adapter. HarmonyOS keeps an explicit behavior adapter: it layers
+the page's module map over the global Autolink registry (enumerated through
+the generated `@lynx/lynx_autolink_registry` package's `collectGlobalModules()`),
+because the global provider does not expose a page's host-scoped module map.
 
 ## Browser client
 

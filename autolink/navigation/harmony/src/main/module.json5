@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_navigation",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

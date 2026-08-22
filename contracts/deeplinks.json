@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "scheme": "lynxapp",
+  "host": "www.lynxjs.org",
+  "defaultBundle": "main",
+  "routes": [
+    { "path": "/", "bundle": "main" },
+    {
+      "path": "/networkinfo",
+      "bundle": "main",
+      "params": { "page": "networkinfo" }
+    },
+    { "path": "/toast", "bundle": "main", "params": { "page": "toast" } }
+  ]
+}

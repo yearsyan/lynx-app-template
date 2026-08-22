@@ -259,12 +259,12 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     await copyTemplate(
       templateDirectory,
       projectDirectory,
-      fixtureTokens({ autolinkModules: ['mmkv'] }),
+      fixtureTokens({ autolinkModules: ['storage'] }),
     );
     const packageJson = JSON.parse(
       await readFile(join(projectDirectory, 'package.json'), 'utf8'),
     );
-    const expected = ['device-info', 'mmkv', 'router', 'webview-bridge'];
+    const expected = ['device', 'navigation', 'storage', 'webview-bridge'];
     assert.deepEqual(packageJson.nativeApp.autolinkModules, expected);
     assert.deepEqual(
       directAutolinkDependencies(packageJson),
@@ -280,19 +280,19 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     await doesNotExist(join(projectDirectory, 'lib/webview-bridge'));
     await doesNotExist(join(projectDirectory, 'lib/activity-sheet'));
     await doesNotExist(join(projectDirectory, 'bundle/predictive-back-sheet'));
-    const mmkvPackageJson = JSON.parse(
+    const storagePackageJson = JSON.parse(
       await readFile(
-        join(projectDirectory, 'autolink/mmkv/package.json'),
+        join(projectDirectory, 'autolink/storage/package.json'),
         'utf8',
       ),
     );
-    assert.equal(mmkvPackageJson.dependencies, undefined);
-    const mmkvBridge = await readFile(
-      join(projectDirectory, 'autolink/mmkv/src/bridge.generated.ts'),
+    assert.equal(storagePackageJson.dependencies, undefined);
+    const storageBridge = await readFile(
+      join(projectDirectory, 'autolink/storage/src/bridge.generated.ts'),
       'utf8',
     );
-    assert.match(mmkvBridge, /NativeModules\[KV_MODULE_NAME\]/);
-    assert.doesNotMatch(mmkvBridge, /native-runtime/);
+    assert.match(storageBridge, /NativeModules\[STORAGE_MODULE_NAME\]/);
+    assert.doesNotMatch(storageBridge, /native-runtime/);
     const webviewPackageJson = JSON.parse(
       await readFile(
         join(projectDirectory, 'autolink/webview-bridge/package.json'),
@@ -307,7 +307,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     assert.match(webviewClient, /from '\.\/contracts\.generated\.js'/);
     assert.match(
       webviewClient,
-      /NATIVE_MODULE_METHODS\.DeviceInfo\.setStatusBarStyle/,
+      /NATIVE_MODULE_METHODS\.Device\.setStatusBarStyle/,
     );
     const webviewContracts = await readFile(
       join(
@@ -321,42 +321,47 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     assert.match(webviewContracts, /getSafeAreaInsets/);
     assert.doesNotMatch(webviewContracts, /\bStatusBar:/);
     assert.doesNotMatch(webviewContracts, /\bimport\b/);
-    const deviceInfoDeclaration = await readFile(
+    const deviceDeclaration = await readFile(
       join(
         projectDirectory,
-        'autolink/device-info/types/platform-native-module.d.ts',
+        'autolink/device/types/platform-native-module.d.ts',
       ),
       'utf8',
     );
-    assert.match(deviceInfoDeclaration, /getSafeAreaInsets/);
-    assert.match(deviceInfoDeclaration, /setStatusBarStyle/);
-    const backDeclaration = await readFile(
-      join(projectDirectory, 'autolink/back/types/platform-native-module.d.ts'),
+    assert.match(deviceDeclaration, /getSafeAreaInsets/);
+    assert.match(deviceDeclaration, /setStatusBarStyle/);
+    assert.match(deviceDeclaration, /getBatteryInfo/);
+    const navigationDeclaration = await readFile(
+      join(
+        projectDirectory,
+        'autolink/navigation/types/platform-native-module.d.ts',
+      ),
       'utf8',
     );
-    assert.match(backDeclaration, /setEnabled/);
-    assert.match(backDeclaration, /configure/);
-    const backPackageJson = JSON.parse(
+    assert.match(navigationDeclaration, /setEnabled/);
+    assert.match(navigationDeclaration, /configure/);
+    assert.match(navigationDeclaration, /openURL/);
+    const navigationPackageJson = JSON.parse(
       await readFile(
-        join(projectDirectory, 'autolink/back/package.json'),
+        join(projectDirectory, 'autolink/navigation/package.json'),
         'utf8',
       ),
     );
-    assert.equal(backPackageJson.exports['./react'], './src/react.ts');
-    assert.equal(backPackageJson.dependencies, undefined);
-    const backFacade = await readFile(
-      join(projectDirectory, 'autolink/back/src/index.ts'),
+    assert.equal(navigationPackageJson.exports['./react'], './src/react.ts');
+    assert.equal(navigationPackageJson.dependencies, undefined);
+    const navigationFacade = await readFile(
+      join(projectDirectory, 'autolink/navigation/src/index.ts'),
       'utf8',
     );
-    assert.doesNotMatch(backFacade, /@lynx-js\/react/);
-    const backReact = await readFile(
-      join(projectDirectory, 'autolink/back/src/react.ts'),
+    assert.doesNotMatch(navigationFacade, /@lynx-js\/react/);
+    const navigationReact = await readFile(
+      join(projectDirectory, 'autolink/navigation/src/react.ts'),
       'utf8',
     );
-    assert.match(backReact, /backStack\.addInterceptor/);
-    assert.match(backReact, /\.\/overlay\.js/);
+    assert.match(navigationReact, /backStack\.addInterceptor/);
+    assert.match(navigationReact, /\.\/overlay\.js/);
     const backOverlay = await readFile(
-      join(projectDirectory, 'autolink/back/src/overlay.tsx'),
+      join(projectDirectory, 'autolink/navigation/src/overlay.tsx'),
       'utf8',
     );
     assert.match(backOverlay, /usePredictiveBackOverlay/);
@@ -365,7 +370,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     const androidBackElement = await readFile(
       join(
         projectDirectory,
-        'autolink/back/android/src/main/java/com/example/autolinkfixture/autolink/back/PredictiveBackOverlayElement.java',
+        'autolink/navigation/android/src/main/java/com/example/autolinkfixture/autolink/navigation/PredictiveBackOverlayElement.java',
       ),
       'utf8',
     );
@@ -373,7 +378,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     const iosBackElement = await readFile(
       join(
         projectDirectory,
-        'autolink/back/ios/src/LynxPredictiveBackOverlay.m',
+        'autolink/navigation/ios/src/LynxPredictiveBackOverlay.m',
       ),
       'utf8',
     );
@@ -381,7 +386,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     const harmonyBackProvider = await readFile(
       join(
         projectDirectory,
-        'autolink/back/harmony/src/main/ets/LynxLibraryProviderImpl.ets',
+        'autolink/navigation/harmony/src/main/ets/LynxLibraryProviderImpl.ets',
       ),
       'utf8',
     );
@@ -423,7 +428,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
         'app/harmonyApp/entry/src/main/ets/native/StatusBarModule.ets',
       ),
     );
-    for (const moduleName of ['battery', 'local-notification', 'permissions']) {
+    for (const moduleName of ['local-notification', 'permissions']) {
       const structuredBridge = await readFile(
         join(
           projectDirectory,
@@ -453,7 +458,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
   }
 });
 
-test('Harmony-only none selection retains Router but not WebView bridge', async () => {
+test('Harmony-only none selection retains Navigation but not WebView bridge', async () => {
   const temporaryDirectory = await mkdtemp(
     join(tmpdir(), 'lynx-template-autolink-harmony-'),
   );
@@ -471,12 +476,12 @@ test('Harmony-only none selection retains Router but not WebView bridge', async 
       await readFile(join(projectDirectory, 'package.json'), 'utf8'),
     );
     assert.deepEqual(packageJson.nativeApp.autolinkModules, [
-      'device-info',
-      'router',
+      'device',
+      'navigation',
     ]);
     assert.deepEqual(directAutolinkDependencies(packageJson), [
-      '@fixture/autolink-device-info',
-      '@fixture/autolink-router',
+      '@fixture/autolink-device',
+      '@fixture/autolink-navigation',
     ]);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });

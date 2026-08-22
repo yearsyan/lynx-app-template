@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.imagetooling",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-image-tooling.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

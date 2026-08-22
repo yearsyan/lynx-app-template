@@ -9,21 +9,28 @@ import com.lynx.service.image.LynxImageService
 import com.lynx.service.log.LynxLogService
 import com.lynx.tasm.LynxEnv
 import com.lynx.tasm.service.LynxServiceCenter
-import com.lynxapp.autolink.router.RouterModule
+import com.lynxapp.autolink.navigation.NavigationModule
 import com.lynxapp.nativemodule.AppRouteHandler
 
 class LynxTemplateApplication : Application() {
+    // Lazily: property initializers run in the constructor, before the
+    // Application is attached as a Context. First access happens in onCreate.
+    val bundleRepository: LynxBundleRepository by lazy { LynxBundleRepository(this) }
+
     override fun onCreate() {
         super.onCreate()
         AppInstrumentation.init(this)
-        // MMKV bootstrap lives in the autolinked KV library.
-        // The autolinked Router module delegates in-app bundle navigation
+        // MMKV bootstrap lives in the autolinked Storage library.
+        // The autolinked Navigation module delegates in-app bundle navigation
         // to this stateless host handler; it must be installed before the
         // first Lynx view is created.
-        RouterModule.setRouteHandler(AppRouteHandler())
+        NavigationModule.setRouteHandler(AppRouteHandler())
         initLynxService()
         initLynxEnv()
         DevToolInitializer.onEnvironmentInitialized(this)
+        // Prefetch the OTA version list so the root startup flow and route
+        // opens can consult it from memory; never blocks process start.
+        bundleRepository.refreshManifest { }
     }
 
     private fun initLynxService() {

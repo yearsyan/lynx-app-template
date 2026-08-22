@@ -10,6 +10,8 @@ import { MMKV } from '@tencent/mmkv';
 import BuildProfile from 'BuildProfile';
 
 import { LynxTemplateHttpService } from '../service/LynxTemplateHttpService';
+import { DeepLinkRouteResolver } from '../host/DeepLinkRouteResolver';
+import { StartupRoute } from '../host/StartupRoute';
 
 const DOMAIN = 0x0000;
 
@@ -17,6 +19,9 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     MMKV.initialize(this.context.getApplicationContext());
+    // A cold-start deep link parks its resolution for Index to consume when
+    // the page first appears (StartupRoute.deliver falls back to pending).
+    this.acceptDeepLinkWant(want);
     // Init LynxService start
     LynxServiceCenter.registerService(LynxServiceType.DevTool, LynxDevToolService.instance);
     LynxServiceCenter.registerService(LynxServiceType.Http, LynxTemplateHttpService.instance);
@@ -38,6 +43,19 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
+  }
+
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    // A warm deep link reaches the Index handler, which pushes the resolved
+    // page onto the Navigation stack.
+    this.acceptDeepLinkWant(want);
+  }
+
+  private acceptDeepLinkWant(want: Want): void {
+    const resolution = DeepLinkRouteResolver.resolve(this.context, want.uri);
+    if (resolution !== null) {
+      StartupRoute.deliver(resolution);
+    }
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
