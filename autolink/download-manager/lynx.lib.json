@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.downloadmanager",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-download-manager.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

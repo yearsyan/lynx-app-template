@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "autolink_download_manager",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet",
+      "2in1"
+    ]
+  }
+}

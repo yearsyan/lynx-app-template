@@ -1,7 +1,7 @@
 {
-  "name": "@lynx-template/autolink-biometric",
-  "description": "Autolinked biometric authentication module for Lynx hosts (Android, iOS & HarmonyOS)",
-  "version": "2.0.0",
+  "name": "@lynx-template/autolink-download-manager",
+  "description": "Autolinked download manager for Lynx hosts with optional platform background execution",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "exports": {

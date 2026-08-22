@@ -7,12 +7,26 @@
  * @lynxmodule
  */
 export declare class Biometric {
-  checkSupport(callback: (resultJSON: string) => void): void;
+  checkSupport(
+    optionsJSON: string,
+    callback: (resultJSON: string) => void,
+  ): void;
   authenticate(
     optionsJSON: string,
     callback: (resultJSON: string) => void,
   ): void;
-  createSigningKey(callback: (resultJSON: string) => void): void;
+  createSigningKey(
+    optionsJSON: string,
+    callback: (resultJSON: string) => void,
+  ): void;
+  getSigningKey(
+    optionsJSON: string,
+    callback: (resultJSON: string) => void,
+  ): void;
+  deleteSigningKey(
+    optionsJSON: string,
+    callback: (resultJSON: string) => void,
+  ): void;
   signChallenge(
     optionsJSON: string,
     callback: (resultJSON: string) => void,

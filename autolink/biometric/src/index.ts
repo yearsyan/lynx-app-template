@@ -1,16 +1,27 @@
-/**
- * Biometric (face / fingerprint) and device-credential authentication
- * provided by the native Biometric module.
- */
+/** Cross-platform local authentication and biometric-gated signing. */
 import {
   decodeNativeEnvelope,
   requireNativeModule,
 } from './bridge.generated.js';
+import {
+  biometricScopeFromKeyId,
+  buildBiometricSigningPayload,
+  decodeStandardBase64,
+  isBiometricKeyId,
+  normalizeBiometricScope,
+  requireBiometricKeyId,
+} from './protocol.js';
 
 export * from './native.generated.js';
+export * from './protocol.js';
 
-/** Hardware biometry kind. Android cannot report it, so it says 'unknown'. */
+/** Primary/reportable biometry kind; it is informational, not a selector. */
 export type BiometryType = 'face' | 'fingerprint' | 'unknown';
+
+export type LocalAuthenticationPolicy =
+  | 'biometricWeak'
+  | 'biometricStrong'
+  | 'deviceOwnerAuthentication';
 
 export type BiometricSupportReason =
   | 'ok'
@@ -21,20 +32,20 @@ export type BiometricSupportReason =
   | 'unavailable'
   | 'unknown';
 
-/** Result of the silent capability probe; never shows UI. */
-export interface BiometricSupport {
-  canAuthenticate: boolean;
-  reason: BiometricSupportReason;
-  biometryType: BiometryType;
-  /** Whether a lock-screen credential (PIN / password / pattern) is set. */
-  deviceCredentialSetup: boolean;
+export interface CheckSupportOptions {
+  /** Defaults to `biometricWeak`. */
+  policy?: LocalAuthenticationPolicy;
 }
 
-/**
- * Terminal state of one authentication attempt. Codes reachable through
- * normal user flow ('userCancel', 'userFallback', …) resolve instead of
- * rejecting so business logic can branch without try/catch.
- */
+/** Result of the silent capability probe; never shows UI. */
+export interface BiometricSupport {
+  readonly policy: LocalAuthenticationPolicy;
+  readonly canAuthenticate: boolean;
+  readonly reason: BiometricSupportReason;
+  readonly biometryType: BiometryType;
+  readonly deviceCredentialSetup: boolean;
+}
+
 export type AuthenticateOutcomeCode =
   | 'success'
   | 'userCancel'
@@ -52,88 +63,106 @@ export type AuthenticateOutcomeCode =
   | 'unknown';
 
 export interface AuthenticateOutcome {
-  /** Convenience flag, always `code === 'success'`. */
   readonly success: boolean;
   readonly code: AuthenticateOutcomeCode;
-  /** Native diagnostic; intended for logging, not for user display. */
+  readonly policy: LocalAuthenticationPolicy;
+  /** Native diagnostic intended for logging, not direct user display. */
   readonly message: string;
 }
 
 export interface AuthenticateOptions {
-  /** Prompt title on Android and HarmonyOS; iOS shows no title. */
+  /** Defaults to `biometricWeak`. */
+  policy?: LocalAuthenticationPolicy;
+  /** Prompt title on Android and HarmonyOS; required but not shown by iOS. */
   title: string;
-  /**
-   * iOS `localizedReason` (also shown as the Android description).
-   * Apple review requires a clear statement of why the app authenticates.
-   */
+  /** iOS localizedReason and Android prompt description. */
   reason: string;
-  /** Android-only subtitle under the title. */
+  /** Android-only subtitle. */
   subtitle?: string;
-  /** Android negative button / iOS fallback button label. */
+  /** Cancel/navigation label where the platform permits customization. */
   cancelButtonText?: string;
-  /**
-   * Allow the lock-screen credential (PIN / password / pattern) as a
-   * fallback when biometrics fail or are not enrolled. Default `false`,
-   * which surfaces the fallback as an explicit 'userFallback' outcome so
-   * business code keeps control of the password flow.
-   */
-  allowDeviceCredential?: boolean;
 }
 
-/**
- * Outcome of the server-verifiable signing APIs. Extends the prompt
- * outcomes with codes specific to the hardware-bound signing key.
- */
 export type CryptoOutcomeCode =
   | AuthenticateOutcomeCode
-  /** No hardware-backed, biometric-gated key support (e.g. no Class 3 sensor). */
   | 'notSupported'
-  /** No signing key on this device; call createSigningKey() first. */
   | 'keyNotFound';
 
-export interface CreateSigningKeyResult {
-  /** Convenience flag, always `code === 'success'`. */
+export type SigningKeySecurityLevel = 'secureHardware' | 'software' | 'unknown';
+
+export interface SigningKeyAttestation {
+  readonly type: 'androidKey' | 'huks';
+  /** Base64 DER certificates/blobs in platform-defined chain order. */
+  readonly certificates: readonly string[];
+}
+
+export interface CreateSigningKeyOptions {
+  /**
+   * Opaque, non-PII account/device scope. Allowed characters: A-Z, a-z,
+   * 0-9, dot, underscore and hyphen; maximum 64 characters.
+   */
+  scope: string;
+  /**
+   * Standard Base64 server challenge decoding to 16..128 bytes for
+   * best-effort platform key attestation. Unsupported platforms return
+   * `attestation: null`.
+   */
+  attestationChallenge?: string;
+}
+
+export interface SigningKeyResult {
   readonly success: boolean;
   readonly code: CryptoOutcomeCode;
   readonly message: string;
-  /**
-   * Base64 of the 65-byte uncompressed EC P-256 point (0x04 || X || Y)
-   * when successful; register it with the server. `null` otherwise.
-   */
+  readonly keyId: string | null;
+  readonly scope: string | null;
+  /** Base64 65-byte uncompressed P-256 public point. */
   readonly publicKey: string | null;
+  readonly algorithm: 'ES256' | null;
+  readonly signatureEncoding: 'ieee-p1363' | null;
+  readonly securityLevel: SigningKeySecurityLevel;
+  readonly attestation: SigningKeyAttestation | null;
+}
+
+export interface SigningKeyIdOptions {
+  keyId: string;
+}
+
+export interface DeleteSigningKeyResult {
+  readonly success: boolean;
+  readonly code: CryptoOutcomeCode;
+  readonly message: string;
+  readonly keyId: string;
+}
+
+export interface SignChallengeOptions
+  extends Omit<AuthenticateOptions, 'policy'> {
+  keyId: string;
+  /** Standard Base64 server nonce; decoded length must be 16..64 bytes. */
+  challenge: string;
+  /** Standard Base64 SHA-256 of canonical operation context. */
+  contextHash: string;
 }
 
 export interface SignChallengeResult {
-  /** Convenience flag, always `code === 'success'`. */
   readonly success: boolean;
   readonly code: CryptoOutcomeCode;
   readonly message: string;
-  /**
-   * Base64 of the 64-byte ECDSA signature (raw r || s, IEEE P1363) when
-   * successful; `null` otherwise.
-   */
+  readonly keyId: string;
+  /** Base64 64-byte ECDSA P1363 `r || s`; null on failure. */
   readonly signature: string | null;
-}
-
-export interface SignChallengeOptions {
-  /**
-   * Base64 of the server-issued one-time nonce to sign. The server must
-   * verify both the signature and the nonce's freshness.
-   */
-  challenge: string;
-  /** Prompt title on Android and HarmonyOS; iOS shows no title. */
-  title: string;
-  /** iOS `localizedReason` / Android description shown in the prompt. */
-  reason: string;
-  /** Android-only subtitle under the title. */
-  subtitle?: string;
-  /** Android negative button / iOS fallback button label. */
-  cancelButtonText?: string;
 }
 
 interface BiometricEnvelope {
   error?: unknown;
   value?: unknown;
+}
+
+interface PromptFields {
+  title: string;
+  reason: string;
+  subtitle?: string;
+  cancelButtonText?: string;
 }
 
 function requireBiometricModule() {
@@ -146,12 +175,35 @@ function decodeEnvelope(result: unknown): BiometricEnvelope {
   return decodeNativeEnvelope(result, 'Biometric') as BiometricEnvelope;
 }
 
+function envelopeValue(resultJSON: unknown): unknown {
+  'background only';
+  const result = decodeEnvelope(resultJSON);
+  if (typeof result.error === 'string' && result.error.length > 0) {
+    throw new Error(result.error);
+  }
+  return result.value;
+}
+
+function normalizePolicy(value: unknown): LocalAuthenticationPolicy {
+  'background only';
+  if (value === undefined) return 'biometricWeak';
+  if (
+    value === 'biometricWeak' ||
+    value === 'biometricStrong' ||
+    value === 'deviceOwnerAuthentication'
+  ) {
+    return value;
+  }
+  throw new Error('Biometric authentication policy is invalid');
+}
+
 function decodeSupport(value: unknown): BiometricSupport {
   'background only';
   if (typeof value !== 'object' || value === null) {
     throw new Error('Biometric returned an invalid support payload');
   }
   const support = value as Partial<BiometricSupport>;
+  const policy = normalizePolicy(support.policy);
   const biometryType = support.biometryType;
   const reason = support.reason;
   if (
@@ -165,6 +217,7 @@ function decodeSupport(value: unknown): BiometricSupport {
     throw new Error('Biometric returned an invalid support payload');
   }
   return {
+    policy,
     canAuthenticate: support.canAuthenticate,
     reason,
     biometryType,
@@ -183,20 +236,6 @@ function isSupportReason(value: unknown): value is BiometricSupportReason {
     value === 'unavailable' ||
     value === 'unknown'
   );
-}
-
-function decodeOutcome(value: unknown): AuthenticateOutcome {
-  'background only';
-  if (typeof value !== 'object' || value === null) {
-    throw new Error('Biometric returned an invalid outcome payload');
-  }
-  const outcome = value as Partial<AuthenticateOutcome>;
-  const code = outcome.code;
-  if (!isOutcomeCode(code)) {
-    throw new Error('Biometric returned an invalid outcome payload');
-  }
-  const message = typeof outcome.message === 'string' ? outcome.message : '';
-  return { success: code === 'success', code, message };
 }
 
 function isOutcomeCode(value: unknown): value is AuthenticateOutcomeCode {
@@ -226,214 +265,324 @@ function isCryptoCode(value: unknown): value is CryptoOutcomeCode {
   );
 }
 
-function decodeCryptoOutcome(value: unknown): {
-  code: CryptoOutcomeCode;
-  message: string;
-} {
+function decodeOutcome(value: unknown): AuthenticateOutcome {
   'background only';
   if (typeof value !== 'object' || value === null) {
-    throw new Error('Biometric returned an invalid crypto payload');
+    throw new Error('Biometric returned an invalid outcome payload');
   }
-  const outcome = value as Partial<CreateSigningKeyResult>;
-  const code = outcome.code;
-  if (!isCryptoCode(code)) {
-    throw new Error('Biometric returned an invalid crypto payload');
+  const outcome = value as Partial<AuthenticateOutcome>;
+  if (!isOutcomeCode(outcome.code)) {
+    throw new Error('Biometric returned an invalid outcome payload');
   }
   return {
-    code,
+    success: outcome.code === 'success',
+    code: outcome.code,
+    policy: normalizePolicy(outcome.policy),
     message: typeof outcome.message === 'string' ? outcome.message : '',
   };
 }
 
-const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
-
-function normalizeSignChallengeOptions(
-  options: SignChallengeOptions,
-): Record<string, unknown> {
+function decodeCryptoBase(value: unknown): {
+  payload: Record<string, unknown>;
+  code: CryptoOutcomeCode;
+  message: string;
+} {
   'background only';
-  const title = options.title.trim();
-  const reason = options.reason.trim();
-  if (title.length === 0) {
-    throw new Error('Biometric title must not be empty');
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Biometric returned an invalid crypto payload');
   }
-  if (reason.length === 0) {
-    throw new Error('Biometric reason must not be empty');
+  const payload = value as Record<string, unknown>;
+  const code = payload.code;
+  if (!isCryptoCode(code)) {
+    throw new Error('Biometric returned an invalid crypto payload');
   }
-  const challenge = options.challenge.trim();
-  if (
-    challenge.length === 0 ||
-    challenge.length % 4 !== 0 ||
-    !BASE64_PATTERN.test(challenge)
-  ) {
-    throw new Error('Biometric challenge must be non-empty standard Base64');
-  }
-  const normalized: Record<string, unknown> = { title, reason, challenge };
-  const subtitle = options.subtitle?.trim();
-  if (subtitle !== undefined && subtitle.length > 0) {
-    normalized.subtitle = subtitle;
-  }
-  const cancelButtonText = options.cancelButtonText?.trim();
-  if (cancelButtonText !== undefined && cancelButtonText.length > 0) {
-    normalized.cancelButtonText = cancelButtonText;
-  }
-  return normalized;
+  return {
+    payload,
+    code,
+    message: typeof payload.message === 'string' ? payload.message : '',
+  };
 }
 
-function normalizeAuthenticateOptions(
-  options: AuthenticateOptions,
-): Record<string, unknown> {
+function decodeSigningKey(value: unknown): SigningKeyResult {
   'background only';
-  const title = options.title.trim();
-  const reason = options.reason.trim();
-  if (title.length === 0) {
-    throw new Error('Biometric title must not be empty');
+  const { payload, code, message } = decodeCryptoBase(value);
+  if (code !== 'success') {
+    return {
+      success: false,
+      code,
+      message,
+      keyId: null,
+      scope: null,
+      publicKey: null,
+      algorithm: null,
+      signatureEncoding: null,
+      securityLevel: 'unknown',
+      attestation: null,
+    };
   }
-  if (reason.length === 0) {
-    throw new Error('Biometric reason must not be empty');
+
+  const keyId = requireBiometricKeyId(payload.keyId);
+  const scope = biometricScopeFromKeyId(keyId);
+  if (payload.scope !== scope) {
+    throw new Error('Biometric returned a mismatched key scope');
   }
-  const normalized: Record<string, unknown> = {
-    title,
-    reason,
-    allowDeviceCredential: options.allowDeviceCredential ?? false,
+  const publicKey = payload.publicKey;
+  const publicBytes = decodeStandardBase64(publicKey, 'Biometric publicKey');
+  if (publicBytes.length !== 65 || publicBytes[0] !== 0x04) {
+    throw new Error('Biometric publicKey must be a 65-byte P-256 point');
+  }
+  const securityLevel = payload.securityLevel;
+  if (
+    securityLevel !== 'secureHardware' &&
+    securityLevel !== 'software' &&
+    securityLevel !== 'unknown'
+  ) {
+    throw new Error('Biometric returned an invalid key security level');
+  }
+
+  let attestation: SigningKeyAttestation | null = null;
+  if (payload.attestationType !== 'none') {
+    if (
+      payload.attestationType !== 'androidKey' &&
+      payload.attestationType !== 'huks'
+    ) {
+      throw new Error('Biometric returned an invalid attestation type');
+    }
+    if (!Array.isArray(payload.attestationCertificates)) {
+      throw new Error('Biometric returned an invalid attestation chain');
+    }
+    const certificates = payload.attestationCertificates.map(
+      (certificate, index) => {
+        decodeStandardBase64(
+          certificate,
+          `Biometric attestation certificate ${index}`,
+        );
+        return certificate as string;
+      },
+    );
+    if (certificates.length === 0) {
+      throw new Error('Biometric returned an empty attestation chain');
+    }
+    attestation = { type: payload.attestationType, certificates };
+  }
+
+  return {
+    success: true,
+    code,
+    message,
+    keyId,
+    scope,
+    publicKey: publicKey as string,
+    algorithm: 'ES256',
+    signatureEncoding: 'ieee-p1363',
+    securityLevel,
+    attestation,
   };
+}
+
+function decodeDeleteResult(
+  value: unknown,
+  requestedKeyId: string,
+): DeleteSigningKeyResult {
+  'background only';
+  const { payload, code, message } = decodeCryptoBase(value);
+  if (payload.keyId !== requestedKeyId) {
+    throw new Error('Biometric returned a mismatched deleted keyId');
+  }
+  return { success: code === 'success', code, message, keyId: requestedKeyId };
+}
+
+function decodeSignatureResult(
+  value: unknown,
+  requestedKeyId: string,
+): SignChallengeResult {
+  'background only';
+  const { payload, code, message } = decodeCryptoBase(value);
+  if (payload.keyId !== requestedKeyId) {
+    throw new Error('Biometric returned a mismatched signing keyId');
+  }
+  if (code !== 'success') {
+    return {
+      success: false,
+      code,
+      message,
+      keyId: requestedKeyId,
+      signature: null,
+    };
+  }
+  const signature = payload.signature;
+  const bytes = decodeStandardBase64(signature, 'Biometric signature');
+  if (bytes.length !== 64) {
+    throw new Error('Biometric signature must be 64-byte IEEE P1363');
+  }
+  return {
+    success: true,
+    code,
+    message,
+    keyId: requestedKeyId,
+    signature: signature as string,
+  };
+}
+
+function promptFields(options: AuthenticateOptions): PromptFields {
+  'background only';
+  if (typeof options !== 'object' || options === null) {
+    throw new Error('Biometric options are required');
+  }
+  const title = options.title?.trim();
+  const reason = options.reason?.trim();
+  if (!title) throw new Error('Biometric title must not be empty');
+  if (!reason) throw new Error('Biometric reason must not be empty');
+  if (title.length > 200) throw new Error('Biometric title is too long');
+  if (reason.length > 500) throw new Error('Biometric reason is too long');
+  const fields: PromptFields = { title, reason };
   const subtitle = options.subtitle?.trim();
-  if (subtitle !== undefined && subtitle.length > 0) {
-    normalized.subtitle = subtitle;
+  if (subtitle) {
+    if (subtitle.length > 200)
+      throw new Error('Biometric subtitle is too long');
+    fields.subtitle = subtitle;
   }
   const cancelButtonText = options.cancelButtonText?.trim();
-  if (cancelButtonText !== undefined && cancelButtonText.length > 0) {
-    normalized.cancelButtonText = cancelButtonText;
+  if (cancelButtonText) {
+    if (cancelButtonText.length > 60) {
+      throw new Error('Biometric cancelButtonText is too long');
+    }
+    fields.cancelButtonText = cancelButtonText;
   }
-  return normalized;
+  return fields;
+}
+
+function callbackPromise<T>(
+  invoke: (callback: (resultJSON: unknown) => void) => void,
+  decode: (value: unknown) => T,
+): Promise<T> {
+  'background only';
+  return new Promise((resolve, reject) => {
+    try {
+      invoke((resultJSON) => {
+        'background only';
+        try {
+          resolve(decode(envelopeValue(resultJSON)));
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      });
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }
 
 export const biometric = {
-  /**
-   * Silently reports whether the biometric prompt can be shown right now
-   * and why not. Use it to decide whether to offer biometric features;
-   * it never triggers the system prompt or a permission dialog.
-   */
-  checkSupport(): Promise<BiometricSupport> {
+  checkSupport(options: CheckSupportOptions = {}): Promise<BiometricSupport> {
     'background only';
-    return new Promise((resolve, reject) => {
-      requireBiometricModule().checkSupport((resultJSON) => {
-        'background only';
-        try {
-          const result = decodeEnvelope(resultJSON);
-          if (typeof result.error === 'string' && result.error.length > 0) {
-            reject(new Error(result.error));
-            return;
-          }
-          resolve(decodeSupport(result.value));
-        } catch (error) {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        }
-      });
-    });
+    const policy = normalizePolicy(options.policy);
+    return callbackPromise(
+      (callback) =>
+        requireBiometricModule().checkSupport(
+          JSON.stringify({ policy }),
+          callback,
+        ),
+      decodeSupport,
+    );
   },
 
-  /**
-   * Shows the system biometric prompt and resolves with the terminal
-   * outcome. Only one request may be active per Lynx page; a second call
-   * resolves with code 'busy'. Programmer errors (empty title/reason,
-   * missing module) reject or throw.
-   */
   authenticate(options: AuthenticateOptions): Promise<AuthenticateOutcome> {
     'background only';
-    const normalized = normalizeAuthenticateOptions(options);
-    return new Promise((resolve, reject) => {
-      requireBiometricModule().authenticate(
-        JSON.stringify(normalized),
-        (resultJSON) => {
-          'background only';
-          try {
-            const result = decodeEnvelope(resultJSON);
-            if (typeof result.error === 'string' && result.error.length > 0) {
-              reject(new Error(result.error));
-              return;
-            }
-            resolve(decodeOutcome(result.value));
-          } catch (error) {
-            reject(error instanceof Error ? error : new Error(String(error)));
-          }
-        },
-      );
-    });
+    const normalized = {
+      ...promptFields(options),
+      policy: normalizePolicy(options.policy),
+    };
+    return callbackPromise(
+      (callback) =>
+        requireBiometricModule().authenticate(
+          JSON.stringify(normalized),
+          callback,
+        ),
+      decodeOutcome,
+    );
   },
 
-  /**
-   * Generates (or replaces) this app's hardware-bound EC P-256 signing key.
-   * The private key never leaves secure hardware and can only be used after
-   * a successful biometric prompt. No prompt is shown by this call itself.
-   * Send the returned `publicKey` to the server and bind it to the account.
-   */
-  createSigningKey(): Promise<CreateSigningKeyResult> {
+  /** Creates a new key without deleting any existing key. */
+  createSigningKey(
+    options: CreateSigningKeyOptions,
+  ): Promise<SigningKeyResult> {
     'background only';
-    return new Promise((resolve, reject) => {
-      requireBiometricModule().createSigningKey((resultJSON) => {
-        'background only';
-        try {
-          const result = decodeEnvelope(resultJSON);
-          if (typeof result.error === 'string' && result.error.length > 0) {
-            reject(new Error(result.error));
-            return;
-          }
-          const decoded = decodeCryptoOutcome(result.value);
-          const payload =
-            result.value as Partial<CreateSigningKeyResult> | null;
-          const publicKey =
-            typeof payload?.publicKey === 'string' ? payload.publicKey : null;
-          resolve({
-            success: decoded.code === 'success',
-            code: decoded.code,
-            message: decoded.message,
-            publicKey: decoded.code === 'success' ? publicKey : null,
-          });
-        } catch (error) {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        }
-      });
-    });
+    const scope = normalizeBiometricScope(options?.scope);
+    const normalized: Record<string, unknown> = { scope };
+    if (options.attestationChallenge !== undefined) {
+      const challenge = options.attestationChallenge.trim();
+      const bytes = decodeStandardBase64(
+        challenge,
+        'Biometric attestationChallenge',
+      );
+      if (bytes.length < 16 || bytes.length > 128) {
+        throw new Error(
+          'Biometric attestationChallenge must decode to 16..128 bytes',
+        );
+      }
+      normalized.attestationChallenge = challenge;
+    }
+    return callbackPromise(
+      (callback) =>
+        requireBiometricModule().createSigningKey(
+          JSON.stringify(normalized),
+          callback,
+        ),
+      decodeSigningKey,
+    );
   },
 
-  /**
-   * Signs a server-issued Base64 challenge with the biometric-gated key,
-   * showing the system prompt first. Resolves with the Base64 signature
-   * (64-byte r || s); user-facing outcomes (cancel, fallback, lockout)
-   * resolve with their code and `signature: null`. Requires a key from
-   * createSigningKey(); otherwise resolves with code 'keyNotFound'.
-   * Biometric re-enrollment invalidates the key — handle 'keyNotFound' by
-   * re-creating the key and re-registering the public key with the server.
-   */
+  getSigningKey(options: SigningKeyIdOptions): Promise<SigningKeyResult> {
+    'background only';
+    const keyId = requireBiometricKeyId(options?.keyId);
+    return callbackPromise(
+      (callback) =>
+        requireBiometricModule().getSigningKey(
+          JSON.stringify({ keyId }),
+          callback,
+        ),
+      decodeSigningKey,
+    );
+  },
+
+  deleteSigningKey(
+    options: SigningKeyIdOptions,
+  ): Promise<DeleteSigningKeyResult> {
+    'background only';
+    const keyId = requireBiometricKeyId(options?.keyId);
+    return callbackPromise(
+      (callback) =>
+        requireBiometricModule().deleteSigningKey(
+          JSON.stringify({ keyId }),
+          callback,
+        ),
+      (value) => decodeDeleteResult(value, keyId),
+    );
+  },
+
   signChallenge(options: SignChallengeOptions): Promise<SignChallengeResult> {
     'background only';
-    const normalized = normalizeSignChallengeOptions(options);
-    return new Promise((resolve, reject) => {
-      requireBiometricModule().signChallenge(
-        JSON.stringify(normalized),
-        (resultJSON) => {
-          'background only';
-          try {
-            const result = decodeEnvelope(resultJSON);
-            if (typeof result.error === 'string' && result.error.length > 0) {
-              reject(new Error(result.error));
-              return;
-            }
-            const decoded = decodeCryptoOutcome(result.value);
-            const payload = result.value as Partial<SignChallengeResult> | null;
-            const signature =
-              typeof payload?.signature === 'string' ? payload.signature : null;
-            resolve({
-              success: decoded.code === 'success',
-              code: decoded.code,
-              message: decoded.message,
-              signature: decoded.code === 'success' ? signature : null,
-            });
-          } catch (error) {
-            reject(error instanceof Error ? error : new Error(String(error)));
-          }
-        },
-      );
-    });
+    const keyId = requireBiometricKeyId(options?.keyId);
+    const normalized = {
+      ...promptFields(options),
+      keyId,
+      payload: buildBiometricSigningPayload({
+        keyId,
+        challenge: options.challenge,
+        contextHash: options.contextHash,
+      }),
+    };
+    return callbackPromise(
+      (callback) =>
+        requireBiometricModule().signChallenge(
+          JSON.stringify(normalized),
+          callback,
+        ),
+      (value) => decodeSignatureResult(value, keyId),
+    );
   },
 };
+
+/** Runtime type guard useful when restoring a persisted key id. */
+export const isSigningKeyId = isBiometricKeyId;
