@@ -19,7 +19,7 @@ Native Modules。Android、iOS、HarmonyOS 使用相同的请求/响应协议；
 
 ```js
 const result = await window.__lynxNativeBridge.invoke(
-  'KV',
+  'Storage',
   'getString',
   ['my.key', null],
 );
@@ -45,7 +45,7 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
   webview-type="module-bridge"
   params={{
     'module-bridge': {
-      modules: ['KV', 'Clipboard'],
+      modules: ['Storage', 'Clipboard'],
     },
   }}
 />

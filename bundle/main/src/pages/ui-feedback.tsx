@@ -13,6 +13,7 @@ import {
   SheetView,
 } from '@lynx-js/lynx-ui';
 import { useRef, useState } from '@lynx-js/react';
+import { useBackDismissal } from '@lynx-template/autolink-navigation/react';
 
 import {
   ApiName,
@@ -25,12 +26,14 @@ export function DialogPage() {
   const [show, setShow] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
+  useBackDismissal(() => setShow(false), show);
+
   return (
     <view>
       <ApiName name="<DialogRoot />" />
       <DemoCard
         title="对话框"
-        desc="模态对话框：Backdrop 遮罩 + Content 内容 + Trigger / Close 触发器，支持受控开关。"
+        desc="模态对话框：Backdrop 遮罩 + Content 内容 + Trigger / Close 触发器，支持受控开关。对话框打开期间系统返回先关闭对话框，而不是退出页面。"
       >
         <DialogRoot
           show={show}

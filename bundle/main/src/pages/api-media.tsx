@@ -552,12 +552,12 @@ const WEBVIEW_BRIDGE_DEMO_HTML = [
   '  return window.__lynxNativeBridge.invoke(module, method, args);',
   '}',
   'function saveKv() {',
-  '  call("KV", "setString", ["webview.counter", String(Date.now())])',
+  '  call("Storage", "setString", ["webview.counter", String(Date.now())])',
   '    .then(function () { say("KV saved"); },',
   '      function (e) { say("KV save failed: " + e.message); });',
   '}',
   'function readKv() {',
-  '  call("KV", "getString", ["webview.counter", null])',
+  '  call("Storage", "getString", ["webview.counter", null])',
   '    .then(function (r) { say("KV value: " + r[0]); },',
   '      function (e) { say("KV read failed: " + e.message); });',
   '}',
@@ -573,7 +573,7 @@ const WEBVIEW_BRIDGE_DEMO_HTML = [
   '      function (e) { say("haptic failed: " + e.message); });',
   '}',
   'function readDevice() {',
-  '  call("DeviceInfo", "getInfo", [])',
+  '  call("Device", "getInfo", [])',
   '    .then(function (r) {',
   '      var result = JSON.parse(r[0]);',
   '      if (result.error) { throw new Error(result.error); }',
@@ -585,16 +585,16 @@ const WEBVIEW_BRIDGE_DEMO_HTML = [
   '  selfTestStarted = true;',
   '  var key = "webview.selftest";',
   '  var expected = "ok-" + Date.now();',
-  '  call("KV", "setString", [key, expected])',
-  '    .then(function () { return call("KV", "getString", [key, null]); })',
+  '  call("Storage", "setString", [key, expected])',
+  '    .then(function () { return call("Storage", "getString", [key, null]); })',
   '    .then(function (r) {',
   '      if (r[0] !== expected) { throw new Error("KV round-trip mismatch"); }',
-  '      return call("DeviceInfo", "getInfo", []);',
+  '      return call("Device", "getInfo", []);',
   '    })',
   '    .then(function (r) {',
   '      var result = JSON.parse(r[0]);',
   '      if (result.error || !result.value || !result.value.model) {',
-  '        throw new Error(result.error || "invalid DeviceInfo");',
+  '        throw new Error(result.error || "invalid Device payload");',
   '      }',
   '      say("WEBVIEW_BRIDGE_OK · " + result.value.manufacturer + " " + result.value.model);',
   '    })',
@@ -611,7 +611,7 @@ export function WebViewPage() {
       <ApiName name="module-webview" />
       <DemoCard
         title="WebView 模块桥"
-        desc="内嵌网页通过 window.__lynxNativeBridge 调用与 Lynx 侧相同的原生模块（KV / 剪贴板 / 振动 / 设备信息），三端宿主行为一致。加载完成后页面会自动跑一轮自检。"
+        desc="内嵌网页通过 window.__lynxNativeBridge 调用与 Lynx 侧相同的原生模块（存储 / 剪贴板 / 振动 / 设备信息），三端宿主行为一致。加载完成后页面会自动跑一轮自检。"
       >
         <module-webview
           className="WebviewBridgeDemo"
@@ -619,7 +619,7 @@ export function WebViewPage() {
           webview-type="module-bridge"
           params={{
             'module-bridge': {
-              modules: ['KV', 'Clipboard', 'Haptics', 'DeviceInfo'],
+              modules: ['Storage', 'Clipboard', 'Haptics', 'Device'],
             },
           }}
         />

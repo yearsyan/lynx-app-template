@@ -215,31 +215,35 @@ export function SensorsPage() {
 
 export function BiometricPage() {
   const [result, setResult] = useState<string | null>(null);
+  const [signingKeyId, setSigningKeyId] = useState<string | null>(null);
 
   const check = useCallback(() => {
     'background only';
     biometric
-      .checkSupport()
+      .checkSupport({ policy: 'biometricWeak' })
       .then((support) => {
         setResult(
           `${support.canAuthenticate ? '可用' : '不可用'} · 类型 ${support.biometryType}\n` +
-            `${support.reason} · 锁屏凭据${support.deviceCredentialSetup ? '已设置' : '未设置'}`,
+            `${support.policy} · ${support.reason} · 锁屏凭据${support.deviceCredentialSetup ? '已设置' : '未设置'}`,
         );
       })
       .catch((error: Error) => setResult(error.message));
   }, []);
 
-  const authenticate = useCallback((kind: '指纹' | '人脸') => {
+  const authenticate = useCallback(() => {
     'background only';
-    setResult(`等待系统${kind}弹窗…`);
+    setResult('等待系统认证弹窗…');
     biometric
       .authenticate({
+        policy: 'biometricWeak',
         title: 'Lynx 接口演示',
-        reason: `请完成${kind}认证以继续。`,
+        reason: '请通过设备可用的生物认证继续。',
       })
       .then((outcome) => {
         setResult(
-          outcome.success ? `${kind}认证通过 ✓` : `未通过：${outcome.code}`,
+          outcome.success
+            ? `系统生物认证通过 ✓ · ${outcome.policy}`
+            : `未通过：${outcome.code}`,
         );
       })
       .catch((error: Error) => setResult(error.message));
@@ -249,11 +253,14 @@ export function BiometricPage() {
     'background only';
     setResult('正在生成硬件签名密钥…');
     biometric
-      .createSigningKey()
+      .createSigningKey({ scope: 'demo' })
       .then((outcome) => {
+        if (outcome.success && outcome.keyId !== null) {
+          setSigningKeyId(outcome.keyId);
+        }
         setResult(
           outcome.success
-            ? `密钥已创建：${outcome.publicKey?.slice(0, 24)}…`
+            ? `密钥已创建：${outcome.keyId}\n${outcome.securityLevel} · 公钥 ${outcome.publicKey?.slice(0, 20)}…`
             : `创建失败：${outcome.code}`,
         );
       })
@@ -262,11 +269,20 @@ export function BiometricPage() {
 
   const sign = useCallback(() => {
     'background only';
+    if (signingKeyId === null) {
+      setResult('请先生成一把签名密钥');
+      return;
+    }
     setResult('正在签名本地挑战…');
-    const challenge = binaryToBase64(String.fromCharCode(...randomBytes(16)));
+    // 演示页用随机字节代替服务端 nonce 与规范业务上下文的 SHA-256；
+    // 正式业务必须由服务端下发 challenge，并自行计算 contextHash。
+    const challenge = binaryToBase64(String.fromCharCode(...randomBytes(32)));
+    const contextHash = binaryToBase64(String.fromCharCode(...randomBytes(32)));
     biometric
       .signChallenge({
+        keyId: signingKeyId,
         challenge,
+        contextHash,
         title: 'Lynx 接口演示',
         reason: '请通过生物认证完成签名。',
       })
@@ -278,34 +294,45 @@ export function BiometricPage() {
         );
       })
       .catch((error: Error) => setResult(error.message));
-  }, []);
+  }, [signingKeyId]);
+
+  const deleteKey = useCallback(() => {
+    'background only';
+    if (signingKeyId === null) {
+      setResult('当前没有演示密钥');
+      return;
+    }
+    biometric
+      .deleteSigningKey({ keyId: signingKeyId })
+      .then((outcome) => {
+        if (outcome.success) {
+          setSigningKeyId(null);
+        }
+        setResult(
+          outcome.success ? '演示密钥已删除' : `删除失败：${outcome.code}`,
+        );
+      })
+      .catch((error: Error) => setResult(error.message));
+  }, [signingKeyId]);
 
   return (
     <view>
       <ApiName name="biometric.authenticate" />
       <DemoCard
         title="生物认证"
-        desc="静默能力检查 + 系统指纹 / 人脸弹窗；认证通过后业务自行放行。"
+        desc="静默能力检查 + 一次系统认证弹窗；设备会使用已配置的人脸或指纹，业务无需也不能指定传感器。"
       >
         <DemoButton label="检查支持情况" onTap={check} />
-        <DemoButton
-          label="指纹认证"
-          primary
-          onTap={() => authenticate('指纹')}
-        />
-        <DemoButton
-          label="人脸认证"
-          primary
-          onTap={() => authenticate('人脸')}
-        />
+        <DemoButton label="发起生物认证" primary onTap={authenticate} />
         <ResultLine text={result} placeholder="发起一次系统生物认证" />
       </DemoCard>
       <DemoCard
         title="硬件签名密钥"
-        desc="在设备安全区生成不可导出的签名密钥；对挑战值签名可证明本次认证通过。"
+        desc="按 scope 创建可轮换的不可导出密钥；签名绑定 keyId、业务上下文摘要与服务端挑战。"
       >
         <DemoButton label="生成签名密钥" onTap={makeKey} />
         <DemoButton label="签名挑战" onTap={sign} />
+        <DemoButton label="删除当前密钥" onTap={deleteKey} />
       </DemoCard>
     </view>
   );
