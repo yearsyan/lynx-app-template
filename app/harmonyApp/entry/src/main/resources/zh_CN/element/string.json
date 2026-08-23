@@ -1,0 +1,32 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Lynx 跨端应用模板"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Lynx 跨端应用模板"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Lynx 模板"
+    },
+    {
+      "name": "network",
+      "value": "用于访问网络内容和 Lynx Bundle"
+    },
+    {
+      "name": "camera_permission",
+      "value": "用于拍照和扫描二维码或条形码"
+    },
+    {
+      "name": "microphone_permission",
+      "value": "用于录制音频"
+    },
+    {
+      "name": "photo_library_permission",
+      "value": "用于访问你选择使用的照片"
+    }
+  ]
+}

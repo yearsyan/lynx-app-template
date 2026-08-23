@@ -4,7 +4,12 @@ enum NativeRouteAnimation: String {
   case standard = "default"
   case fade
   case none
-  case present
+}
+
+enum NativeRoutePresentation: String {
+  case page
+  case inputDialog
+  case overlay
 }
 
 private func withRouteFadeTransition(on layer: CALayer, action: () -> Void) {
@@ -18,6 +23,7 @@ private func withRouteFadeTransition(on layer: CALayer, action: () -> Void) {
 private struct ValidatedRoute {
   let bundle: String
   let animation: NativeRouteAnimation
+  let presentation: NativeRoutePresentation
   let statusBarStyle: NativeStatusBarStyle
   let params: [String: Any]
   let presentScrimColor: UIColor?
@@ -26,12 +32,14 @@ private struct ValidatedRoute {
   let presentExitAnimation: PresentContentAnimationOptions
   let presentBackdropBlur: Bool
   let presentIOSSwipeDown: Bool
+  let presentDragDownToDismiss: Bool
 
   var routeData: [String: Any] {
     [
       "bundle": bundle,
       "statusBarStyle": statusBarStyle.rawValue,
       "animation": animation.rawValue,
+      "presentation": presentation.rawValue,
       "params": params,
     ]
   }
@@ -52,7 +60,7 @@ private final class PendingRouteResult {
 /// Host navigation behind the autolinked Router module: opens another Lynx
 /// bundle by pushing a LynxPageViewController from the calling host. The
 /// module resolves the host from its own Lynx view, so the handler stays
-/// stateless. `animation: 'present'` snapshots the calling page first; the
+/// stateless. `presentation: 'overlay'` snapshots the calling page first; the
 /// pushed page replays that snapshot as its backdrop (see PresentBackdrop)
 /// instead of using a modal transparent presentation, so the iOS-like present
 /// transition also composes with the navigation back stack.
@@ -84,8 +92,8 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
         completion("Router has no visible UIViewController host")
         return
       }
-      guard self.pushRoute(route, from: host, resultToken: nil) != nil else {
-        completion("Router push requires a UINavigationController host")
+      guard self.openRoute(route, from: host, resultToken: nil) else {
+        completion("Router cannot open a route from the current host")
         return
       }
       completion("")
@@ -107,9 +115,9 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
       let token = "route-result-\(Self.nextToken)"
       Self.pruneDeadOpeners()
       Self.pendingResults[token] = PendingRouteResult(onResult: onResult, opener: host)
-      guard self.pushRoute(route, from: host, resultToken: token) != nil else {
+      guard self.openRoute(route, from: host, resultToken: token) else {
         Self.pendingResults.removeValue(forKey: token)
-        onResult(Self.errorEnvelope("Router push requires a UINavigationController host"))
+        onResult(Self.errorEnvelope("Router cannot open a route from the current host"))
         return
       }
     }
@@ -155,13 +163,24 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
     from host: UIViewController,
     completion: @escaping LynxCallbackBlock
   ) {
-    guard let page = host as? LynxPageViewController,
-          let navigation = page.navigationController,
+    guard let page = host as? LynxPageViewController else {
+      completion("The root route cannot be closed")
+      return
+    }
+    if page.isInputDialogRoute, page.presentingViewController != nil {
+      page.requestDialogDismiss {
+        page.dismiss(animated: false) {
+          completion("")
+        }
+      }
+      return
+    }
+    guard let navigation = page.navigationController,
           navigation.viewControllers.first !== page else {
       completion("The root route cannot be closed")
       return
     }
-    if page.routeAnimation == .present {
+    if page.isOverlayRoute {
       // The reverse choreography pops the page itself once the backdrop has
       // restored the previous page's pixels.
       page.playDismissChoreography {
@@ -179,24 +198,53 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
     }
   }
 
-  /// Pushes the validated route; nil when the host has no navigation stack.
-  private func pushRoute(
+  /// Opens the validated route in either the navigation stack or its own
+  /// keyboard-isolated modal overlay.
+  private func openRoute(
     _ route: ValidatedRoute,
     from host: UIViewController,
     resultToken: String?
-  ) -> UINavigationController? {
-    guard host.viewIfLoaded?.window != nil,
-          let navigation = host.navigationController else {
-      return nil
+  ) -> Bool {
+    guard host.viewIfLoaded?.window != nil else {
+      return false
     }
-    // Preserve a present page's currently resolved screen-concentric radius
+    if route.presentation == .inputDialog {
+      let page = makePage(route, snapshot: nil, resultToken: resultToken)
+      page.modalPresentationStyle = .overFullScreen
+      page.modalTransitionStyle = .crossDissolve
+      page.modalPresentationCapturesStatusBarAppearance = true
+      page.isModalInPresentation = true
+      host.present(page, animated: false)
+      return true
+    }
+    guard let navigation = host.navigationController else { return false }
+    // Preserve an overlay page's currently resolved screen-concentric radius
     // before the nested push changes its navigation-container geometry.
     (host as? LynxPageViewController)?.preservePresentBackdropCornerClipping()
     navigation.setNavigationBarHidden(true, animated: false)
-    let snapshot = route.animation == .present
+    let snapshot = route.presentation == .overlay
       ? PresentBackdrop.capture(of: host.view, blurred: route.presentBackdropBlur)
       : nil
-    let page = LynxPageViewController(
+    let page = makePage(route, snapshot: snapshot, resultToken: resultToken)
+    switch route.animation {
+    case .standard:
+      navigation.pushViewController(page, animated: true)
+    case .fade:
+      withRouteFadeTransition(on: navigation.view.layer) {
+        navigation.pushViewController(page, animated: false)
+      }
+    case .none:
+      navigation.pushViewController(page, animated: false)
+    }
+    return true
+  }
+
+  private func makePage(
+    _ route: ValidatedRoute,
+    snapshot: UIImage?,
+    resultToken: String?
+  ) -> LynxPageViewController {
+    LynxPageViewController(
       bundleName: route.bundle,
       route: route.routeData,
       snapshot: snapshot,
@@ -206,19 +254,9 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
       presentEnterAnimation: route.presentEnterAnimation,
       presentExitAnimation: route.presentExitAnimation,
       presentIOSSwipeDownEnabled: route.presentIOSSwipeDown,
+      presentDragDownToDismissEnabled: route.presentDragDownToDismiss,
       routeResultToken: resultToken
     )
-    switch route.animation {
-    case .standard:
-      navigation.pushViewController(page, animated: true)
-    case .fade:
-      withRouteFadeTransition(on: navigation.view.layer) {
-        navigation.pushViewController(page, animated: false)
-      }
-    case .none, .present:
-      navigation.pushViewController(page, animated: false)
-    }
-    return navigation
   }
 
   private func parseRoute(_ options: [String: Any]) -> (route: ValidatedRoute?, error: String?) {
@@ -227,9 +265,23 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
       return (nil, "Invalid Lynx bundle name")
     }
 
+    let rawPresentation = options["presentation"] as? String
+      ?? NativeRoutePresentation.page.rawValue
+    guard let presentation = NativeRoutePresentation(rawValue: rawPresentation) else {
+      return (nil, "Invalid route presentation: \(rawPresentation)")
+    }
     let rawAnimation = options["animation"] as? String
-      ?? NativeRouteAnimation.standard.rawValue
-    guard let animation = NativeRouteAnimation(rawValue: rawAnimation) else {
+      ?? (presentation == .page
+        ? NativeRouteAnimation.standard.rawValue
+        : NativeRouteAnimation.none.rawValue)
+    // Overlay routes own their open/close choreography, so they always run
+    // without a system transition regardless of the animation value.
+    let animation: NativeRouteAnimation
+    if presentation == .overlay {
+      animation = .none
+    } else if let parsed = NativeRouteAnimation(rawValue: rawAnimation) {
+      animation = parsed
+    } else {
       return (nil, "Invalid route animation: \(rawAnimation)")
     }
     let rawStatusBarStyle = options["statusBarStyle"] as? String
@@ -238,18 +290,18 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
       return (nil, "Invalid status bar style: \(rawStatusBarStyle)")
     }
     let params = options["params"] as? [String: Any] ?? [:]
-    let present = options["present"] as? [String: Any]
+    let overlay = options["overlay"] as? [String: Any]
     var presentScrimColor: UIColor? = nil
-    if let rawScrimColor = present?["scrimColor"] as? String {
+    if let rawScrimColor = overlay?["scrimColor"] as? String {
       guard let parsed = UIColor(lynxHexARGB: rawScrimColor) else {
-        return (nil, "Invalid present scrim color: \(rawScrimColor)")
+        return (nil, "Invalid overlay scrim color: \(rawScrimColor)")
       }
       presentScrimColor = parsed
     }
-    let presentBackdropTransition = present?["backdropTransition"] as? Bool ?? true
-    let legacyContentTransition = present?["contentTransition"] as? Bool ?? true
-    let presentEnter = present?["enter"] as? [String: Any]
-    let presentExit = present?["exit"] as? [String: Any]
+    let presentBackdropTransition = overlay?["backdropTransition"] as? Bool ?? true
+    let legacyContentTransition = overlay?["contentTransition"] as? Bool ?? true
+    let presentEnter = overlay?["enter"] as? [String: Any]
+    let presentExit = overlay?["exit"] as? [String: Any]
     let presentEnterAnimation = PresentContentAnimationOptions(
       opacity: presentEnter?["opacity"] as? Bool ?? false,
       push: presentEnter?["push"] as? Bool ?? legacyContentTransition
@@ -258,12 +310,14 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
       opacity: presentExit?["opacity"] as? Bool ?? false,
       push: presentExit?["push"] as? Bool ?? legacyContentTransition
     )
-    let presentBackdropBlur = present?["backdropBlur"] as? Bool ?? false
-    let presentIOSSwipeDown = present?["iosSwipeDown"] as? Bool ?? false
+    let presentBackdropBlur = overlay?["backdropBlur"] as? Bool ?? false
+    let presentIOSSwipeDown = overlay?["iosSwipeDown"] as? Bool ?? false
+    let presentDragDownToDismiss = overlay?["dragDownToDismiss"] as? Bool ?? false
     return (
       ValidatedRoute(
         bundle: bundle,
         animation: animation,
+        presentation: presentation,
         statusBarStyle: statusBarStyle,
         params: params,
         presentScrimColor: presentScrimColor,
@@ -271,7 +325,8 @@ final class AppRouteHandler: NSObject, LynxRouteHandler {
         presentEnterAnimation: presentEnterAnimation,
         presentExitAnimation: presentExitAnimation,
         presentBackdropBlur: presentBackdropBlur,
-        presentIOSSwipeDown: presentIOSSwipeDown
+        presentIOSSwipeDown: presentIOSSwipeDown,
+        presentDragDownToDismiss: presentDragDownToDismiss
       ),
       nil
     )

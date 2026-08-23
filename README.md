@@ -55,6 +55,12 @@
 
 缓存损坏、版本不匹配或网络失败不会覆盖内置兜底资源。详细设计见 [Debug 开发配置](docs/development-settings.md)、[Native Environment 数据契约](docs/native-environment.md)、[NativeModules、原生路由与返回](docs/native-modules.md)、[Lynx 网络请求](docs/networking.md) 和 [热更新协议](docs/hot-update.md)。
 
+## 系统主题与语言
+
+默认 bundle 跟随系统浅色/深色外观，并提供英文与简体中文。三端宿主会在首帧通过 `nativeEnvironment.colorScheme` 和 `nativeEnvironment.locale` 注入当前 App 配置；运行期间配置变化也会更新 Lynx metadata。主题颜色集中在 `bundle/main/src/App.css` 的语义 token，文案集中在 `bundle/main/src/i18n.ts`。
+
+iOS 通过 `CFBundleLocalizations` 暴露系统“设置 → App → 语言”入口；Android 通过 `localeConfig` 接入 Android 13+ 的“应用语言”；HarmonyOS 使用对应的 `en_US` / `zh_CN` 资源目录。未支持的系统语言统一回退到英文。新增语言时，需要同时补充 Lynx 文案、三端原生资源并更新各平台的语言声明。
+
 原生模块与 Element 库集中维护在 `autolink/`。Android、iOS 与 HarmonyOS 三个宿主都由
 Lynx 官方 Autolink 工具扫描各自平台的库、接入依赖并生成 Registry；宿主不维护
 Autolink Provider 清单。NativeModule 库均提供 HarmonyOS 源码 HAR；其中 Navigation

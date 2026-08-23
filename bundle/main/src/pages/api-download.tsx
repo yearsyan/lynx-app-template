@@ -14,6 +14,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 const DEFAULT_DOWNLOAD_URL = 'https://proof.ovh.net/files/100Mb.dat';
 
@@ -99,13 +100,13 @@ function DownloadTaskCard(props: {
           <text
             className={`DownloadTask__stateText DownloadTask__stateText--${task.state}`}
           >
-            {STATE_LABELS[task.state]}
+            {t(STATE_LABELS[task.state])}
           </text>
         </view>
       </view>
       <text className="DownloadTask__meta">
-        {executionLabel} · {task.persistProgress ? '进度落盘' : '仅进程内'} ·{' '}
-        {task.id}
+        {t(executionLabel)} ·{' '}
+        {t(task.persistProgress ? '进度落盘' : '仅进程内')} · {task.id}
       </text>
       <view className="DownloadTask__progress">
         <view
@@ -113,12 +114,14 @@ function DownloadTaskCard(props: {
           style={{ width: `${progress}%` }}
         />
       </view>
-      <text className="DownloadTask__bytes">{formatProgress(task)}</text>
+      <text className="DownloadTask__bytes">{t(formatProgress(task))}</text>
       {task.error !== null ? (
         <text className="DownloadTask__error">{task.error}</text>
       ) : null}
       {task.fileUri !== null ? (
-        <text className="DownloadTask__file">文件：{task.fileUri}</text>
+        <text className="DownloadTask__file">
+          {t('文件：{uri}', { uri: task.fileUri })}
+        </text>
       ) : null}
       {active ? (
         <view className="RowButtons">
@@ -274,8 +277,8 @@ export function DownloadManagerPage() {
                     android: {
                       foregroundService: {
                         enabled: true,
-                        notificationTitle: 'Lynx 下载演示',
-                        notificationText: '下载将在应用进入后台后继续',
+                        notificationTitle: t('Lynx 下载演示'),
+                        notificationText: t('下载将在应用进入后台后继续'),
                       },
                     },
                   }

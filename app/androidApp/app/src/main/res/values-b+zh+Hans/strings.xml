@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lynx 模板</string>
+    <string name="updating_bundle">正在更新…</string>
+</resources>

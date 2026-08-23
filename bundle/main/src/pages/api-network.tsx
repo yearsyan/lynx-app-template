@@ -12,6 +12,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 interface FetchTarget {
   label: string;
@@ -167,11 +168,11 @@ export function WebSocketPage() {
         <DemoButton label="断开连接" disabled={!connected} onTap={teardown} />
         <view className="LogBox">
           {lines.length === 0 ? (
-            <text className="LogBox__empty">事件日志展示在这里</text>
+            <text className="LogBox__empty">{t('事件日志展示在这里')}</text>
           ) : (
             lines.map((line, index) => (
               <text key={index} className="LogBox__line">
-                {line}
+                {t(line)}
               </text>
             ))
           )}
@@ -291,11 +292,11 @@ export function NetworkInfoPage() {
         />
         <view className="LogBox">
           {lines.length === 0 ? (
-            <text className="LogBox__empty">事件日志展示在这里</text>
+            <text className="LogBox__empty">{t('事件日志展示在这里')}</text>
           ) : (
             lines.map((line, index) => (
               <text key={index} className="LogBox__line">
-                {line}
+                {t(line)}
               </text>
             ))
           )}

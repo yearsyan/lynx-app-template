@@ -4,6 +4,11 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>iosApp</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

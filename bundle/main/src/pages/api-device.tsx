@@ -22,6 +22,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 export function DeviceInfoPage() {
   const [result, setResult] = useState<string | null>(null);
@@ -236,8 +237,8 @@ export function BiometricPage() {
     biometric
       .authenticate({
         policy: 'biometricWeak',
-        title: 'Lynx 接口演示',
-        reason: '请通过设备可用的生物认证继续。',
+        title: t('Lynx 接口演示'),
+        reason: t('请通过设备可用的生物认证继续。'),
       })
       .then((outcome) => {
         setResult(
@@ -283,8 +284,8 @@ export function BiometricPage() {
         keyId: signingKeyId,
         challenge,
         contextHash,
-        title: 'Lynx 接口演示',
-        reason: '请通过生物认证完成签名。',
+        title: t('Lynx 接口演示'),
+        reason: t('请通过生物认证完成签名。'),
       })
       .then((outcome) => {
         setResult(
@@ -515,7 +516,7 @@ export function PermissionsPage() {
   const run = useCallback((label: string, call: () => Promise<string>) => {
     'background only';
     call()
-      .then((text) => setResult(`${label} · ${text}`))
+      .then((text) => setResult(`${t(label)} · ${t(text)}`))
       .catch((error: Error) => setResult(`${label} · ${error.message}`));
   }, []);
 

@@ -43,10 +43,22 @@ export interface SafeAreaInsets {
   left: number;
 }
 
+export type ColorScheme = 'light' | 'dark';
+
+export type AppLocale = 'zh-Hans' | 'en';
+
 export interface NativeEnvironment {
   schemaVersion: number;
   /** All native geometry is converted to Lynx logical px before delivery. */
   unit: 'px';
+  /** Android status-bar inset without display-cutout expansion. */
+  statusBarInsetTop?: number;
+  /** Android bottom navigation-bar inset, retained while the IME is visible. */
+  navigationBarInsetBottom?: number;
+  /** Resolved system appearance for this app instance. */
+  colorScheme?: ColorScheme;
+  /** Resolved app locale as a BCP-47 language tag. */
+  locale?: string;
   safeAreaInsets: SafeAreaInsets;
 }
 
@@ -188,6 +200,39 @@ export function readSafeAreaInsets(
     bottom: normalizeInset(insets?.bottom),
     left: normalizeInset(insets?.left),
   };
+}
+
+/** Reads the Android status-bar inset without display-cutout expansion. */
+export function readStatusBarInsetTop(
+  initData: InitData | null | undefined,
+): number {
+  return normalizeInset(initData?.nativeEnvironment?.statusBarInsetTop);
+}
+
+/** Reads the stable Android bottom navigation-bar inset. */
+export function readNavigationBarInsetBottom(
+  initData: InitData | null | undefined,
+): number {
+  return normalizeInset(initData?.nativeEnvironment?.navigationBarInsetBottom);
+}
+
+/** Reads the first-frame/reactive system appearance injected by the host. */
+export function readColorScheme(
+  initData: InitData | null | undefined,
+): ColorScheme {
+  return initData?.nativeEnvironment?.colorScheme === 'dark' ? 'dark' : 'light';
+}
+
+/**
+ * Resolves the app's supported locale from the host BCP-47 tag. Chinese
+ * variants intentionally share the Simplified Chinese resource bundle;
+ * unsupported or missing locales fall back to the English base resources.
+ */
+export function readAppLocale(
+  initData: InitData | null | undefined,
+): AppLocale {
+  const locale = initData?.nativeEnvironment?.locale?.toLowerCase();
+  return locale?.startsWith('zh') ? 'zh-Hans' : 'en';
 }
 
 /** Controls the foreground color of the current native status bar. */

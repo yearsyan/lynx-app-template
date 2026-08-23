@@ -7,6 +7,8 @@ import android.util.Log
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.ReadableMap
 import com.lynxapp.LynxTemplateApplication
+import com.lynxapp.R
+import com.lynxapp.activity.LynxDialogActivity
 import com.lynxapp.activity.LynxPageActivity
 import com.lynxapp.activity.PresentBackdrop
 import com.lynxapp.activity.PresentContentAnimationOptions
@@ -16,7 +18,6 @@ import com.lynxapp.autolink.navigation.LynxRouteHandler.RouteResultEnvelope
 import com.lynxapp.autolink.navigation.NavigationModule.ANIMATION_DEFAULT
 import com.lynxapp.autolink.navigation.NavigationModule.ANIMATION_FADE
 import com.lynxapp.autolink.navigation.NavigationModule.ANIMATION_NONE
-import com.lynxapp.autolink.navigation.NavigationModule.ANIMATION_PRESENT
 import com.lynxapp.autolink.navigation.NavigationModule.isLynxRouteAnimation
 import com.lynxapp.autolink.device.DeviceSystemUI
 import com.lynxapp.component.LoadingOverlay
@@ -31,11 +32,13 @@ private data class PresentRouteOptions(
     val exitAnimation: PresentContentAnimationOptions,
     val backdropBlur: Boolean,
     val androidPredictiveBackDown: Boolean,
+    val dragDownToDismiss: Boolean,
 )
 
 private data class ValidatedRoute(
     val bundle: String,
     val animation: String,
+    val presentation: String,
     val statusBarStyle: String,
     val params: Map<String, Any>,
     val presentOptions: PresentRouteOptions,
@@ -56,7 +59,7 @@ private class PendingRouteResult(
  * version list marks the target bundle outdated, the update downloads behind
  * a loading overlay before the page opens against the fresh cache. State on
  * the calling Activity's route (such as its animation) drives how close()
- * undoes the transition. `animation: 'present'` snapshots the calling page
+ * undoes the transition. `presentation: 'overlay'` snapshots the calling page
  * first; the opened page replays that snapshot as its backdrop (see
  * PresentBackdrop) instead of relying on a translucent activity, so the
  * iOS-like present transition also composes with the normal back stack.
@@ -146,7 +149,7 @@ class AppRouteHandler(
             // Closing the root leaves the app; the task stays alive so
             // returning is instant instead of a cold Lynx restart.
             activity.moveTaskToBack(true)
-        } else if (activity.routeAnimation == ANIMATION_PRESENT) {
+        } else if (activity.isOverlayRoute) {
             // The reverse choreography finishes the activity itself once
             // the backdrop has restored the previous page's pixels.
             activity.finishWithPresentTransition()
@@ -182,7 +185,7 @@ class AppRouteHandler(
             startActivityForRoute(activity, route, resultToken)
             return
         }
-        LoadingOverlay.show(activity, UPDATE_LOADING_TEXT)
+        LoadingOverlay.show(activity, activity.getString(R.string.updating_bundle))
         repository.download(update) { updated ->
             if (!updated) {
                 Log.w(TAG, "Bundle ${route.bundle} update failed; opening the current source")
@@ -200,7 +203,7 @@ class AppRouteHandler(
         route: ValidatedRoute,
         resultToken: String?,
     ) {
-        if (route.animation == ANIMATION_PRESENT) {
+        if (route.presentation == LynxPageActivity.PRESENTATION_OVERLAY) {
             // Capture only after any update overlay has been hidden, so the
             // snapshot shows the page the user was looking at.
             PresentBackdrop.capture(activity, route.presentOptions.backdropBlur) { snapshot ->
@@ -226,10 +229,18 @@ class AppRouteHandler(
         resultToken: String?,
         withSnapshot: Boolean,
     ) {
+        val destination = if (
+            route.presentation == LynxPageActivity.PRESENTATION_INPUT_DIALOG
+        ) {
+            LynxDialogActivity::class.java
+        } else {
+            LynxPageActivity::class.java
+        }
         activity.startActivity(
-            Intent(activity, LynxPageActivity::class.java).apply {
+            Intent(activity, destination).apply {
                 putExtra(LynxPageActivity.EXTRA_BUNDLE, route.bundle)
                 putExtra(LynxPageActivity.EXTRA_ANIMATION, route.animation)
+                putExtra(LynxPageActivity.EXTRA_PRESENTATION, route.presentation)
                 putExtra(LynxPageActivity.EXTRA_SNAPSHOT, withSnapshot)
                 putExtra(LynxPageActivity.EXTRA_STATUS_BAR_STYLE, route.statusBarStyle)
                 if (route.presentOptions.scrimColor != null) {
@@ -267,6 +278,10 @@ class AppRouteHandler(
                     route.presentOptions.androidPredictiveBackDown,
                 )
                 putExtra(
+                    LynxPageActivity.EXTRA_PRESENT_DRAG_DOWN_TO_DISMISS,
+                    route.presentOptions.dragDownToDismiss,
+                )
+                putExtra(
                     LynxPageActivity.EXTRA_PARAMS_JSON,
                     JSONObject(route.params).toString(),
                 )
@@ -276,7 +291,7 @@ class AppRouteHandler(
             },
         )
         when (route.animation) {
-            ANIMATION_NONE, ANIMATION_PRESENT ->
+            ANIMATION_NONE ->
                 activity.overridePendingTransition(0, 0)
             ANIMATION_FADE ->
                 activity.overridePendingTransition(
@@ -296,7 +311,30 @@ class AppRouteHandler(
             return null
         }
 
-        val animation = options.getString("animation", ANIMATION_DEFAULT)
+        val presentation = options.getString(
+            "presentation",
+            LynxPageActivity.PRESENTATION_PAGE,
+        )
+        if (!LynxPageActivity.isRoutePresentation(presentation)) {
+            onError("Invalid route presentation: $presentation")
+            return null
+        }
+        val defaultAnimation = if (
+            presentation == LynxPageActivity.PRESENTATION_PAGE
+        ) {
+            ANIMATION_DEFAULT
+        } else {
+            ANIMATION_NONE
+        }
+        // Overlay routes own their open/close choreography, so they always
+        // run without a system transition regardless of the animation value.
+        val animation = if (
+            presentation == LynxPageActivity.PRESENTATION_OVERLAY
+        ) {
+            ANIMATION_NONE
+        } else {
+            options.getString("animation", defaultAnimation)
+        }
         if (!isLynxRouteAnimation(animation)) {
             onError("Invalid route animation: $animation")
             return null
@@ -310,19 +348,21 @@ class AppRouteHandler(
             return null
         }
         val params = options.getMap("params")?.toHashMap().orEmpty()
-        val present = options.getMap("present")
-        val presentScrimColor = present?.getString("scrimColor")
+        val overlay = options.getMap("overlay")
+        val presentScrimColor = overlay?.getString("scrimColor")
         if (presentScrimColor != null && !SCRIM_COLOR.matches(presentScrimColor)) {
-            onError("Invalid present scrim color: $presentScrimColor")
+            onError("Invalid overlay scrim color: $presentScrimColor")
             return null
         }
-        val presentBackdropTransition = present?.getBoolean("backdropTransition", true) ?: true
-        val legacyContentTransition = present?.getBoolean("contentTransition", true) ?: true
-        val presentEnter = present?.getMap("enter")
-        val presentExit = present?.getMap("exit")
-        val presentBackdropBlur = present?.getBoolean("backdropBlur", false) ?: false
+        val presentBackdropTransition = overlay?.getBoolean("backdropTransition", true) ?: true
+        val legacyContentTransition = overlay?.getBoolean("contentTransition", true) ?: true
+        val presentEnter = overlay?.getMap("enter")
+        val presentExit = overlay?.getMap("exit")
+        val presentBackdropBlur = overlay?.getBoolean("backdropBlur", false) ?: false
         val presentAndroidPredictiveBackDown =
-            present?.getBoolean("androidPredictiveBackDown", false) ?: false
+            overlay?.getBoolean("androidPredictiveBackDown", false) ?: false
+        val presentDragDownToDismiss =
+            overlay?.getBoolean("dragDownToDismiss", false) ?: false
         val presentOptions = PresentRouteOptions(
             scrimColor = presentScrimColor,
             backdropTransition = presentBackdropTransition,
@@ -338,8 +378,16 @@ class AppRouteHandler(
             ),
             backdropBlur = presentBackdropBlur,
             androidPredictiveBackDown = presentAndroidPredictiveBackDown,
+            dragDownToDismiss = presentDragDownToDismiss,
         )
-        return ValidatedRoute(bundle, animation, statusBarStyle, params, presentOptions)
+        return ValidatedRoute(
+            bundle = bundle,
+            animation = animation,
+            presentation = presentation,
+            statusBarStyle = statusBarStyle,
+            params = params,
+            presentOptions = presentOptions,
+        )
     }
 
     private fun routeResultToken(activity: Activity): String? =
@@ -387,7 +435,6 @@ class AppRouteHandler(
 
     companion object {
         private const val TAG = "AppRouteHandler"
-        private const val UPDATE_LOADING_TEXT = "正在更新…"
         /** Correlates a launched route with its opener's pending callback. */
         internal const val EXTRA_RESULT_TOKEN = "lynx.route.result-token"
         private val BUNDLE_NAME = Regex("^[a-z0-9][a-z0-9-]*$")

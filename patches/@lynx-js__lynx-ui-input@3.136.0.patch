@@ -1,0 +1,29 @@
+diff --git a/dist/KeyboardAwareRoot.jsx b/dist/KeyboardAwareRoot.jsx
+index cc1b5d094d357533746116b147acba89c7c029ec..36485210bbb17851f835c5feb43b25740735126f 100644
+--- a/dist/KeyboardAwareRoot.jsx
++++ b/dist/KeyboardAwareRoot.jsx
+@@ -56,7 +56,7 @@ function KeyboardAwareRootImpl(props) {
+             setNativePropsByRef(dummyRefAtKeyboardHeight, {
+                 height: "0px"
+             });
+-            if (!focusedRef?.current) firstTimeFocused.current = true;
++            if (0 === keyboardHeightInPx || !focusedRef?.current) firstTimeFocused.current = true;
+         } else {
+             setNativePropsByRef(keyboardAwareResponderRef, {
+                 transform: "translateY(0px)",
+diff --git a/src/KeyboardAwareRoot.tsx b/src/KeyboardAwareRoot.tsx
+index 88d8effd845331458c743fa5e52d7d770cf2ec2b..b69937ac2c85b365733452799e3724c2789c1717 100644
+--- a/src/KeyboardAwareRoot.tsx
++++ b/src/KeyboardAwareRoot.tsx
+@@ -124,7 +124,10 @@ export function KeyboardAwareRootImpl(props: KeyboardAwareRootProps) {
+           height: `${0}px`,
+         })
+ 
+-        if (!focusedRef?.current) {
++        // Android's back button can hide the IME without blurring the input.
++        // Treat a hidden keyboard as the end of the current avoidance cycle so
++        // the spacer is restored when the same focused input reopens the IME.
++        if (keyboardHeightInPx === 0 || !focusedRef?.current) {
+           firstTimeFocused.current = true
+         }
+       } else {

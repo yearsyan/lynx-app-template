@@ -3,8 +3,24 @@
 
     <style name="Theme.LynxTemplate" parent="Theme.LynxTemplate.Base" />
 
+    <!-- A dedicated floating Window gives inputDialog fixed adjustResize
+         behavior without changing the opener Activity. -->
+    <style name="Theme.LynxTemplate.InputDialog" parent="Theme.LynxTemplate.Base">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.45</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
     <style name="Theme.LynxTemplate.Base" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#F7F7FB</item>
+        <item name="android:windowBackground">@color/lynx_page_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>

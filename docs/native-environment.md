@@ -2,13 +2,15 @@
 
 三端宿主都让 LynxView 覆盖完整窗口，背景可以绘制到系统栏下面；宿主再把不能放置可交互内容的区域通过 `initData` 传给 bundle。窗口几何变化时，宿主使用同一字段做增量更新，ReactLynx 的 `useInitData()` 会触发重渲染。
 
-## Schema v1
+## Schema v2
 
 ```json
 {
   "nativeEnvironment": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "unit": "px",
+    "colorScheme": "dark",
+    "locale": "zh-Hans-CN",
     "safeAreaInsets": {
       "top": 24,
       "right": 0,
@@ -19,6 +21,8 @@
 }
 ```
 
+`colorScheme` 是宿主为当前 App 解析出的 `light` 或 `dark`；`locale` 是当前 App 的 BCP-47 语言标签。二者与安全区一起进入首帧数据，并在宿主收到外观或语言配置变化时通过 metadata 更新。Bundle 只消费宿主结果，不再各自猜测系统设置。
+
 这里的 `px` 是 Lynx 逻辑像素，而不是设备物理像素：iOS 使用 point，Android 将 WindowInsets 的物理像素除以 density，HarmonyOS 将 avoid area 从 px 转换为 vp。这样 bundle 不需要判断平台或再次换算。
 
 `safeAreaInsets` 包含状态栏、导航栏/导航指示条和刘海/挖孔，四边取各来源的最大值。键盘不属于安全区：键盘高度和输入框避让应使用独立的可视窗口协议，避免键盘弹出时把整个页面永久当成新的安全区。
@@ -28,10 +32,16 @@
 `autolink/device` 的公共实现扩展了 ReactLynx 的 `InitData` 类型，并对缺失、负数和无效值回退为 `0`。所有 bundle 都从 `@lynx-template/autolink-device` 读取同一份宿主数据契约。页面保持最外层背景全屏，只在内容容器的 padding 上叠加安全区：
 
 ```ts
-import { readSafeAreaInsets } from '@lynx-template/autolink-device';
+import {
+  readAppLocale,
+  readColorScheme,
+  readSafeAreaInsets,
+} from '@lynx-template/autolink-device';
 
 const initData = useInitData();
 const insets = readSafeAreaInsets(initData);
+const colorScheme = readColorScheme(initData); // light | dark
+const locale = readAppLocale(initData); // en | zh-Hans
 
 const style = {
   paddingTop: `${contentMargin.top + insets.top}px`,
@@ -41,12 +51,12 @@ const style = {
 };
 ```
 
-新增 bundle 只需依赖 `@lynx-template/autolink-device`，即可复用同一类型与安全区读取函数；字段名称和含义应保持向后兼容。
+新增 bundle 只需依赖 `@lynx-template/autolink-device`，即可复用同一类型与读取函数；字段名称和含义应保持向后兼容。当前模板只提供英文和简体中文，未支持或缺失的语言回退到英文。
 
 ## 三端数据源
 
-- Android：`autolink/device` 的 `NativeEnvironmentBridge` 监听 `WindowInsetsCompat`，合并 system bars 与 display cutout，再换算为 dp；旋转、分屏和系统栏显隐会自动更新。
-- iOS：`Device` 包读取 `UIView.safeAreaInsets` 并构造 template data；页面在 `viewSafeAreaInsetsDidChange()` 以及布局变化后发布更新，单位天然是 point。
-- HarmonyOS：包内 `NativeSafeAreaController` 监听主窗口 `avoidAreaChange`，合并 system、cutout 与 navigation indicator，换算为 vp 后由页面更新 `LynxContext`。
+- Android：`autolink/device` 的 `NativeEnvironmentBridge` 监听 `WindowInsetsCompat`，合并 system bars 与 display cutout，再换算为 dp；主题和语言来自当前 App 的 `Configuration`。系统配置变化默认重建 Activity，因此新页面首帧直接使用新值。
+- iOS：`Device` 包读取 `UIView.safeAreaInsets` 并构造 template data；页面在安全区、trait collection 或当前 locale 变化后发布更新，单位天然是 point。`CFBundleLocalizations` 声明的语言会出现在 iOS 的 App 设置页。
+- HarmonyOS：包内 `NativeSafeAreaController` 监听主窗口 `avoidAreaChange`，合并 system、cutout 与 navigation indicator，换算为 vp；Ability 把外观和语言配置发布到 `AppStorage`，页面据此更新 `LynxContext`。
 
 宿主必须等到首个有效窗口几何值可用后再首次加载 bundle，不能先传零值并假设增量事件一定能修正首帧。每次重新加载内置、开发或热更新 bundle 时，也必须把当前值作为初始数据再次传入，不能只依赖前一个页面收到过的增量事件。后续窗口变化统一使用 Lynx 4.0 的 metadata 更新接口。

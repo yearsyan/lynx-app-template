@@ -1,4 +1,4 @@
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
@@ -12,12 +12,21 @@ import BuildProfile from 'BuildProfile';
 import { LynxTemplateHttpService } from '../service/LynxTemplateHttpService';
 import { DeepLinkRouteResolver } from '../host/DeepLinkRouteResolver';
 import { StartupRoute } from '../host/StartupRoute';
+import {
+  NATIVE_COLOR_SCHEME_KEY,
+  NATIVE_LOCALE_KEY,
+  resolvedColorScheme,
+  resolvedLocale,
+} from '../config/NativeEnvironmentConfig';
 
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
+  private mainWindow: window.Window | undefined = undefined;
+
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+    this.publishNativePreferences(this.context.config);
     MMKV.initialize(this.context.getApplicationContext());
     // A cold-start deep link parks its resolution for Index to consume when
     // the page first appears (StartupRoute.deliver falls back to pending).
@@ -51,6 +60,21 @@ export default class EntryAbility extends UIAbility {
     this.acceptDeepLinkWant(want);
   }
 
+  onConfigurationUpdate(newConfig: Configuration): void {
+    this.publishNativePreferences(newConfig);
+    if (this.mainWindow !== undefined) {
+      this.applySystemBars(this.mainWindow, newConfig);
+    }
+  }
+
+  private publishNativePreferences(configuration: Configuration): void {
+    AppStorage.setOrCreate<string>(
+      NATIVE_COLOR_SCHEME_KEY,
+      resolvedColorScheme(configuration),
+    );
+    AppStorage.setOrCreate<string>(NATIVE_LOCALE_KEY, resolvedLocale(configuration));
+  }
+
   private acceptDeepLinkWant(want: Want): void {
     const resolution = DeepLinkRouteResolver.resolve(this.context, want.uri);
     if (resolution !== null) {
@@ -69,6 +93,7 @@ export default class EntryAbility extends UIAbility {
       }
 
       const mainWindow = windowStage.getMainWindowSync();
+      this.mainWindow = mainWindow;
       mainWindow.setWindowLayoutFullScreen(true).catch((error: BusinessError) => {
         hilog.error(
           DOMAIN,
@@ -78,13 +103,20 @@ export default class EntryAbility extends UIAbility {
           error.message,
         );
       });
-      mainWindow.setWindowSystemBarProperties({
+      this.applySystemBars(mainWindow, this.context.config);
+      hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
+    });
+  }
+
+  private applySystemBars(mainWindow: window.Window, configuration: Configuration): void {
+    const isDark = resolvedColorScheme(configuration) === 'dark';
+    mainWindow.setWindowSystemBarProperties({
         statusBarColor: '#00000000',
         navigationBarColor: '#00000000',
-        statusBarContentColor: '#FF1D1B20',
-        navigationBarContentColor: '#FF1D1B20',
-        isStatusBarLightIcon: false,
-        isNavigationBarLightIcon: false,
+        statusBarContentColor: isDark ? '#FFF5F5F7' : '#FF1D1B20',
+        navigationBarContentColor: isDark ? '#FFF5F5F7' : '#FF1D1B20',
+        isStatusBarLightIcon: isDark,
+        isNavigationBarLightIcon: isDark,
       }).catch((error: BusinessError) => {
         hilog.error(
           DOMAIN,
@@ -94,11 +126,10 @@ export default class EntryAbility extends UIAbility {
           error.message,
         );
       });
-      hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
-    });
   }
 
   onWindowStageDestroy(): void {
+    this.mainWindow = undefined;
     // Main window is destroyed, release UI related resources
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
   }

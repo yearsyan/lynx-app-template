@@ -1,6 +1,7 @@
 package com.lynxapp.autolink.device
 
 import android.app.Activity
+import android.content.res.Configuration
 import android.os.Build
 import androidx.core.view.WindowCompat
 
@@ -14,6 +15,14 @@ object DeviceSystemUI {
         value == STATUS_BAR_STYLE_DARK_CONTENT || value == STATUS_BAR_STYLE_LIGHT_CONTENT
 
     @JvmStatic
+    fun systemStatusBarStyle(activity: Activity): String =
+        if (isDarkMode(activity.resources.configuration)) {
+            STATUS_BAR_STYLE_LIGHT_CONTENT
+        } else {
+            STATUS_BAR_STYLE_DARK_CONTENT
+        }
+
+    @JvmStatic
     @JvmOverloads
     fun enableEdgeToEdge(
         activity: Activity,
@@ -22,7 +31,7 @@ object DeviceSystemUI {
         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
             isAppearanceLightStatusBars = statusBarStyle == STATUS_BAR_STYLE_DARK_CONTENT
-            isAppearanceLightNavigationBars = true
+            isAppearanceLightNavigationBars = !isDarkMode(activity.resources.configuration)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -36,4 +45,8 @@ object DeviceSystemUI {
         WindowCompat.getInsetsController(activity.window, activity.window.decorView)
             .isAppearanceLightStatusBars = statusBarStyle == STATUS_BAR_STYLE_DARK_CONTENT
     }
+
+    private fun isDarkMode(configuration: Configuration): Boolean =
+        configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
 }

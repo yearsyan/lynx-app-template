@@ -20,6 +20,7 @@ import {
 import {
   AlbumPage,
   AudioPlayerPage,
+  AudioRecorderPage,
   ImageToolingPage,
   ScreenshotPage,
   SharePage,
@@ -35,7 +36,13 @@ import { FileSystemPage, KvPage, SecureStoragePage } from './api-storage.js';
 import { RoutePresentPage } from './route-present.js';
 import { RouteResultPage } from './route-result.js';
 import { BackOverlayPage } from './ui-back.js';
-import { ButtonPage, InputPage, SliderPage } from './ui-basic.js';
+import {
+  ButtonPage,
+  InputPage,
+  KeyboardInputDialogPage,
+  KeyboardPage,
+  SliderPage,
+} from './ui-basic.js';
 import {
   CheckboxPage,
   DropdownPage,
@@ -88,7 +95,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileBackground: '#e7f6ec',
         tileColor: '#07c160',
         items: [
-          { key: 'routepresent', title: 'present 转场' },
+          { key: 'routepresent', title: 'overlay 浮层' },
           { key: 'routeresult', title: '页面结果回传' },
           { key: 'toast', title: 'Toast 提示' },
           { key: 'statusbar', title: '状态栏样式' },
@@ -138,6 +145,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
           { key: 'share', title: '系统分享' },
           { key: 'imagetooling', title: '图片工具' },
           { key: 'audio', title: '音频播放' },
+          { key: 'audio-recorder', title: '录音' },
           { key: 'album', title: '相册' },
           { key: 'webview', title: 'WebView 桥' },
         ],
@@ -174,6 +182,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
           { key: 'button', title: '按钮 Button' },
           { key: 'pressable', title: 'Pressable 长按 / 触感' },
           { key: 'input', title: '输入框 Input' },
+          { key: 'keyboard', title: '键盘适配 Keyboard' },
           { key: 'slider', title: '滑块 Slider' },
         ],
       },
@@ -216,11 +225,12 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
 
 interface DemoPageEntry {
   title: string;
+  keyboardAware?: boolean;
   render: () => ReactNode;
 }
 
 export const PAGES: Record<string, DemoPageEntry> = {
-  routepresent: { title: 'present 转场', render: () => <RoutePresentPage /> },
+  routepresent: { title: 'overlay 浮层', render: () => <RoutePresentPage /> },
   routeresult: { title: '页面结果回传', render: () => <RouteResultPage /> },
   toast: { title: 'Toast 提示', render: () => <ToastPage /> },
   statusbar: { title: '状态栏样式', render: () => <StatusBarPage /> },
@@ -244,6 +254,10 @@ export const PAGES: Record<string, DemoPageEntry> = {
   imagetooling: { title: '图片工具', render: () => <ImageToolingPage /> },
   album: { title: '相册', render: () => <AlbumPage /> },
   audio: { title: '音频播放', render: () => <AudioPlayerPage /> },
+  'audio-recorder': {
+    title: '录音',
+    render: () => <AudioRecorderPage />,
+  },
   webview: { title: 'WebView 桥', render: () => <WebViewPage /> },
   kv: { title: 'MMKV 存储', render: () => <KvPage /> },
   secure: { title: '安全存储', render: () => <SecureStoragePage /> },
@@ -254,6 +268,15 @@ export const PAGES: Record<string, DemoPageEntry> = {
     render: () => <PressableViewPage />,
   },
   input: { title: '输入框', render: () => <InputPage /> },
+  keyboard: {
+    title: '键盘适配',
+    keyboardAware: true,
+    render: () => <KeyboardPage />,
+  },
+  'keyboard-input-dialog': {
+    title: '独立键盘弹窗',
+    render: () => <KeyboardInputDialogPage />,
+  },
   slider: { title: '滑块', render: () => <SliderPage /> },
   switch: { title: '开关', render: () => <SwitchPage /> },
   checkbox: { title: '多选框', render: () => <CheckboxPage /> },

@@ -26,11 +26,11 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `Screenshot`：把整个 LynxView、某个元素或当前原生页面截为 PNG/JPEG 写入应用缓存目录；
 - `Share`：调起系统分享面板发送文本、链接与本地文件（截图 / 相册 / 文件产物）；
 - `Scanner`：拉起全屏扫码页识别 QR / 条形码，并支持对相册图片本地识码；
-- `AudioPlayer`：播放本地音频文件（`file://` / Android `content://`），按 `media` / `ambient` / `alarm` / `notification` 四种流路由音量键与音频焦点，进度与状态经 `audioPlayer` 事件回传；
+- `Audio`：播放本地音频文件（`file://` / Android `content://`），按 `media` / `ambient` / `alarm` / `notification` 四种流路由音量键与音频焦点，进度与状态经 `audioPlayer` 事件回传；并把麦克风录音为缓存目录中的 AAC(m4a) 文件（`audioRecorder` 事件回传状态 / 时长）；
 - `Storage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
 `Navigation`、`WebSocket`、`Storage`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
 `Biometric`、`Device`、`NetworkInfo`、`ImageTooling`、`Screenshot`、`Scanner`、
-`AudioPlayer`、`Toast` 与 `Share` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
+`Audio`、`Toast` 与 `Share` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
 （见下文「Lynx Autolink 集成」）。HarmonyOS 使用 4.2 nightly 的官方 Hvigor Autolink
 （源码 HAR + 全局 Registry + AppStartup）。HarmonyOS 的 Back 能力由 Autolink 注册的
 Navigation 模块承载，
@@ -111,9 +111,9 @@ async function openPresentPage() {
   'background only';
   await router.open({
     bundle: 'native-capabilities',
-    animation: 'present',
+    presentation: 'overlay',
     // 默认即为无透明度动画 + 从/向屏幕下方完整推入推出；两个阶段可单独覆盖。
-    present: {
+    overlay: {
       enter: { opacity: false, push: true },
       exit: { opacity: false, push: true },
     },
@@ -144,13 +144,15 @@ Lynx NativeModules 在后台线程使用，因此直接或间接访问它们的�
 
 | 方法 | 说明 |
 | --- | --- |
-| `setString(key, value)` | 保存字符串 |
-| `getString(key, defaultValue?)` | 读取字符串，缺失时返回默认值或 `null` |
-| `remove(key)` | 删除一个键 |
-| `contains(key)` | 判断键是否存在 |
-| `clear()` | 清空这个 App 的 Lynx MMKV 实例 |
-| `setJSON(key, value)` | JSON 序列化后保存 |
+| `setString(key, value, inMemory?)` | 保存字符串；`inMemory: true` 时只写原生进程级内存字典（overlay），不落 MMKV |
+| `getString(key, defaultValue?)` | 读取字符串，优先查内存 overlay，其次 MMKV；缺失时返回默认值或 `null` |
+| `remove(key)` | 删除一个键（同时清掉 overlay 与 MMKV 中的值） |
+| `contains(key)` | 判断键是否存在（overlay 或 MMKV 任一存在即视为存在） |
+| `clear()` | 清空这个 App 的 Lynx MMKV 实例与内存 overlay |
+| `setJSON(key, value, inMemory?)` | JSON 序列化后保存，`inMemory` 透传给 `setString` |
 | `getJSON(key, defaultValue)` | 读取并解析 JSON；缺失或格式错误时返回默认值 |
+
+`inMemory` 覆盖（overlay）语义：`setString(key, value, true)` 只写进程级内存字典，MMKV 中的旧值原样保留，读取时 overlay 优先（即内存值"遮蔽"MMKV 值，进程被杀后遮蔽消失、回落到 MMKV 旧值）；随后一次持久化写入（`inMemory: false`）会先清掉该 key 的 overlay 条目，MMKV 重新成为唯一数据源。overlay 与 MMKV 一样是全进程共享的（跨 bundle、跨 Lynx 实例）。
 
 当前契约刻意保持为字符串原语，不包含二进制、大对象、跨设备同步或事务。业务需要命名空间时，应在 key 前增加 bundle 或业务前缀。
 
@@ -178,9 +180,11 @@ GCM 校验失败，`getString` 按缺失处理并返回默认值；`remove` 与 
 interface RouteOptions {
   bundle: string;
   statusBarStyle?: 'dark-content' | 'light-content';
-  animation?: 'default' | 'fade' | 'none' | 'present';
-  // 仅 animation 为 'present' 时生效
-  present?: {
+  animation?: 'default' | 'fade' | 'none';
+  /** 路由宿主形态：普通栈页（默认）、键盘弹层、快照浮层 */
+  presentation?: 'page' | 'inputDialog' | 'overlay';
+  // 仅 presentation 为 'overlay' 时生效
+  overlay?: {
     scrimColor?: string; // '#AARRGGBB'，默认 '#59000000'
     backdropTransition?: boolean; // 背景（上一页截图）的缩小/复原编舞，默认 true
     enter?: {
@@ -194,15 +198,20 @@ interface RouteOptions {
     /** @deprecated 仅作为 enter.push / exit.push 的兼容默认值 */
     contentTransition?: boolean;
     backdropBlur?: boolean; // 背景改用降采样模糊截图，默认 false
+    iosSwipeDown?: boolean; // iOS 边缘侧滑驱动出场编舞，默认 false
+    androidPredictiveBackDown?: boolean; // Android 预测返回驱动出场编舞，默认 false
+    dragDownToDismiss?: boolean; // 页面纵向下拉交互关闭（三端），默认 false
   };
   params?: Record<string, unknown>;
 }
 ```
 
 打开与关闭的原生过渡动画由 `animation` 控制：`default` 保持各平台标准
-推入过渡，`fade` 双向淡入淡出，`none` 打开与关闭都瞬时完成，
-`present` 播放类 iOS present 转场（见下节）。非法取值会被共享
-TypeScript 层和三端原生模块分别拒绝。
+推入过渡，`fade` 双向淡入淡出，`none` 打开与关闭都瞬时完成。非法取值会被共享
+TypeScript 层和三端原生模块分别拒绝。路由的宿主形态由 `presentation`
+控制：`page` 是普通全屏栈页，`inputDialog` 是键盘隔离的底部弹层，
+`overlay` 是下一节的快照浮层（它自带进出场编舞，`animation` 对它恒为
+`none`，显式传入也会被忽略）。
 
 `bundle` 必须匹配 `^[a-z0-9][a-z0-9-]*$`，并与 workspace `package.json` 的 `lynxBundle.name` 一致。路由页通过 init data 收到统一结构：
 
@@ -211,7 +220,8 @@ TypeScript 层和三端原生模块分别拒绝。
   "route": {
     "bundle": "native-capabilities",
     "statusBarStyle": "dark-content",
-    "animation": "present",
+    "animation": "none",
+    "presentation": "overlay",
     "params": {
       "source": "main"
     }
@@ -223,9 +233,9 @@ TypeScript 层和三端原生模块分别拒绝。
 退到后台（Android `moveTaskToBack`、Harmony `moveAbilityToBackground`，保留
 任务栈，再次进入即时恢复）；iOS 宿主则返回「根路由不可关闭」错误。
 
-### present 转场（截图背景）
+### overlay 浮层（截图背景）
 
-`animation: 'present'` 不依赖任何透明原生页面，而是由宿主在打开前对当前
+`presentation: 'overlay'` 不依赖任何透明原生页面，而是由宿主在打开前对当前
 页面截图，新页面以不透明方式打开：
 
 1. 宿主截取当前页面像素（Android `PixelCopy`、iOS `drawViewHierarchyInRect`、
@@ -244,9 +254,9 @@ TypeScript 层和三端原生模块分别拒绝。
 终态下截图背景保持缩小停留在页面底层，页面内容自行决定露出多少：弹层式
 页面顶部留透明即可看到“缩小的上一页”（由原生遮罩统一压暗，页面无需自绘
 遮罩），全屏不透明内容则完全覆盖它。
-`bundle/main` 的「present 转场」演示页展示了这种弹层式布局。
+`bundle/main` 的「overlay 浮层」演示页展示了这种弹层式布局。
 
-present 的原生 chrome 都可配置（`present` 选项，三端行为一致）：
+overlay 的原生 chrome 都可配置（`overlay` 选项，三端行为一致）：
 
 - `scrimColor`：截图与内容之间那层遮罩的颜色，`'#AARRGGBB'` 格式（alpha
   在前，即浓度），默认 `'#59000000'`（35% 黑）；传 `'#00000000'` 等于不压暗；
@@ -721,15 +731,15 @@ HarmonyOS 的链接以 `HYPERLINK` 记录分享（`text` 作为描述），与�
 | iOS | `UIActivityViewController`，从 LynxView 顶层 VC present；iPad 以无箭头 popover 锚定 LynxView 中心；`title` 经 KVC `subject` 传给邮件类目标 |
 | HarmonyOS | Share Kit `systemShare.SharedData` + `ShareController.show`（`PLAIN_TEXT` / `HYPERLINK` / 按文件后缀映射的 UTD 记录，多文件 `BATCH` 选择）；面板运行在系统侧，无需权限；文件须在应用沙箱内（Picker URI 先 `fileSystem.copyToCache`） |
 
-### 音频播放
+### 音频播放与录音
 
-`AudioPlayer` 播放本地音频文件，「选择 → 播放」的标准管线是 `fileSystem.pick()`
+`Audio` 模块同时承载播放与录音。播放本地音频文件，「选择 → 播放」的标准管线是 `fileSystem.pick()`
 （或 `albumUtils.pick()`）返回的 URI 直接交给 `audioPlayer.create()`；Android 接受
 `file://` 与 `content://`，iOS / HarmonyOS 接受 `file://`（Harmony 模块内部 open 转 fd，
 fd 在整个播放期间保持打开）。共享层拒绝 `http(s)://` 并提示仅支持本地文件。
 
 ```ts
-import { audioPlayer } from '@lynx-template/autolink-audio-player';
+import { audioPlayer } from '@lynx-template/autolink-audio';
 
 const player = audioPlayer.create({
   uri: pickedURI,
@@ -788,6 +798,48 @@ Harmony `LynxViewClient.onDestroy()`），Harmony 连带关闭 fd。边界：不
 不做后台播放（Android 前台服务 / iOS `UIBackgroundModes` / Harmony continuous task
 属宿主配置）、不提供应用内置资源播放（`res/raw` / bundle resource / rawfile）与
 系统音量控制。
+
+
+### 录音
+
+`audioRecorder` 把麦克风采集编码为 AAC（`.m4a`）写入应用缓存目录
+`<cache>/LynxFiles/recordings/`，`stop()`（或达到 `durationLimitMs` 时的 `end` 事件）
+交付 `file://` URI、时长与字节数，产物可直接交给 `audioPlayer.create()` 回放，或走
+`fileSystem` / `share` 等本地文件管线。麦克风权限由 Permissions 模块负责申请——
+录音前原生只检查、不弹窗，未授权时报
+`microphone permission is required (request it via the Permissions module)`：
+
+```ts
+import { audioRecorder } from '@lynx-template/autolink-audio';
+import { permissions } from '@lynx-template/autolink-permissions';
+
+const state = await permissions.request({ type: 'microphone' });
+if (state !== 'granted') return;
+const recorder = audioRecorder.create({ durationLimitMs: 60_000 });
+recorder.addEventListener('state', (event) => {
+  // event.state: 'idle' | 'recording' | 'paused' | 'stopped' | 'failed'
+});
+recorder.addEventListener('progress', (event) => {
+  // event.durationMs，默认 250ms 节流
+});
+await recorder.start();
+await recorder.pause();
+await recorder.resume();
+const { uri, durationMs, sizeBytes } = await recorder.stop();
+await recorder.cancel();   // 丢弃已录内容并回到 idle
+recorder.destroy();        // 停止录音 + release + 移除监听，幂等
+```
+
+`stop()` 在已达时长上限自动停止后仍可调用（返回同一个文件）；`start()` 失败
+（权限 / 存储不足 / 麦克风被占用）时句柄保留，修复后可重试。录音器独占设备
+麦克风，三端同时只建议一个活动实例；与播放共存时 iOS 会话切换为
+`PlayAndRecord`，录音结束后若无播放中的实例则 deactivate 交还音频焦点。
+
+| 平台 | 录音器 | 说明 |
+| --- | --- | --- |
+| Android | `MediaRecorder`（AAC 128kbps / 44.1kHz，MPEG_4 容器） | 权限用 `Context.checkPermission` 检查；`durationLimitMs` 同时设 `setMaxDuration` 硬上限；时长由 `elapsedRealtime` 累计；空录 stop 的 `RuntimeException` 归类为 `no audio was captured` |
+| iOS | `AVAudioRecorder`（MPEG4AAC 128kbps / 44.1kHz 单声道） | 权限读 `AVAudioSession.recordPermission`；时长直接取 `currentTime`（暂停不计入）；编码错误经 delegate 上报 `error` 事件 |
+| HarmonyOS | `media.AVRecorder`（`AUDIO_AAC` 128kbps / 44.1kHz，`CFT_MPEG_4A` 容器，`fd://` 输出） | 权限用 `abilityAccessCtrl.checkAccessToken` 检查；时长由墙钟累计；stop 后异步 release 并关闭 fd |
 
 ### 截图
 
@@ -1264,7 +1316,7 @@ React；只有 headless 拦截器为了自定义预览才继续收到 `progress`
 
 ## 三端映射
 
-| 平台 | 普通页面（`default` / `fade` / `none`） | `present` 转场 |
+| 平台 | 普通页面（`default` / `fade` / `none`） | `overlay` 浮层 |
 | --- | --- | --- |
 | Android | 新建 `LynxPageActivity` | 打开前 `PixelCopy` 截当前窗口，经 `RouteSnapshotStore` 交给新 Activity；窗口背景与根布局首帧即显示截图，`onFirstScreen` 后由 `PresentBackdrop` 播放编舞 |
 | iOS | `UINavigationController` push（`fade` 用 `CATransition` 包裹无动画 push） | `drawViewHierarchyInRect` 截当前页后无动画 push；`viewDidLoad` 插入截图 `UIImageView`，`lynxViewDidFirstScreen:` 后由 `PresentBackdrop` 播放编舞 |
@@ -1274,14 +1326,14 @@ React；只有 headless 拦截器为了自定义预览才继续收到 `progress`
 这样无系统动画的打开对用户零感知；编舞只作用于已可见的图层。关闭路径
 （`router.close()` 与系统返回键）先反向复原截图背景，再以无系统动画方式真正关页，
 露出的真实上一页与截图像素对齐。Android 侧的 `enableOnBackInvokedCallback`
-预测返回与该编舞不融合，present 路由通过 `OnBackPressedCallback` 走统一的反向路径。
+预测返回与该编舞不融合，overlay 路由通过 `OnBackPressedCallback` 走统一的反向路径。
 
 同一 LynxView 内的菜单、Dialog 和 Sheet 不需要额外创建原生页面。Lynx 支持
 `position: fixed`，`PredictiveBackOverlay` 在这个层级绘制全屏背景和面板，同时由
 `autolink/navigation` 内的原生 Element 完成系统返回预览。业务只管理是否展示，不需要处理
 逐帧 transform，也不会另建一套原生返回栈。
 只有确实需要独立原生页面、跨 bundle 生命周期或原生窗口层级时，才使用 Navigation 的
-`animation: 'present'` 打开弹层式原生页面。
+`presentation: 'overlay'` 打开弹层式原生页面。
 
 NativeModules 由应用级 Autolink Registry 自动提供；Android/iOS 新路由页无需补充 Back
 注册。HarmonyOS 页面只把 route registration 放入 `LynxContext.contextData`，并转发 ArkUI
@@ -1372,7 +1424,7 @@ autolink/
 ├── clipboard/     # Clipboard（系统剪贴板纯文本）
 ├── haptics/       # Haptics（单击式触感反馈）
 ├── scanner/       # Scanner（全屏扫码 + 相册图片识码）
-├── audio-player/  # AudioPlayer（本地文件音频播放 + 四种音频流）
+├── audio/  # Audio（本地文件音频播放 + 四种音频流 + 麦克风录音）
 ├── network-info/  # NetworkInfo（网络类型查询 + 变化监听）
 ├── image-tooling/ # ImageTooling（缩放/裁剪/拼图 + EXIF/GPS 管理）
 ├── pressable-view/ # PressableView（原生按压反馈视图组件）
@@ -1458,7 +1510,7 @@ ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm nativ
 
 ## 原生实现位置
 
-- Autolink NativeModule 库（三端）：`autolink/navigation`、`autolink/websocket`、`autolink/storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device`、`autolink/network-info`、`autolink/image-tooling`、`autolink/file-system`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio-player`、`autolink/toast`、`autolink/share`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/navigation`、`autolink/websocket`、`autolink/storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device`、`autolink/network-info`、`autolink/image-tooling`、`autolink/file-system`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio`、`autolink/toast`、`autolink/share`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
 - Android 宿主：`nativemodule/` 下只保留 `AppRouteHandler.kt`（Navigation 的宿主导航）以及 `LynxPageActivity.kt`；Back 与路由导航位于 `autolink/navigation/android`，StatusBar/SafeArea/电量/传感器位于 `autolink/device/android`，Autolink Registry 只存在于 Gradle 生成目录；
 - iOS 宿主：`NativeModules/AppRouteHandler.swift` 提供 Navigation 导航策略，`LynxPageViewController.swift` 创建页面；Back 与 Device 都从自身 pod 自动定位页面；

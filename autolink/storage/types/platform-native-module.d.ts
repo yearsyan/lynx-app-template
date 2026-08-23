@@ -10,10 +10,16 @@
  * @lynxmodule
  */
 export declare class Storage {
+  /**
+   * `inMemory` writes only the process-wide overlay dictionary (the MMKV
+   * copy is left untouched); a persisted write clears the overlay entry for
+   * the key first. Reads always check the overlay before MMKV.
+   */
   setString(
     key: string,
     value: string,
     callback: (error: string) => void,
+    inMemory: boolean,
   ): void;
   getString(
     key: string,

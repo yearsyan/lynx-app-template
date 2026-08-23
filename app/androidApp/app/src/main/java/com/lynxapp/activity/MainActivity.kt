@@ -3,6 +3,7 @@ package com.lynxapp.activity
 import android.os.Bundle
 import com.lynxapp.DebugSettingsEntry
 import com.lynxapp.LynxBundleRepository
+import com.lynxapp.R
 import com.lynxapp.component.LoadingOverlay
 import com.lynxapp.deeplink.DeepLinkRouteResolver
 
@@ -39,7 +40,7 @@ class MainActivity : LynxPageActivity() {
             if (!hasManifest) return@runWhenManifestReady
             val update = bundleRepository.pendingUpdateFor(bundleName)
                 ?: return@runWhenManifestReady
-            runOnUiThread { LoadingOverlay.show(this, UPDATE_LOADING_TEXT) }
+            runOnUiThread { LoadingOverlay.show(this, getString(R.string.updating_bundle)) }
             bundleRepository.download(update) { updated ->
                 runOnUiThread {
                     LoadingOverlay.hide(this)
@@ -52,9 +53,5 @@ class MainActivity : LynxPageActivity() {
                 }
             }
         }
-    }
-
-    private companion object {
-        const val UPDATE_LOADING_TEXT = "正在更新…"
     }
 }

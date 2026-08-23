@@ -16,7 +16,7 @@ export function nativeModuleMethodArity(
         default:
           return -1;
       }
-    case 'AudioPlayer':
+    case 'Audio':
       switch (methodName) {
         case 'create':
           return 2;
@@ -35,6 +35,22 @@ export function nativeModuleMethodArity(
         case 'setVolume':
           return 3;
         case 'getProps':
+          return 2;
+        case 'recorderCreate':
+          return 2;
+        case 'recorderStart':
+          return 2;
+        case 'recorderPause':
+          return 2;
+        case 'recorderResume':
+          return 2;
+        case 'recorderStop':
+          return 2;
+        case 'recorderCancel':
+          return 2;
+        case 'recorderGetProps':
+          return 2;
+        case 'recorderRelease':
           return 2;
         default:
           return -1;
@@ -246,7 +262,7 @@ export function nativeModuleMethodArity(
     case 'Storage':
       switch (methodName) {
         case 'setString':
-          return 3;
+          return 4;
         case 'getString':
           return 3;
         case 'getStringOrNull':

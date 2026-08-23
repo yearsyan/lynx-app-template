@@ -13,6 +13,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 const PERMISSION_STATUS_TEXT: Record<PermissionStatus, string> = {
   granted: '已授权',
@@ -28,7 +29,7 @@ export function ToastPage() {
   const run = useCallback((label: string, call: () => Promise<void>) => {
     'background only';
     call()
-      .then(() => setResult(`${label} · 已弹出`))
+      .then(() => setResult(`${t(label)} · ${t('已弹出')}`))
       .catch((error: Error) => setResult(`${label} · ${error.message}`));
   }, []);
 
@@ -42,21 +43,21 @@ export function ToastPage() {
         <DemoButton
           label="默认提示"
           primary
-          onTap={() => run('info', () => toast.info('这是一条默认提示'))}
+          onTap={() => run('info', () => toast.info(t('这是一条默认提示')))}
         />
         <DemoButton
           label="成功提示"
-          onTap={() => run('success', () => toast.success('保存成功'))}
+          onTap={() => run('success', () => toast.success(t('保存成功')))}
         />
         <DemoButton
           label="失败提示"
-          onTap={() => run('error', () => toast.error('操作失败，请重试'))}
+          onTap={() => run('error', () => toast.error(t('操作失败，请重试')))}
         />
         <DemoButton
           label="自定义颜色 · 无图标"
           onTap={() =>
             run('custom', () =>
-              toast.show('自定义背景色，3 秒消失', {
+              toast.show(t('自定义背景色，3 秒消失'), {
                 backgroundColor: '#FF6750A4',
                 showIcon: false,
                 durationMs: 3000,
@@ -167,7 +168,7 @@ export function LocalNotificationPage() {
   const run = useCallback((label: string, call: () => Promise<string>) => {
     'background only';
     call()
-      .then((text) => setResult(`${label} · ${text}`))
+      .then((text) => setResult(`${t(label)} · ${t(text)}`))
       .catch((error: Error) => setResult(`${label} · ${error.message}`));
   }, []);
 
@@ -178,15 +179,17 @@ export function LocalNotificationPage() {
       run(delayMs === 0 ? '立即通知' : '5 秒定时', async () => {
         const state = await permissions.request('notifications');
         if (state.status !== 'granted' && state.status !== 'limited') {
-          return `未获得通知权限（${PERMISSION_STATUS_TEXT[state.status]}）`;
+          return t('未获得通知权限（{status}）', {
+            status: t(PERMISSION_STATUS_TEXT[state.status]),
+          });
         }
         const outcome = await localNotification.notify({
           id: `demo-${delayMs}`,
-          title: delayMs === 0 ? 'Lynx 本地通知' : 'Lynx 定时通知',
+          title: delayMs === 0 ? t('Lynx 本地通知') : t('Lynx 定时通知'),
           body:
             delayMs === 0
-              ? '来自 LocalNotification 模块的即时通知。'
-              : '这条通知在 5 秒前由 AlarmManager / 系统触发器排期。',
+              ? t('来自 LocalNotification 模块的即时通知。')
+              : t('这条通知在 5 秒前由 AlarmManager / 系统触发器排期。'),
           delayMs,
         });
         return outcome.success ? '已发送（或已排期）' : outcome.code;

@@ -27,16 +27,24 @@ function normalizeStatusBarStyle(style: StatusBarStyle): StatusBarStyle {
 
 /**
  * Native open/close transition. 'default' keeps each platform's standard push
- * transition, 'fade' cross-fades, 'none' opens/closes instantly, and 'present'
- * snapshots the current page as the new page's backdrop and plays an iOS-like
- * present choreography (previous page shrinks, content slides in).
+ * transition, 'fade' cross-fades and 'none' opens/closes instantly. Overlay
+ * routes fix their own choreography, so the option is ignored for them.
  */
-export type RouteAnimation = 'default' | 'fade' | 'none' | 'present';
+export type RouteAnimation = 'default' | 'fade' | 'none';
 
 /**
- * Fine-tuning for `animation: 'present'` routes; ignored by other animations.
+ * Native route host style. `inputDialog` hosts the destination LynxView in
+ * a dedicated, bottom-aligned native overlay whose keyboard adaptation does
+ * not resize or translate the route behind it. `overlay` fakes a transparent
+ * full-screen page: the host snapshots the previous page, replays it as the
+ * new page's backdrop and plays an iOS-like present choreography over it.
  */
-export interface RoutePresentContentAnimationOptions {
+export type RoutePresentation = 'page' | 'inputDialog' | 'overlay';
+
+/**
+ * Fine-tuning for `presentation: 'overlay'` routes; ignored by the others.
+ */
+export interface RouteOverlayContentAnimationOptions {
   /**
    * Fades the new page between transparent and opaque. Default false.
    */
@@ -49,7 +57,7 @@ export interface RoutePresentContentAnimationOptions {
   push?: boolean;
 }
 
-export interface RoutePresentOptions {
+export interface RouteOverlayOptions {
   /**
    * Scrim color layered over the snapshot backdrop, '#AARRGGBB' (alpha first).
    * Defaults to '#59000000' (35% black); '#00000000' disables the dimming.
@@ -65,12 +73,12 @@ export interface RoutePresentOptions {
    * New-page entering choreography. `opacity` defaults to false and `push`
    * defaults to true.
    */
-  enter?: RoutePresentContentAnimationOptions;
+  enter?: RouteOverlayContentAnimationOptions;
   /**
    * New-page exiting choreography, configured independently from `enter`.
    * `opacity` defaults to false and `push` defaults to true.
    */
-  exit?: RoutePresentContentAnimationOptions;
+  exit?: RouteOverlayContentAnimationOptions;
   /**
    * Legacy switch for the `push` default of both `enter` and `exit`. Explicit
    * phase-level `push` values win. Prefer `enter` / `exit` for new code.
@@ -97,6 +105,13 @@ export interface RoutePresentOptions {
    * gesture downward; cancellation springs it back. Default false.
    */
   androidPredictiveBackDown?: boolean;
+  /**
+   * Lets an unclaimed downward page gesture enter an interactive vertical
+   * dismissal. Once native gesture recognition wins, it owns that pointer
+   * until release, then either finishes the configured exit choreography or
+   * restores the page. Supported on iOS, Android and HarmonyOS. Default false.
+   */
+  dragDownToDismiss?: boolean;
 }
 
 export interface RouteOptions {
@@ -104,7 +119,14 @@ export interface RouteOptions {
   /** Foreground style for status-bar icons and text on the destination page. */
   statusBarStyle?: StatusBarStyle;
   animation?: RouteAnimation;
-  present?: RoutePresentOptions;
+  /**
+   * Route host style: a normal stack page (`page`, the default), a
+   * bottom-aligned keyboard dialog (`inputDialog`), or a full-screen page
+   * composited over a snapshot of the previous page (`overlay`).
+   */
+  presentation?: RoutePresentation;
+  /** Chrome and choreography options for `presentation: 'overlay'` routes. */
+  overlay?: RouteOverlayOptions;
   params?: Record<string, unknown>;
 }
 
@@ -113,27 +135,48 @@ export type RouteResult = Record<string, unknown>;
 
 function normalizeRouteOptions(options: RouteOptions): RouteOptions {
   'background only';
-  const animation = normalizeRouteAnimation(options.animation ?? 'default');
-  const present = normalizePresentOptions(options.present, animation);
+  const presentation = normalizeRoutePresentation(
+    options.presentation ?? 'page',
+  );
+  // Overlay routes own their open/close choreography, so they always run
+  // without a system transition regardless of the animation value.
+  const animation =
+    presentation === 'overlay'
+      ? 'none'
+      : normalizeRouteAnimation(
+          options.animation ??
+            (presentation === 'inputDialog' ? 'none' : 'default'),
+        );
+  const overlay = normalizeOverlayOptions(options.overlay, presentation);
   return {
     bundle: options.bundle,
     statusBarStyle: normalizeStatusBarStyle(
       options.statusBarStyle ?? 'dark-content',
     ),
     animation,
-    ...(present !== undefined ? { present } : {}),
+    presentation,
+    ...(overlay !== undefined ? { overlay } : {}),
     params: options.params ?? {},
   };
 }
 
-function normalizeRouteAnimation(animation: RouteAnimation): RouteAnimation {
+function normalizeRoutePresentation(
+  presentation: RoutePresentation,
+): RoutePresentation {
   'background only';
   if (
-    animation !== 'default' &&
-    animation !== 'fade' &&
-    animation !== 'none' &&
-    animation !== 'present'
+    presentation !== 'page' &&
+    presentation !== 'inputDialog' &&
+    presentation !== 'overlay'
   ) {
+    throw new Error(`Invalid route presentation: ${String(presentation)}`);
+  }
+  return presentation;
+}
+
+function normalizeRouteAnimation(animation: RouteAnimation): RouteAnimation {
+  'background only';
+  if (animation !== 'default' && animation !== 'fade' && animation !== 'none') {
     throw new Error(`Invalid route animation: ${String(animation)}`);
   }
   return animation;
@@ -141,20 +184,21 @@ function normalizeRouteAnimation(animation: RouteAnimation): RouteAnimation {
 
 const SCRIM_COLOR_PATTERN = /^#[0-9a-fA-F]{8}$/;
 
-const PRESENT_BOOLEAN_FLAGS = [
+const OVERLAY_BOOLEAN_FLAGS = [
   'backdropTransition',
   'contentTransition',
   'backdropBlur',
   'iosSwipeDown',
   'androidPredictiveBackDown',
+  'dragDownToDismiss',
 ] as const;
 
-const PRESENT_CONTENT_BOOLEAN_FLAGS = ['opacity', 'push'] as const;
+const OVERLAY_CONTENT_BOOLEAN_FLAGS = ['opacity', 'push'] as const;
 
-function normalizePresentContentAnimation(
+function normalizeOverlayContentAnimation(
   phase: 'enter' | 'exit',
-  animation: RoutePresentContentAnimationOptions | undefined,
-): RoutePresentContentAnimationOptions | undefined {
+  animation: RouteOverlayContentAnimationOptions | undefined,
+): RouteOverlayContentAnimationOptions | undefined {
   'background only';
   if (animation === undefined) {
     return undefined;
@@ -164,12 +208,12 @@ function normalizePresentContentAnimation(
     typeof animation !== 'object' ||
     Array.isArray(animation)
   ) {
-    throw new Error(`Invalid present ${phase}: want an options object`);
+    throw new Error(`Invalid overlay ${phase}: want an options object`);
   }
-  for (const flag of PRESENT_CONTENT_BOOLEAN_FLAGS) {
+  for (const flag of OVERLAY_CONTENT_BOOLEAN_FLAGS) {
     const value = animation[flag];
     if (value !== undefined && typeof value !== 'boolean') {
-      throw new Error(`Invalid present ${phase}.${flag}: ${String(value)}`);
+      throw new Error(`Invalid overlay ${phase}.${flag}: ${String(value)}`);
     }
   }
   return {
@@ -178,39 +222,40 @@ function normalizePresentContentAnimation(
   };
 }
 
-function normalizePresentOptions(
-  present: RoutePresentOptions | undefined,
-  animation: RouteAnimation,
-): RoutePresentOptions | undefined {
+function normalizeOverlayOptions(
+  overlay: RouteOverlayOptions | undefined,
+  presentation: RoutePresentation,
+): RouteOverlayOptions | undefined {
   'background only';
-  if (present === undefined || animation !== 'present') {
+  if (overlay === undefined || presentation !== 'overlay') {
     return undefined;
   }
   if (
-    present.scrimColor !== undefined &&
-    !SCRIM_COLOR_PATTERN.test(present.scrimColor)
+    overlay.scrimColor !== undefined &&
+    !SCRIM_COLOR_PATTERN.test(overlay.scrimColor)
   ) {
     throw new Error(
-      `Invalid present scrim color: ${present.scrimColor} (want '#AARRGGBB')`,
+      `Invalid overlay scrim color: ${overlay.scrimColor} (want '#AARRGGBB')`,
     );
   }
-  for (const flag of PRESENT_BOOLEAN_FLAGS) {
-    const value = present[flag];
+  for (const flag of OVERLAY_BOOLEAN_FLAGS) {
+    const value = overlay[flag];
     if (value !== undefined && typeof value !== 'boolean') {
-      throw new Error(`Invalid present ${flag}: ${String(value)}`);
+      throw new Error(`Invalid overlay ${flag}: ${String(value)}`);
     }
   }
-  const enter = normalizePresentContentAnimation('enter', present.enter);
-  const exit = normalizePresentContentAnimation('exit', present.exit);
+  const enter = normalizeOverlayContentAnimation('enter', overlay.enter);
+  const exit = normalizeOverlayContentAnimation('exit', overlay.exit);
   return {
-    scrimColor: present.scrimColor,
-    backdropTransition: present.backdropTransition,
+    scrimColor: overlay.scrimColor,
+    backdropTransition: overlay.backdropTransition,
     ...(enter !== undefined ? { enter } : {}),
     ...(exit !== undefined ? { exit } : {}),
-    contentTransition: present.contentTransition,
-    backdropBlur: present.backdropBlur,
-    iosSwipeDown: present.iosSwipeDown,
-    androidPredictiveBackDown: present.androidPredictiveBackDown,
+    contentTransition: overlay.contentTransition,
+    backdropBlur: overlay.backdropBlur,
+    iosSwipeDown: overlay.iosSwipeDown,
+    androidPredictiveBackDown: overlay.androidPredictiveBackDown,
+    dragDownToDismiss: overlay.dragDownToDismiss,
   };
 }
 

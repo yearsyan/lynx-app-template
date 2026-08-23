@@ -6,6 +6,7 @@ import type {
 } from '@lynx-js/types';
 import { PredictiveBackOverlay } from '@lynx-template/autolink-navigation/react';
 
+import { t } from '../i18n.js';
 import type { GlassDropdownEvent } from './native-elements.js';
 
 export interface PlatformDropdownProps {
@@ -55,6 +56,7 @@ const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
  */
 export function PlatformDropdown(props: PlatformDropdownProps) {
   const { title, options, selected, disabled = false, onSelect } = props;
+  const localizedOptions = options.map((option) => t(option));
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [triggerSize, setTriggerSize] = useState<TriggerSize>({
@@ -86,9 +88,10 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
   const handleNativeSelect = useCallback(
     (event: GlassDropdownEvent) => {
       'background only';
-      onSelect(event.detail.index, event.detail.value);
+      const index = event.detail.index;
+      onSelect(index, options[index] ?? event.detail.value);
     },
-    [onSelect],
+    [onSelect, options],
   );
 
   const finishClose = useCallback(() => {
@@ -278,7 +281,9 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
   );
 
   const label =
-    selected >= 0 && selected < options.length ? options[selected] : title;
+    selected >= 0 && selected < localizedOptions.length
+      ? localizedOptions[selected]
+      : t(title);
 
   return (
     <view className="FallbackDropdown">
@@ -296,7 +301,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
           <glass-dropdown
             className="FallbackDropdown__hitTarget"
             title={label}
-            options={options}
+            options={localizedOptions}
             selected={selected}
             disabled={disabled}
             bindselect={handleNativeSelect}
@@ -360,7 +365,7 @@ export function PlatformDropdown(props: PlatformDropdownProps) {
                         : ''
                     }`}
                   >
-                    {option}
+                    {localizedOptions[index]}
                   </text>
                 </view>
               ))}

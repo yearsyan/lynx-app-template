@@ -1,7 +1,12 @@
 // organizeImports is disabled for this file in biome.json: the scaffolder
 // rewrites the workspace scope below (@lynx-template -> @<user scope>), which
 // changes the sort order relative to the @lynx-js/* imports.
-import { readSafeAreaInsets, statusBar } from '@lynx-template/autolink-device';
+import {
+  readAppLocale,
+  readColorScheme,
+  readSafeAreaInsets,
+  statusBar,
+} from '@lynx-template/autolink-device';
 
 import { ScrollView } from '@lynx-js/lynx-ui';
 
@@ -14,8 +19,21 @@ import { useRouteParams } from '@lynx-template/autolink-navigation/react';
 import './App.css';
 import './components/native-elements.js';
 import { PageFrame } from './components/PageFrame.js';
+import { setAppLocale, t } from './i18n.js';
 import { PAGES, TABS } from './pages/registry.js';
 import type { DemoTabMeta } from './pages/registry.js';
+
+const DARK_TILE_BACKGROUNDS: Record<string, string> = {
+  '#e7f6ec': '#143522',
+  '#e8f0fe': '#172c4d',
+  '#e0f2f1': '#12332f',
+  '#fff3e0': '#3b2812',
+  '#f3e5f5': '#321c38',
+  '#e3f2fd': '#172c4d',
+  '#e8f5e9': '#143522',
+  '#fff8e1': '#3b2f12',
+  '#fce4ec': '#3b1826',
+};
 
 function GroupSection(props: {
   tab: DemoTabMeta;
@@ -24,6 +42,7 @@ function GroupSection(props: {
   onOpen: (pageKey: string) => void;
 }) {
   const { tab, openKeys, onToggle, onOpen } = props;
+  const colorScheme = readColorScheme(useInitData());
   return (
     <view className="GroupList">
       {tab.categories.map((category) => {
@@ -34,16 +53,22 @@ function GroupSection(props: {
               className="Group__header"
               bindtap={() => onToggle(category.key)}
             >
-              <text className="Group__title">{category.title}</text>
+              <text className="Group__title">{t(category.title)}</text>
               <view
                 className="Group__icon"
-                style={{ backgroundColor: category.tileBackground }}
+                style={{
+                  backgroundColor:
+                    colorScheme === 'dark'
+                      ? (DARK_TILE_BACKGROUNDS[category.tileBackground] ??
+                        category.tileBackground)
+                      : category.tileBackground,
+                }}
               >
                 <text
                   className="Group__iconGlyph"
                   style={{ color: category.tileColor }}
                 >
-                  {category.glyph}
+                  {t(category.glyph)}
                 </text>
               </view>
             </view>
@@ -54,9 +79,13 @@ function GroupSection(props: {
                     key={item.key}
                     className="GroupItemPressable"
                     active-opacity={1}
-                    pressed-overlay-color="rgba(0, 0, 0, 0.1)"
+                    pressed-overlay-color={
+                      colorScheme === 'dark'
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(0, 0, 0, 0.1)'
+                    }
                     accessibility-element
-                    accessibility-label={item.title}
+                    accessibility-label={t(item.title)}
                     accessibility-traits="button"
                     bindpress={() => onOpen(item.key)}
                   >
@@ -67,7 +96,7 @@ function GroupSection(props: {
                           : ''
                       }`}
                     >
-                      <text className="GroupItem__title">{item.title}</text>
+                      <text className="GroupItem__title">{t(item.title)}</text>
                       <text className="GroupItem__chevron">›</text>
                     </view>
                   </pressable-view>
@@ -82,7 +111,14 @@ function GroupSection(props: {
 }
 
 function TabIcon(props: { tab: 'api' | 'ui'; active: boolean }) {
-  const color = props.active ? '#07c160' : '#9a9a9a';
+  const colorScheme = readColorScheme(useInitData());
+  const color = props.active
+    ? colorScheme === 'dark'
+      ? '#30d178'
+      : '#07c160'
+    : colorScheme === 'dark'
+      ? '#98989d'
+      : '#9a9a9a';
   if (props.tab === 'api') {
     // Chip glyph: bordered square with a solid core.
     return (
@@ -155,7 +191,7 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
     <view className="Home">
       <view className="NavBar" style={{ paddingTop: `${topInset}px` }}>
         <text className="NavBar__title NavBar__title--home">
-          {tab.headline}
+          {t(tab.headline)}
         </text>
       </view>
       <ScrollView
@@ -170,9 +206,9 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
         >
           <view className="Hero">
             <view className="Hero__icon">
-              <text className="Hero__iconText">{tab.glyph}</text>
+              <text className="Hero__iconText">{t(tab.glyph)}</text>
             </view>
-            <text className="Hero__desc">{tab.description}</text>
+            <text className="Hero__desc">{t(tab.description)}</text>
           </view>
           <GroupSection
             tab={tab}
@@ -200,7 +236,7 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
                   active ? 'TabBar__label--active' : ''
                 }`}
               >
-                {item.label}
+                {t(item.label)}
               </text>
             </view>
           );
@@ -215,6 +251,10 @@ export function App() {
   // no route params) and every demo page (pushed native pages opened with
   // `params.page`). System back pops the pushed native page for free.
   const initData = useInitData();
+  const colorScheme = readColorScheme(initData);
+  const locale = readAppLocale(initData);
+  setAppLocale(locale);
+  const themeClass = colorScheme === 'dark' ? 'theme-dark' : 'theme-light';
   const params = useRouteParams<{ page?: string }>();
   const pageKey = params.page;
   const page = pageKey === undefined ? undefined : PAGES[pageKey];
@@ -225,24 +265,40 @@ export function App() {
       `Lynx API Showcase · ${SystemInfo.platform} · engine ${SystemInfo.engineVersion}`,
     );
     // Mirror the route's own statusBarStyle (the host applied it before the
-    // first frame); a present route opened over black snapshot margins uses
+    // first frame); an overlay route opened over black snapshot margins uses
     // light-content, so a fixed dark-content here would hide the status bar.
+    const routeStyle =
+      initData?.route?.presentation === 'overlay'
+        ? initData.route.statusBarStyle
+        : undefined;
     statusBar
-      .setStyle(initData?.route?.statusBarStyle ?? 'dark-content')
+      .setStyle(
+        routeStyle ??
+          (colorScheme === 'dark' ? 'light-content' : 'dark-content'),
+      )
       .catch(() => {});
-  }, []);
+  }, [
+    colorScheme,
+    initData?.route?.presentation,
+    initData?.route?.statusBarStyle,
+  ]);
 
-  const open = useCallback((pageKey: string) => {
-    'background only';
-    router
-      .open({
-        bundle: 'main',
-        params: { page: pageKey },
-      })
-      .catch((error: Error) =>
-        console.error(`Unable to open demo page: ${error.message}`),
-      );
-  }, []);
+  const open = useCallback(
+    (pageKey: string) => {
+      'background only';
+      router
+        .open({
+          bundle: 'main',
+          statusBarStyle:
+            colorScheme === 'dark' ? 'light-content' : 'dark-content',
+          params: { page: pageKey },
+        })
+        .catch((error: Error) =>
+          console.error(`Unable to open demo page: ${error.message}`),
+        );
+    },
+    [colorScheme],
+  );
 
   const close = useCallback(() => {
     'background only';
@@ -250,15 +306,32 @@ export function App() {
   }, []);
 
   if (page !== undefined) {
-    if (initData?.route?.animation === 'present') {
-      // Present routes overlay the previous page's snapshot backdrop: no page
-      // chrome and a transparent root, so the page draws its own modal layout
-      // and lets the backdrop show through where it stays unpainted.
-      return <view className="AppRoot AppRoot--present">{page.render()}</view>;
+    if (initData?.route?.presentation === 'inputDialog') {
+      // Each native host gives this route a dedicated transparent overlay. It
+      // owns keyboard adaptation, while this bundle only paints the panel.
+      return (
+        <view className={`AppRoot AppRoot--inputDialog ${themeClass}`}>
+          {page.render()}
+        </view>
+      );
+    }
+    if (initData?.route?.presentation === 'overlay') {
+      // Overlay routes composite over the previous page's snapshot backdrop:
+      // no page chrome and a transparent root, so the page draws its own modal
+      // layout and lets the backdrop show through where it stays unpainted.
+      return (
+        <view className={`AppRoot AppRoot--present ${themeClass}`}>
+          {page.render()}
+        </view>
+      );
     }
     return (
-      <view className="AppRoot">
-        <PageFrame title={page.title} onBack={close}>
+      <view className={`AppRoot ${themeClass}`}>
+        <PageFrame
+          title={t(page.title)}
+          onBack={close}
+          keyboardAware={page.keyboardAware}
+        >
           {page.render()}
         </PageFrame>
       </view>
@@ -266,7 +339,7 @@ export function App() {
   }
 
   return (
-    <view className="AppRoot">
+    <view className={`AppRoot ${themeClass}`}>
       <Home onOpen={open} />
     </view>
   );

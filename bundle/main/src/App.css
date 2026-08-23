@@ -1,9 +1,86 @@
+/* ============ System theme tokens ============ */
+
+.theme-light {
+  --color-page: #f7f7f7;
+  --color-surface: #ffffff;
+  --color-surface-raised: #fafafa;
+  --color-control: #f4f4f4;
+  --color-control-strong: #ececec;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555555;
+  --color-text-tertiary: #888888;
+  --color-text-disabled: #b2b2b2;
+  --color-separator: #e5e5e5;
+  --color-separator-soft: #f0f0f0;
+  --color-accent: #07c160;
+  --color-accent-pressed: #06ad56;
+  --color-accent-strong: #07964d;
+  --color-on-accent: #ffffff;
+  --color-danger: #e64340;
+  --color-danger-strong: #d93025;
+  --color-danger-border: #f3c1c1;
+  --color-accent-disabled: #a9dfc2;
+  --color-info: #1a73e8;
+  --color-warning: #e47b08;
+  --color-info-indicator: #b7c9eb;
+  --color-info-text: #3867b7;
+  --color-log-background: #1a1a1a;
+  --color-log-text: #9fe8b8;
+  --color-banner-gradient-start: #f4fbf7;
+  --color-banner-gradient-end: #f6f8fc;
+  --color-keyboard-metric: #f4f7f5;
+  --color-success-subtle: #e8f8ef;
+  --color-info-subtle: #e8f0fe;
+  --color-warning-subtle: #fff3e0;
+  --color-danger-subtle: #fdecec;
+}
+
+.theme-dark {
+  --color-page: #101012;
+  --color-surface: #1c1c1e;
+  --color-surface-raised: #242426;
+  --color-control: #2c2c2e;
+  --color-control-strong: #38383a;
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #c7c7cc;
+  --color-text-tertiary: #98989d;
+  --color-text-disabled: #636366;
+  --color-separator: #3a3a3c;
+  --color-separator-soft: #2c2c2e;
+  --color-accent: #30d178;
+  --color-accent-pressed: #27b96b;
+  --color-accent-strong: #42d985;
+  --color-on-accent: #ffffff;
+  --color-danger: #ff6961;
+  --color-danger-strong: #ff6961;
+  --color-danger-border: #653433;
+  --color-accent-disabled: #225d3b;
+  --color-info: #64a0ff;
+  --color-warning: #ffb340;
+  --color-info-indicator: #36557f;
+  --color-info-text: #82b1ff;
+  --color-log-background: #08080a;
+  --color-log-text: #9fe8b8;
+  --color-banner-gradient-start: #16231c;
+  --color-banner-gradient-end: #19212d;
+  --color-keyboard-metric: #223028;
+  --color-success-subtle: #123624;
+  --color-info-subtle: #172c4d;
+  --color-warning-subtle: #3b2a13;
+  --color-danger-subtle: #3a1918;
+}
+
 /* ============ Root & layout ============ */
 
 .AppRoot {
   width: 100%;
   height: 100%;
-  background-color: #f7f7f7;
+  background-color: var(--color-page);
+}
+
+.AppRoot--inputDialog {
+  height: auto;
+  background-color: transparent;
 }
 
 .Home {
@@ -11,7 +88,7 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background-color: #f7f7f7;
+  background-color: var(--color-page);
 }
 
 .Home__scroll {
@@ -36,7 +113,7 @@
   justify-content: center;
   width: 100%;
   height: 44px;
-  background-color: #f7f7f7;
+  background-color: var(--color-page);
   position: relative;
   box-sizing: content-box;
 }
@@ -44,7 +121,7 @@
 .NavBar__title {
   font-size: 17px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .NavBar__back {
@@ -61,7 +138,7 @@
 .NavBar__backIcon {
   font-size: 30px;
   font-weight: 300;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 /* ============ Home hero ============ */
@@ -82,20 +159,20 @@
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background-color: #ececec;
+  background-color: var(--color-control-strong);
 }
 
 .Hero__iconText {
   font-size: 28px;
   font-weight: 600;
-  color: #555555;
+  color: var(--color-text-secondary);
 }
 
 .Hero__desc {
   margin-top: 18px;
   font-size: 14px;
   line-height: 22px;
-  color: #888888;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -113,7 +190,7 @@
   width: 100%;
   margin-bottom: 12px;
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   overflow: hidden;
 }
 
@@ -130,7 +207,7 @@
 .Group__title {
   font-size: 16px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .Group__icon {
@@ -151,7 +228,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-separator-soft);
 }
 
 .GroupItemPressable {
@@ -168,7 +245,7 @@
   width: 100%;
   height: 100%;
   padding: 0 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-separator-soft);
   box-sizing: border-box;
 }
 
@@ -178,12 +255,12 @@
 
 .GroupItem__title {
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .GroupItem__chevron {
   font-size: 18px;
-  color: #b2b2b2;
+  color: var(--color-text-disabled);
 }
 
 /* ============ Tab bar ============ */
@@ -193,8 +270,8 @@
   flex-direction: row;
   width: 100%;
   padding-top: 6px;
-  border-top: 1px solid #e5e5e5;
-  background-color: #fafafa;
+  border-top: 1px solid var(--color-separator);
+  background-color: var(--color-surface-raised);
   box-sizing: border-box;
 }
 
@@ -212,7 +289,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  border: 2px solid #9a9a9a;
+  border: 2px solid var(--color-text-tertiary);
   border-radius: 6px;
   box-sizing: border-box;
 }
@@ -242,11 +319,11 @@
 .TabBar__label {
   margin-top: 2px;
   font-size: 11px;
-  color: #888888;
+  color: var(--color-text-tertiary);
 }
 
 .TabBar__label--active {
-  color: #07c160;
+  color: var(--color-accent);
   font-weight: 600;
 }
 
@@ -257,10 +334,15 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background-color: #f7f7f7;
+  background-color: var(--color-page);
 }
 
 .Page__scroll {
+  width: 100%;
+  flex: 1;
+}
+
+.Page__viewport {
   width: 100%;
   flex: 1;
 }
@@ -286,14 +368,14 @@
 .ApiName__text {
   font-size: 20px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .ApiName__underline {
   margin-top: 10px;
   width: 80px;
   height: 1px;
-  background-color: #c8c8c8;
+  background-color: var(--color-text-disabled);
 }
 
 .DemoCard {
@@ -303,14 +385,14 @@
   margin-bottom: 12px;
   padding: 16px;
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-sizing: border-box;
 }
 
 .DemoCard__title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .DemoCard__desc {
@@ -318,7 +400,7 @@
   margin-bottom: 6px;
   font-size: 13px;
   line-height: 19px;
-  color: #888888;
+  color: var(--color-text-tertiary);
 }
 
 .DemoButton {
@@ -328,9 +410,9 @@
   width: 100%;
   height: 44px;
   margin-top: 10px;
-  border: 1px solid #dcdcdc;
+  border: 1px solid var(--color-separator);
   border-radius: 8px;
-  background-color: #f8f8f8;
+  background-color: var(--color-control);
   box-sizing: border-box;
 }
 
@@ -339,8 +421,8 @@
 }
 
 .DemoButton--primary {
-  border-color: #07c160;
-  background-color: #07c160;
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
 }
 
 .DemoButton--disabled {
@@ -349,11 +431,11 @@
 
 .DemoButton__label {
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .DemoButton__label--primary {
-  color: #ffffff;
+  color: var(--color-on-accent);
   font-weight: 500;
 }
 
@@ -378,24 +460,24 @@
 }
 
 .NativePressable__surface--primary {
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 .NativePressable__surface--secondary {
-  border: 1px solid #07c160;
-  background-color: #ffffff;
+  border: 1px solid var(--color-accent);
+  background-color: var(--color-surface);
 }
 
 .NativePressable__primaryLabel {
   font-size: 15px;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .NativePressable__secondaryLabel {
   font-size: 15px;
   font-weight: 500;
-  color: #07c160;
+  color: var(--color-accent);
 }
 
 .NativePressable--disabled {
@@ -403,13 +485,13 @@
 }
 
 .NativePressable__surface--disabled {
-  border: 1px solid #dcdcdc;
-  background-color: #f8f8f8;
+  border: 1px solid var(--color-separator);
+  background-color: var(--color-control);
 }
 
 .NativePressable__disabledLabel {
   font-size: 15px;
-  color: #888888;
+  color: var(--color-text-tertiary);
 }
 
 .PressableBanner {
@@ -429,9 +511,13 @@
   width: 100%;
   height: 100%;
   padding: 12px 14px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--color-separator);
   border-radius: 10px;
-  background: linear-gradient(135deg, #f4fbf7, #f6f8fc);
+  background: linear-gradient(
+    135deg,
+    var(--color-banner-gradient-start),
+    var(--color-banner-gradient-end)
+  );
   box-sizing: border-box;
 }
 
@@ -444,19 +530,19 @@
 .PressableBanner__title {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .PressableBanner__subtitle {
   margin-top: 5px;
   font-size: 11px;
-  color: #888888;
+  color: var(--color-text-tertiary);
 }
 
 .PressableBanner__chevron {
   margin-left: 10px;
   font-size: 24px;
-  color: #a5acb5;
+  color: var(--color-text-tertiary);
 }
 
 .ResultLine {
@@ -465,14 +551,14 @@
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background-color: #f4f4f4;
+  background-color: var(--color-control);
   box-sizing: border-box;
 }
 
 .ResultLine__text {
   font-size: 12px;
   line-height: 18px;
-  color: #555555;
+  color: var(--color-text-secondary);
 }
 
 /* ============ autolink-navigation: predictive overlay ============ */
@@ -494,29 +580,29 @@
   flex: 1;
   height: 62px;
   border-radius: 10px;
-  background-color: #f4f5f7;
+  background-color: var(--color-control);
 }
 
 .BackOverlayDemo__flowStep--active {
-  background-color: #e8f8ef;
+  background-color: var(--color-success-subtle);
 }
 
 .BackOverlayDemo__flowIndex {
   font-size: 16px;
   font-weight: 700;
-  color: #07c160;
+  color: var(--color-accent);
 }
 
 .BackOverlayDemo__flowLabel {
   margin-top: 5px;
   font-size: 10px;
-  color: #666666;
+  color: var(--color-text-secondary);
 }
 
 .BackOverlayDemo__flowArrow {
   margin: 0 4px;
   font-size: 20px;
-  color: #b7b7b7;
+  color: var(--color-text-disabled);
 }
 
 .BackOverlayDemo__checks {
@@ -526,14 +612,14 @@
   margin-top: 8px;
   padding: 10px 12px;
   border-radius: 8px;
-  background-color: #f6f7f8;
+  background-color: var(--color-control);
   box-sizing: border-box;
 }
 
 .BackOverlayDemo__check {
   font-size: 12px;
   line-height: 22px;
-  color: #555555;
+  color: var(--color-text-secondary);
 }
 
 .BackOverlayDemo__sheet {
@@ -544,24 +630,24 @@
   padding: 8px 24px 40px;
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
 }
 
 .BackOverlayDemo__sheet--second {
-  background-color: #f7faff;
+  background-color: var(--color-info-subtle);
 }
 
 .BackOverlayDemo__handle {
   width: 40px;
   height: 4px;
   border-radius: 2px;
-  background-color: #d8d8d8;
+  background-color: var(--color-separator);
 }
 
 .BackOverlayDemo__handle--blue {
-  background-color: #b7c9eb;
+  background-color: var(--color-info-indicator);
 }
 
 .BackOverlayDemo__layerBadge {
@@ -571,35 +657,35 @@
   margin-top: 18px;
   padding: 5px 10px;
   border-radius: 12px;
-  background-color: #e8f8ef;
+  background-color: var(--color-success-subtle);
 }
 
 .BackOverlayDemo__layerBadge--blue {
-  background-color: #e5efff;
+  background-color: var(--color-info-subtle);
 }
 
 .BackOverlayDemo__layerBadgeText {
   font-size: 11px;
   font-weight: 600;
-  color: #07964d;
+  color: var(--color-accent-strong);
 }
 
 .BackOverlayDemo__layerBadgeText--blue {
-  color: #3867b7;
+  color: var(--color-info-text);
 }
 
 .BackOverlayDemo__sheetTitle {
   margin-top: 16px;
   font-size: 17px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .BackOverlayDemo__sheetDesc {
   margin: 10px 2px 4px;
   font-size: 13px;
   line-height: 19px;
-  color: #888888;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -610,19 +696,19 @@
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background-color: #1f1f1f;
+  background-color: var(--color-log-background);
   box-sizing: border-box;
 }
 
 .LogBox__empty {
   font-size: 12px;
-  color: #777777;
+  color: var(--color-text-tertiary);
 }
 
 .LogBox__line {
   font-size: 11px;
   line-height: 17px;
-  color: #9fe8b8;
+  color: var(--color-log-text);
 }
 
 .ShotTarget {
@@ -633,12 +719,12 @@
   height: 72px;
   margin-top: 10px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #07c160, #576b95);
+  background: linear-gradient(135deg, var(--color-accent), #576b95);
 }
 
 .ShotTarget__text {
   font-size: 14px;
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .ShotEntry {
@@ -648,9 +734,9 @@
   width: 100%;
   margin-top: 12px;
   padding: 10px 12px;
-  border: 1px solid #dcdcdc;
+  border: 1px solid var(--color-separator);
   border-radius: 8px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-sizing: border-box;
 }
 
@@ -658,7 +744,7 @@
   width: 64px;
   height: 64px;
   border-radius: 6px;
-  background-color: #f4f4f4;
+  background-color: var(--color-control);
 }
 
 .ShotEntry__meta {
@@ -672,19 +758,19 @@
 .ShotEntry__title {
   font-size: 13px;
   line-height: 20px;
-  color: #333333;
+  color: var(--color-text-primary);
 }
 
 .ShotEntry__hint {
   font-size: 11px;
   line-height: 16px;
-  color: #999999;
+  color: var(--color-text-tertiary);
 }
 
 .ShotEntry__chevron {
   margin-left: 8px;
   font-size: 18px;
-  color: #bbbbbb;
+  color: var(--color-text-disabled);
 }
 
 .ShotViewer {
@@ -728,7 +814,7 @@
 
 .ShotViewer__closeIcon {
   font-size: 16px;
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .ShotViewer__hint {
@@ -744,7 +830,7 @@
   width: 100%;
   height: 220px;
   margin-top: 12px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--color-separator);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -774,29 +860,29 @@
 }
 
 .UiButton--primary {
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 .UiButton--primary.ui-active {
-  background-color: #06ad56;
+  background-color: var(--color-accent-pressed);
 }
 
 .UiButton--default {
-  border: 1px solid #dcdcdc;
-  background-color: #f8f8f8;
+  border: 1px solid var(--color-separator);
+  background-color: var(--color-control);
 }
 
 .UiButton--default.ui-active {
-  background-color: #ececec;
+  background-color: var(--color-control-strong);
 }
 
 .UiButton--warn {
-  border: 1px solid #f3c1c1;
-  background-color: #ffffff;
+  border: 1px solid var(--color-danger-border);
+  background-color: var(--color-surface);
 }
 
 .UiButton--warn.ui-active {
-  background-color: #fbefef;
+  background-color: var(--color-danger-subtle);
 }
 
 .UiButton.ui-disabled {
@@ -805,20 +891,20 @@
 
 .UiButton__text {
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .UiButton__text--primary {
-  color: #ffffff;
+  color: var(--color-on-accent);
   font-weight: 500;
 }
 
 .UiButton__text--warn {
-  color: #e64340;
+  color: var(--color-danger);
 }
 
 .UiButton__text--disabled {
-  color: #999999;
+  color: var(--color-text-tertiary);
 }
 
 /* ============ lynx-ui: Input ============ */
@@ -828,9 +914,10 @@
   height: 44px;
   margin-top: 10px;
   padding: 0 12px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-separator);
   border-radius: 8px;
-  background-color: #fafafa;
+  background-color: var(--color-surface-raised);
+  color: var(--color-text-primary);
   font-size: 15px;
   box-sizing: border-box;
 }
@@ -840,11 +927,137 @@
   height: 96px;
   margin-top: 10px;
   padding: 10px 12px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-separator);
   border-radius: 8px;
-  background-color: #fafafa;
+  background-color: var(--color-surface-raised);
+  color: var(--color-text-primary);
   font-size: 15px;
   box-sizing: border-box;
+}
+
+.KeyboardDemo__metrics {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  margin-top: 10px;
+  column-gap: 10px;
+}
+
+.KeyboardDemo__metric {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: var(--color-keyboard-metric);
+}
+
+.KeyboardDemo__metricLabel {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.KeyboardDemo__metricValue {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.KeyboardDemo__steps {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.KeyboardDemo__step {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-control);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.KeyboardInputDialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.KeyboardInputDialog__panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 14px 14px 12px;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  background-color: var(--color-surface);
+  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
+.KeyboardPopup__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.KeyboardPopup__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.KeyboardPopup__close {
+  padding: 4px 0 4px 12px;
+}
+
+.KeyboardPopup__closeText {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.KeyboardPopup__row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  column-gap: 10px;
+}
+
+.KeyboardPopup__input {
+  flex: 1;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-separator);
+  border-radius: 10px;
+  background-color: var(--color-page);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.KeyboardPopup__send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 44px;
+  border-radius: 10px;
+  background-color: var(--color-accent);
+}
+
+.KeyboardPopup__send--disabled {
+  background-color: var(--color-accent-disabled);
+}
+
+.KeyboardPopup__sendText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-on-accent);
 }
 
 /* ============ lynx-ui: Slider ============ */
@@ -861,12 +1074,12 @@
 .SliderRow__value {
   width: 44px;
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
   text-align: right;
 }
 
 .SliderRow__value--disabled {
-  color: #999999;
+  color: var(--color-text-tertiary);
 }
 
 .UiSlider {
@@ -883,13 +1096,13 @@
   width: 100%;
   height: 4px;
   border-radius: 2px;
-  background-color: #e5e5e5;
+  background-color: var(--color-separator);
 }
 
 .UiSlider__indicator {
   height: 100%;
   border-radius: 2px;
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 .UiSlider__thumbWrap {
@@ -903,7 +1116,7 @@
   width: 28px;
   height: 28px;
   border-radius: 14px;
-  background-color: #ffffff;
+  background-color: var(--color-on-accent);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
@@ -920,11 +1133,11 @@
 
 .ChoiceRow__label {
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .ChoiceRow__label--disabled {
-  color: #999999;
+  color: var(--color-text-tertiary);
 }
 
 .UiSwitch {
@@ -944,12 +1157,12 @@
 .UiSwitch__track {
   width: 100%;
   height: 100%;
-  background-color: #e5e5e5;
+  background-color: var(--color-separator);
   transition: background-color 150ms ease;
 }
 
 .UiSwitch__track.ui-checked {
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 .UiSwitch__thumb {
@@ -958,7 +1171,7 @@
   height: 28px;
   transform: translateX(2px);
   border-radius: 14px;
-  background-color: #ffffff;
+  background-color: var(--color-on-accent);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   transition: transform 150ms ease;
 }
@@ -973,15 +1186,15 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border: 1px solid #b9b9b9;
+  border: 1px solid var(--color-text-disabled);
   border-radius: 4px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-sizing: border-box;
 }
 
 .UiCheckbox.ui-checked {
-  border-color: #07c160;
-  background-color: #07c160;
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
 }
 
 .UiCheckbox__indicator {
@@ -995,7 +1208,7 @@
 .UiCheckbox__mark {
   font-size: 14px;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .UiRadio {
@@ -1004,14 +1217,14 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border: 1px solid #b9b9b9;
+  border: 1px solid var(--color-text-disabled);
   border-radius: 11px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-sizing: border-box;
 }
 
 .UiRadio.ui-checked {
-  border-color: #07c160;
+  border-color: var(--color-accent);
 }
 
 .UiRadio__indicator {
@@ -1026,7 +1239,7 @@
   width: 12px;
   height: 12px;
   border-radius: 6px;
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 /* Dark stage so the iOS Liquid Glass (frosted, white-text) controls read well. */
@@ -1078,7 +1291,7 @@
   flex-direction: column;
   width: 100%;
   border-radius: 12px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   opacity: 0;
   transform: scale(0.92);
   transition:
@@ -1104,14 +1317,14 @@
 .UiDialog__title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .UiDialog__desc {
   margin-top: 10px;
   font-size: 14px;
   line-height: 20px;
-  color: #888888;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -1119,7 +1332,7 @@
   display: flex;
   flex-direction: row;
   width: 100%;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-separator-soft);
 }
 
 .UiDialog__action {
@@ -1131,20 +1344,20 @@
 }
 
 .UiDialog__action:active {
-  background-color: #f2f2f2;
+  background-color: var(--color-control);
 }
 
 .UiDialog__action--danger {
-  border-left: 1px solid #f0f0f0;
+  border-left: 1px solid var(--color-separator-soft);
 }
 
 .UiDialog__actionText {
   font-size: 15px;
-  color: #555555;
+  color: var(--color-text-secondary);
 }
 
 .UiDialog__actionText--danger {
-  color: #e64340;
+  color: var(--color-danger);
   font-weight: 500;
 }
 
@@ -1162,7 +1375,7 @@
 .UiSheet__content {
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -1179,7 +1392,7 @@
   width: 40px;
   height: 4px;
   border-radius: 2px;
-  background-color: #d8d8d8;
+  background-color: var(--color-separator);
 }
 
 .UiSheet__panel {
@@ -1193,14 +1406,14 @@
 .UiSheet__title {
   font-size: 17px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .UiSheet__desc {
   margin-top: 10px;
   font-size: 13px;
   line-height: 19px;
-  color: #888888;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -1224,7 +1437,7 @@
 .SwiperCard__text {
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .SwiperDots {
@@ -1240,12 +1453,12 @@
   width: 6px;
   height: 6px;
   border-radius: 3px;
-  background-color: #d0d0d0;
+  background-color: var(--color-separator);
 }
 
 .SwiperDot--active {
   width: 16px;
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 /* ============ Lynx fallback switch (Android / HarmonyOS) ============ */
@@ -1257,15 +1470,15 @@
   height: 32px;
   padding: 2px;
   border-radius: 16px;
-  border: 1px solid #b9b9b9;
-  background-color: #e5e5e5;
+  border: 1px solid var(--color-text-disabled);
+  background-color: var(--color-separator);
   transition: background-color 0.2s ease;
   box-sizing: border-box;
 }
 
 .FallbackSwitch--on {
-  border-color: #07c160;
-  background-color: #07c160;
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
 }
 
 .FallbackSwitch--disabled {
@@ -1276,13 +1489,13 @@
   width: 28px;
   height: 28px;
   border-radius: 14px;
-  background-color: #9a9a9a;
+  background-color: var(--color-text-tertiary);
   transform: translateX(0px);
   transition: transform 0.2s ease;
 }
 
 .FallbackSwitch__thumb--on {
-  background-color: #ffffff;
+  background-color: var(--color-on-accent);
   transform: translateX(20px);
 }
 
@@ -1315,9 +1528,9 @@
   width: 100%;
   height: 44px;
   padding: 0 16px;
-  border: 1px solid #dcdcdc;
+  border: 1px solid var(--color-separator);
   border-radius: 8px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-sizing: border-box;
 }
 
@@ -1335,20 +1548,20 @@
 
 .FallbackDropdown__label {
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .FallbackDropdown__chevron {
   font-size: 10px;
-  color: #888888;
+  color: var(--color-text-tertiary);
 }
 
 .FallbackDropdown__menu {
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid #e5e5e5;
-  background-color: #ffffff;
+  border: 1px solid var(--color-separator);
+  background-color: var(--color-surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
   transition: height 320ms ease-in-out;
   overflow: hidden;
@@ -1365,20 +1578,20 @@
 }
 
 .FallbackDropdown__option:active {
-  background-color: #f2f2f2;
+  background-color: var(--color-control);
 }
 
 .FallbackDropdown__option--selected {
-  background-color: #e8f7ef;
+  background-color: var(--color-success-subtle);
 }
 
 .FallbackDropdown__optionLabel {
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .FallbackDropdown__optionLabel--selected {
-  color: #07c160;
+  color: var(--color-accent);
   font-weight: 600;
 }
 
@@ -1418,7 +1631,7 @@
   box-sizing: border-box;
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -1426,21 +1639,21 @@
   width: 40px;
   height: 4px;
   border-radius: 2px;
-  background-color: #d8d8d8;
+  background-color: var(--color-separator);
 }
 
 .PresentRoute__title {
   margin-top: 16px;
   font-size: 17px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .PresentRoute__desc {
   margin-top: 10px;
   font-size: 13px;
   line-height: 19px;
-  color: #888888;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -1460,9 +1673,9 @@
   width: 100%;
   margin-top: 12px;
   padding: 12px;
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--color-separator);
   border-radius: 9px;
-  background-color: #fafafa;
+  background-color: var(--color-surface-raised);
   box-sizing: border-box;
 }
 
@@ -1480,7 +1693,7 @@
   margin-right: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #222222;
+  color: var(--color-text-primary);
 }
 
 .DownloadTask__state {
@@ -1489,51 +1702,51 @@
   justify-content: center;
   padding: 3px 8px;
   border-radius: 10px;
-  background-color: #e8f8ef;
+  background-color: var(--color-success-subtle);
 }
 
 .DownloadTask__state--queued {
-  background-color: #e8f0fe;
+  background-color: var(--color-info-subtle);
 }
 
 .DownloadTask__state--paused {
-  background-color: #fff3e0;
+  background-color: var(--color-warning-subtle);
 }
 
 .DownloadTask__state--failed {
-  background-color: #fdecec;
+  background-color: var(--color-danger-subtle);
 }
 
 .DownloadTask__state--cancelled {
-  background-color: #eeeeee;
+  background-color: var(--color-control);
 }
 
 .DownloadTask__stateText {
   font-size: 10px;
   font-weight: 600;
-  color: #07964d;
+  color: var(--color-accent-strong);
 }
 
 .DownloadTask__stateText--queued {
-  color: #1a73e8;
+  color: var(--color-info);
 }
 
 .DownloadTask__stateText--paused {
-  color: #e47b08;
+  color: var(--color-warning);
 }
 
 .DownloadTask__stateText--failed {
-  color: #d93025;
+  color: var(--color-danger-strong);
 }
 
 .DownloadTask__stateText--cancelled {
-  color: #777777;
+  color: var(--color-text-tertiary);
 }
 
 .DownloadTask__meta {
   margin-top: 6px;
   font-size: 10px;
-  color: #999999;
+  color: var(--color-text-tertiary);
 }
 
 .DownloadTask__progress {
@@ -1542,44 +1755,44 @@
   margin-top: 10px;
   overflow: hidden;
   border-radius: 3px;
-  background-color: #e6e6e6;
+  background-color: var(--color-separator);
 }
 
 .DownloadTask__progressFill {
   height: 100%;
   border-radius: 3px;
-  background-color: #07c160;
+  background-color: var(--color-accent);
 }
 
 .DownloadTask__progressFill--queued {
-  background-color: #1a73e8;
+  background-color: var(--color-info);
 }
 
 .DownloadTask__progressFill--paused {
-  background-color: #f5a623;
+  background-color: var(--color-warning);
 }
 
 .DownloadTask__progressFill--failed,
 .DownloadTask__progressFill--cancelled {
-  background-color: #b6b6b6;
+  background-color: var(--color-text-disabled);
 }
 
 .DownloadTask__bytes {
   margin-top: 6px;
   font-size: 11px;
-  color: #555555;
+  color: var(--color-text-secondary);
 }
 
 .DownloadTask__error {
   margin-top: 6px;
   font-size: 11px;
   line-height: 16px;
-  color: #d93025;
+  color: var(--color-danger-strong);
 }
 
 .DownloadTask__file {
   margin-top: 6px;
   font-size: 10px;
   line-height: 15px;
-  color: #777777;
+  color: var(--color-text-tertiary);
 }

@@ -17,6 +17,7 @@ import com.tencent.mmkv.MMKV;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,6 +34,11 @@ import javax.crypto.spec.GCMParameterSpec;
  * store. Secure values are sealed with an AES-256-GCM key that lives in
  * AndroidKeyStore and never leaves it; only the random IV and the
  * ciphertext are persisted, in the app's private preferences.
+ *
+ * The KV store also keeps a process-wide in-memory overlay: writes with
+ * inMemory=true land only in the overlay (shadowing the MMKV value until
+ * the process dies) while persisted writes drop the overlay entry first;
+ * reads, remove, clear and contains all check the overlay before MMKV.
  */
 @LynxNativeModule(name = StorageModule.NAME)
 public final class StorageModule extends LynxContextModule {
@@ -40,6 +46,14 @@ public final class StorageModule extends LynxContextModule {
 
     private static final String STORAGE_ID = "lynx.native.kv";
     private static final AtomicBoolean INITIALIZED = new AtomicBoolean(false);
+
+    /**
+     * Process-wide overlay mirroring the shared MMKV instance (module
+     * instances are per Lynx context, the store is not). Entries shadow
+     * MMKV until a persisted write or remove drops them.
+     */
+    private static final ConcurrentHashMap<String, String> MEMORY_VALUES =
+            new ConcurrentHashMap<>();
 
     private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
     private static final String KEY_ALIAS = "lynx.secure.storage.key";
@@ -74,7 +88,19 @@ public final class StorageModule extends LynxContextModule {
     // ------------------------------------------------------------------
 
     @LynxMethod
-    public void setString(String key, String value, Callback callback) {
+    public void setString(String key, String value, Callback callback, Boolean inMemory) {
+        if (Boolean.TRUE.equals(inMemory)) {
+            // Overlay-only write: the MMKV copy keeps its previous value.
+            if (!isValidKey(key) || value == null) {
+                callback.invoke("Unable to set the in-memory value");
+                return;
+            }
+            MEMORY_VALUES.put(key, value);
+            callback.invoke("");
+            return;
+        }
+        // Persisted writes make MMKV authoritative again.
+        MEMORY_VALUES.remove(key);
         boolean ok = isValidKey(key) && storage.encode(key, value);
         callback.invoke(ok ? "" : "Unable to persist MMKV key");
     }
@@ -94,6 +120,11 @@ public final class StorageModule extends LynxContextModule {
             callback.invoke(defaultValue);
             return;
         }
+        String overlay = MEMORY_VALUES.get(key);
+        if (overlay != null) {
+            callback.invoke(overlay);
+            return;
+        }
         callback.invoke(storage.decodeString(key, defaultValue));
     }
 
@@ -104,18 +135,21 @@ public final class StorageModule extends LynxContextModule {
             return;
         }
         storage.removeValueForKey(key);
+        MEMORY_VALUES.remove(key);
         callback.invoke("");
     }
 
     @LynxMethod
     public void clear(Callback callback) {
         storage.clearAll();
+        MEMORY_VALUES.clear();
         callback.invoke("");
     }
 
     @LynxMethod
     public void contains(String key, Callback callback) {
-        callback.invoke(isValidKey(key) && storage.containsKey(key));
+        callback.invoke(isValidKey(key)
+                && (MEMORY_VALUES.containsKey(key) || storage.containsKey(key)));
     }
 
     // ------------------------------------------------------------------

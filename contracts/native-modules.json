@@ -20,21 +20,21 @@
       }
     },
     {
-      "name": "AudioPlayer",
-      "interfaceName": "AudioPlayerModule",
-      "declaration": "autolink/audio-player/types/platform-native-module.d.ts",
-      "declarationName": "AudioPlayer",
+      "name": "Audio",
+      "interfaceName": "AudioModule",
+      "declaration": "autolink/audio/types/platform-native-module.d.ts",
+      "declarationName": "Audio",
       "autolink": {
-        "directory": "audio-player",
-        "exportName": "AUDIO_PLAYER_MODULE_NAME"
+        "directory": "audio",
+        "exportName": "AUDIO_MODULE_NAME"
       },
       "implementations": {
         "android": {
-          "searchRoot": "autolink/audio-player/android/src/main/java",
-          "fileName": "AudioPlayerModule.java"
+          "searchRoot": "autolink/audio/android/src/main/java",
+          "fileName": "AudioModule.java"
         },
-        "ios": "autolink/audio-player/ios/src/AudioPlayerModule.m",
-        "harmony": "autolink/audio-player/harmony/src/main/ets/AudioPlayerModule.ets"
+        "ios": "autolink/audio/ios/src/AudioModule.m",
+        "harmony": "autolink/audio/harmony/src/main/ets/AudioModule.ets"
       }
     },
     {

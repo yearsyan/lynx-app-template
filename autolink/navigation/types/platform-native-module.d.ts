@@ -12,8 +12,9 @@ export declare class Navigation {
     options: {
       bundle: string;
       statusBarStyle?: 'dark-content' | 'light-content';
-      animation?: 'default' | 'fade' | 'none' | 'present';
-      present?: {
+      animation?: 'default' | 'fade' | 'none';
+      presentation?: 'page' | 'inputDialog' | 'overlay';
+      overlay?: {
         scrimColor?: string;
         backdropTransition?: boolean;
         enter?: {
@@ -28,6 +29,7 @@ export declare class Navigation {
         backdropBlur?: boolean;
         iosSwipeDown?: boolean;
         androidPredictiveBackDown?: boolean;
+        dragDownToDismiss?: boolean;
       };
       params?: Record<string, unknown>;
     },
@@ -38,8 +40,9 @@ export declare class Navigation {
     options: {
       bundle: string;
       statusBarStyle?: 'dark-content' | 'light-content';
-      animation?: 'default' | 'fade' | 'none' | 'present';
-      present?: {
+      animation?: 'default' | 'fade' | 'none';
+      presentation?: 'page' | 'inputDialog' | 'overlay';
+      overlay?: {
         scrimColor?: string;
         backdropTransition?: boolean;
         enter?: {
@@ -54,6 +57,7 @@ export declare class Navigation {
         backdropBlur?: boolean;
         iosSwipeDown?: boolean;
         androidPredictiveBackDown?: boolean;
+        dragDownToDismiss?: boolean;
       };
       params?: Record<string, unknown>;
     },

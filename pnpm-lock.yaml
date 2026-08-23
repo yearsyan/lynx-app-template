@@ -37,6 +37,11 @@ catalogs:
       specifier: 8.21.3
       version: 8.21.3
 
+patchedDependencies:
+  '@lynx-js/lynx-ui-input@3.136.0':
+    hash: 6e832259b1d45a7fd6926003fc88408fec2041bde31e7f9873a6f659e4fb23ba
+    path: patches/@lynx-js__lynx-ui-input@3.136.0.patch
+
 importers:
 
   .:
@@ -50,9 +55,9 @@ importers:
       '@lynx-template/autolink-album-utils':
         specifier: workspace:*
         version: link:autolink/album-utils
-      '@lynx-template/autolink-audio-player':
+      '@lynx-template/autolink-audio':
         specifier: workspace:*
-        version: link:autolink/audio-player
+        version: link:autolink/audio
       '@lynx-template/autolink-biometric':
         specifier: workspace:*
         version: link:autolink/biometric
@@ -122,7 +127,7 @@ importers:
 
   autolink/album-utils: {}
 
-  autolink/audio-player: {}
+  autolink/audio: {}
 
   autolink/biometric: {}
 
@@ -204,9 +209,9 @@ importers:
       '@lynx-template/autolink-album-utils':
         specifier: workspace:*
         version: link:../../autolink/album-utils
-      '@lynx-template/autolink-audio-player':
+      '@lynx-template/autolink-audio':
         specifier: workspace:*
-        version: link:../../autolink/audio-player
+        version: link:../../autolink/audio
       '@lynx-template/autolink-biometric':
         specifier: workspace:*
         version: link:../../autolink/biometric
@@ -2613,7 +2618,7 @@ snapshots:
       '@lynx-js/lynx-ui-button': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-checkbox': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-common': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@lynx-js/lynx-ui-input': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@lynx-js/lynx-ui-input': 3.136.0(patch_hash=6e832259b1d45a7fd6926003fc88408fec2041bde31e7f9873a6f659e4fb23ba)(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-radio-group': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-switch': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/react': 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
@@ -2626,7 +2631,7 @@ snapshots:
   '@lynx-js/lynx-ui-input-otp@3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@lynx-js/lynx-ui-common': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@lynx-js/lynx-ui-input': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@lynx-js/lynx-ui-input': 3.136.0(patch_hash=6e832259b1d45a7fd6926003fc88408fec2041bde31e7f9873a6f659e4fb23ba)(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/react': 0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18)
       '@lynx-js/types': 4.0.0
       '@types/react': 19.2.18
@@ -2635,7 +2640,7 @@ snapshots:
       - react
       - react-dom
 
-  '@lynx-js/lynx-ui-input@3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@lynx-js/lynx-ui-input@3.136.0(patch_hash=6e832259b1d45a7fd6926003fc88408fec2041bde31e7f9873a6f659e4fb23ba)(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@lynx-js/lynx-ui-common': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-scroll-view': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -2806,7 +2811,7 @@ snapshots:
       '@lynx-js/lynx-ui-draggable': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-feed-list': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-form': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@lynx-js/lynx-ui-input': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@lynx-js/lynx-ui-input': 3.136.0(patch_hash=6e832259b1d45a7fd6926003fc88408fec2041bde31e7f9873a6f659e4fb23ba)(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-input-otp': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-lazy-component': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@lynx-js/lynx-ui-list': 3.136.0(@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@19.2.18))(@lynx-js/types@4.0.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

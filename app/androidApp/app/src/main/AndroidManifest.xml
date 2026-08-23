@@ -12,6 +12,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.LynxTemplate"
@@ -21,6 +22,10 @@
             android:name=".activity.LynxPageActivity"
             android:exported="false"
             android:theme="@style/Theme.LynxTemplate" />
+        <activity
+            android:name=".activity.LynxDialogActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LynxTemplate.InputDialog" />
         <activity
             android:name=".activity.MainActivity"
             android:exported="true"

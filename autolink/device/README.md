@@ -32,9 +32,10 @@ Notes:
 
 ## Host integration
 
-- Safe area is also injected as first-frame/reactive init data
-  (`nativeEnvironment`); `readSafeAreaInsets(useInitData())` reads it and
-  the `InitData` augmentation lives in this package.
+- Safe area, resolved system appearance, and app locale are injected as
+  first-frame/reactive init data (`nativeEnvironment`). Read them with
+  `readSafeAreaInsets(useInitData())`, `readColorScheme(...)`, and
+  `readAppLocale(...)`; the `InitData` augmentation lives in this package.
 - Android host helpers: `DeviceSystemUI` (edge-to-edge + status bar) and
   `NativeEnvironmentBridge` (insets → TemplateData/LynxUpdateMeta).
 - iOS host helpers: `LynxDeviceTemplateData(insets, additionalData)` and the

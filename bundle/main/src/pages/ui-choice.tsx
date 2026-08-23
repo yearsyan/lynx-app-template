@@ -13,6 +13,7 @@ import { useState } from '@lynx-js/react';
 import { ApiName, DemoCard, ResultLine } from '../components/Demo.js';
 import { PlatformDropdown } from '../components/PlatformDropdown.js';
 import { PlatformSwitch } from '../components/PlatformSwitch.js';
+import { t } from '../i18n.js';
 
 const isIOS = SystemInfo.platform.toLowerCase() === 'ios';
 
@@ -33,7 +34,7 @@ export function SwitchPage() {
             <SwitchThumb className="UiSwitch__thumb" />
           </Switch>
           <text className="ChoiceRow__label">
-            {checked ? '已开启' : '已关闭'}
+            {t(checked ? '已开启' : '已关闭')}
           </text>
         </view>
         <view className="ChoiceRow">
@@ -42,7 +43,7 @@ export function SwitchPage() {
             <SwitchThumb className="UiSwitch__thumb" />
           </Switch>
           <text className="ChoiceRow__label ChoiceRow__label--disabled">
-            禁用状态
+            {t('禁用状态')}
           </text>
         </view>
       </DemoCard>
@@ -57,7 +58,7 @@ export function SwitchPage() {
         <view className="ChoiceRow">
           <PlatformSwitch checked={nativeChecked} onChange={setNativeChecked} />
           <text className="ChoiceRow__label">
-            {nativeChecked ? '已开启' : '已关闭'}
+            {t(nativeChecked ? '已开启' : '已关闭')}
           </text>
         </view>
       </DemoCard>
@@ -95,7 +96,7 @@ export function CheckboxPage() {
                 <text className="UiCheckbox__mark">✓</text>
               </CheckboxIndicator>
             </Checkbox>
-            <text className="ChoiceRow__label">{item}</text>
+            <text className="ChoiceRow__label">{t(item)}</text>
           </view>
         ))}
         <ResultLine
@@ -127,7 +128,7 @@ export function RadioPage() {
                   <view className="UiRadio__dot" />
                 </RadioIndicator>
               </Radio>
-              <text className="ChoiceRow__label">{item}</text>
+              <text className="ChoiceRow__label">{t(item)}</text>
             </view>
           ))}
         </RadioGroupRoot>
@@ -162,7 +163,7 @@ export function DropdownPage() {
           />
           {isIOS ? (
             <text className="GlassStage__hint">
-              点击 Lynx 按钮打开原生 Liquid Glass 菜单
+              {t('点击 Lynx 按钮打开原生 Liquid Glass 菜单')}
             </text>
           ) : null}
         </view>

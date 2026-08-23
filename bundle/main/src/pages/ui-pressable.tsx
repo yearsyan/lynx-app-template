@@ -2,6 +2,7 @@ import { useCallback, useState } from '@lynx-js/react';
 
 import { ApiName, DemoCard, ResultLine } from '../components/Demo.js';
 import '../components/native-elements.js';
+import { t } from '../i18n.js';
 
 const BANNERS = [
   ['夏日限定', '按住可看原生状态层反馈'],
@@ -39,14 +40,14 @@ export function PressableViewPage() {
           active-opacity={1}
           pressed-overlay-color="rgba(0, 0, 0, 0.08)"
           accessibility-element
-          accessibility-label="长按测试，不带系统触感"
+          accessibility-label={t('长按测试，不带系统触感')}
           accessibility-traits="button"
           bindpress={() => recordEvent('点击', '无触感按钮')}
           bindlongpress={() => recordEvent('长按', '未启用系统触感')}
         >
           <view className="NativePressable__surface NativePressable__surface--secondary">
             <text className="NativePressable__secondaryLabel">
-              长按测试（无触感）
+              {t('长按测试（无触感）')}
             </text>
           </view>
         </pressable-view>
@@ -57,14 +58,14 @@ export function PressableViewPage() {
           pressed-overlay-color="rgba(0, 0, 0, 0.12)"
           long-press-haptic
           accessibility-element
-          accessibility-label="长按测试，带系统触感"
+          accessibility-label={t('长按测试，带系统触感')}
           accessibility-traits="button"
           bindpress={() => recordEvent('点击', '触感按钮')}
           bindlongpress={() => recordEvent('长按', '已启用系统触感')}
         >
           <view className="NativePressable__surface NativePressable__surface--primary">
             <text className="NativePressable__primaryLabel">
-              长按测试（系统触感）
+              {t('长按测试（系统触感）')}
             </text>
           </view>
         </pressable-view>
@@ -72,11 +73,13 @@ export function PressableViewPage() {
           className="NativePressable NativePressable--disabled"
           disabled
           accessibility-element
-          accessibility-label="禁用状态"
+          accessibility-label={t('禁用状态')}
           accessibility-traits="disabled"
         >
           <view className="NativePressable__surface NativePressable__surface--disabled">
-            <text className="NativePressable__disabledLabel">禁用状态</text>
+            <text className="NativePressable__disabledLabel">
+              {t('禁用状态')}
+            </text>
           </view>
         </pressable-view>
         <ResultLine
@@ -101,15 +104,15 @@ export function PressableViewPage() {
             active-opacity={1}
             pressed-overlay-color="rgba(0, 0, 0, 0.08)"
             accessibility-element
-            accessibility-label={title}
+            accessibility-label={t(title)}
             accessibility-traits="button"
             bindpress={() => recordEvent('点击', title)}
             bindlongpress={() => recordEvent('长按', `${title}（无触感）`)}
           >
             <view className="PressableBanner__surface">
               <view className="PressableBanner__copy">
-                <text className="PressableBanner__title">{title}</text>
-                <text className="PressableBanner__subtitle">{subtitle}</text>
+                <text className="PressableBanner__title">{t(title)}</text>
+                <text className="PressableBanner__subtitle">{t(subtitle)}</text>
               </view>
               <text className="PressableBanner__chevron">›</text>
             </view>

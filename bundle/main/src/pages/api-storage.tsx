@@ -23,6 +23,14 @@ export function KvPage() {
       .catch((error: Error) => setResult(error.message));
   }, []);
 
+  const saveInMemory = useCallback(() => {
+    'background only';
+    const value = `mem-${Date.now()}`;
+    kv.setString(KV_KEY, value, true)
+      .then(() => setResult(`已写入内存 ${KV_KEY} = ${value}（MMKV 旧值保留）`))
+      .catch((error: Error) => setResult(error.message));
+  }, []);
+
   const read = useCallback(() => {
     'background only';
     kv.getString(KV_KEY)
@@ -46,9 +54,10 @@ export function KvPage() {
       <ApiName name="kv.setString" />
       <DemoCard
         title="MMKV 键值存储"
-        desc="原生 MMKV 高性能键值存储，适合缓存与小数据持久化，跨启动保留。"
+        desc="原生 MMKV 高性能键值存储，适合缓存与小数据持久化，跨启动保留；inMemory 写入只改进程内 overlay，读取时优先命中。"
       >
         <DemoButton label="写入" primary onTap={save} />
+        <DemoButton label="写入(仅内存)" onTap={saveInMemory} />
         <DemoButton label="读取" onTap={read} />
         <DemoButton label="删除" onTap={remove} />
         <ResultLine text={result} placeholder="写入 → 读取 → 删除 完整闭环" />

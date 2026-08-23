@@ -1,5 +1,7 @@
 import type { ReactNode } from '@lynx-js/react';
 
+import { t } from '../i18n.js';
+
 /** Card wrapper used by every demo page: a title, an optional description and content. */
 export function DemoCard(props: {
   title: string;
@@ -8,8 +10,10 @@ export function DemoCard(props: {
 }) {
   return (
     <view className="DemoCard">
-      <text className="DemoCard__title">{props.title}</text>
-      {props.desc ? <text className="DemoCard__desc">{props.desc}</text> : null}
+      <text className="DemoCard__title">{t(props.title)}</text>
+      {props.desc ? (
+        <text className="DemoCard__desc">{t(props.desc)}</text>
+      ) : null}
       {props.children}
     </view>
   );
@@ -40,7 +44,7 @@ export function DemoButton(props: {
       className={classes}
       bindtap={props.disabled ? undefined : props.onTap}
     >
-      <text className={labelClasses}>{props.label}</text>
+      <text className={labelClasses}>{t(props.label)}</text>
     </view>
   );
 }
@@ -53,7 +57,7 @@ export function ResultLine(props: {
   return (
     <view className="ResultLine">
       <text className="ResultLine__text">
-        {props.text ?? props.placeholder}
+        {t(props.text ?? props.placeholder)}
       </text>
     </view>
   );

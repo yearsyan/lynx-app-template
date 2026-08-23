@@ -1,5 +1,7 @@
 package com.lynxapp.autolink.device
 
+import android.content.res.Configuration
+import androidx.core.os.ConfigurationCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.lynx.tasm.LynxUpdateMeta
@@ -22,6 +24,8 @@ class NativeEnvironmentBridge(
     )
 
     private var safeAreaInsets = SafeAreaInsets()
+    private var statusBarInsetTop = 0.0
+    private var navigationBarInsetBottom = 0.0
     private var hasReceivedInitialInsets = false
     private var canUpdateTemplate = false
     private var onInitialInsetsReady: (() -> Unit)? = null
@@ -46,18 +50,26 @@ class NativeEnvironmentBridge(
         ViewCompat.setOnApplyWindowInsetsListener(lynxView, null)
     }
 
-    fun initialData(): TemplateData = templateData(safeAreaInsets)
+    fun initialData(): TemplateData = templateData(
+        safeAreaInsets,
+        statusBarInsetTop,
+        navigationBarInsetBottom,
+    )
 
     /** Call immediately after a load/render request so later inset changes are incremental. */
     fun onTemplateLoadStarted() {
         canUpdateTemplate = true
-        publish(safeAreaInsets)
+        publish(safeAreaInsets, statusBarInsetTop, navigationBarInsetBottom)
     }
 
     private fun accept(windowInsets: WindowInsetsCompat) {
         val nativeInsets = windowInsets.getInsets(
             WindowInsetsCompat.Type.systemBars() or
                 WindowInsetsCompat.Type.displayCutout(),
+        )
+        val statusBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
+        val navigationBarInsets = windowInsets.getInsetsIgnoringVisibility(
+            WindowInsetsCompat.Type.navigationBars(),
         )
         val density = lynxView.resources.displayMetrics.density
             .takeIf { it > 0f } ?: 1f
@@ -67,8 +79,34 @@ class NativeEnvironmentBridge(
             bottom = nativeInsets.bottom / density.toDouble(),
             left = nativeInsets.left / density.toDouble(),
         )
-        val changed = next != safeAreaInsets
+        val statusBarHeightResource = lynxView.resources.getIdentifier(
+            "status_bar_height",
+            "dimen",
+            "android",
+        )
+        val statusBarHeightPixels = if (statusBarHeightResource > 0) {
+            lynxView.resources.getDimensionPixelSize(statusBarHeightResource)
+        } else {
+            statusBarInsets.top
+        }
+        val nextStatusBarInsetTop = statusBarHeightPixels / density.toDouble()
+        val navigationBarHeightResource = lynxView.resources.getIdentifier(
+            "navigation_bar_height",
+            "dimen",
+            "android",
+        )
+        val navigationBarHeightPixels = if (navigationBarHeightResource > 0) {
+            lynxView.resources.getDimensionPixelSize(navigationBarHeightResource)
+        } else {
+            navigationBarInsets.bottom
+        }
+        val nextNavigationBarInsetBottom = navigationBarHeightPixels / density.toDouble()
+        val changed = next != safeAreaInsets ||
+            nextStatusBarInsetTop != statusBarInsetTop ||
+            nextNavigationBarInsetBottom != navigationBarInsetBottom
         safeAreaInsets = next
+        statusBarInsetTop = nextStatusBarInsetTop
+        navigationBarInsetBottom = nextNavigationBarInsetBottom
 
         if (!hasReceivedInitialInsets) {
             hasReceivedInitialInsets = true
@@ -78,22 +116,51 @@ class NativeEnvironmentBridge(
         }
 
         if (changed && canUpdateTemplate) {
-            publish(next)
+            publish(next, nextStatusBarInsetTop, nextNavigationBarInsetBottom)
         }
     }
 
-    private fun publish(insets: SafeAreaInsets) {
+    private fun publish(
+        insets: SafeAreaInsets,
+        statusBarInsetTop: Double,
+        navigationBarInsetBottom: Double,
+    ) {
         val updateMeta = LynxUpdateMeta.Builder()
-            .setUpdatedData(templateData(insets))
+            .setUpdatedData(
+                templateData(insets, statusBarInsetTop, navigationBarInsetBottom),
+            )
             .build()
         lynxView.updateMetaData(updateMeta)
     }
 
-    private fun templateData(insets: SafeAreaInsets): TemplateData {
+    private fun templateData(
+        insets: SafeAreaInsets,
+        statusBarInsetTop: Double,
+        navigationBarInsetBottom: Double,
+    ): TemplateData {
+        val configuration = lynxView.resources.configuration
+        val colorScheme = if (
+            configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
+        ) {
+            "dark"
+        } else {
+            "light"
+        }
+        val locales = ConfigurationCompat.getLocales(configuration)
+        val locale = if (locales.isEmpty) {
+            "en"
+        } else {
+            locales[0]?.toLanguageTag() ?: "en"
+        }
         val data = mutableMapOf<String, Any>(
             "nativeEnvironment" to mapOf(
-                "schemaVersion" to 1,
+                "schemaVersion" to 2,
                 "unit" to "px",
+                "statusBarInsetTop" to statusBarInsetTop,
+                "navigationBarInsetBottom" to navigationBarInsetBottom,
+                "colorScheme" to colorScheme,
+                "locale" to locale,
                 "safeAreaInsets" to mapOf(
                     "top" to insets.top,
                     "right" to insets.right,

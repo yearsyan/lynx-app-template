@@ -59,11 +59,11 @@ private final class LynxNavigationController: UINavigationController,
         guard viewControllers.count > 1 && transitionCoordinator == nil else {
             return false
         }
-        // The interactive pop would slide a present-route page away and break
+        // The interactive pop would slide an overlay-route page away and break
         // its snapshot-backdrop illusion; those pages dismiss through the
         // reverse choreography instead (see PresentBackdrop).
         if let page = topViewController as? LynxPageViewController,
-           page.routeAnimation == .present {
+           page.isOverlayRoute {
             return false
         }
         return true

@@ -23,11 +23,21 @@ function validateKey(key: string): void {
  * String primitives for every bundle; JSON encoding stays in TypeScript.
  */
 export const kv = {
-  setString(key: string, value: string): Promise<void> {
+  /**
+   * `inMemory: true` writes only the host process's overlay dictionary:
+   * the MMKV copy is left untouched, so the shadowed value disappears on
+   * process restart. A persisted (`inMemory: false`) write clears the
+   * overlay entry first, making MMKV authoritative again.
+   */
+  setString(
+    key: string,
+    value: string,
+    inMemory: boolean = false,
+  ): Promise<void> {
     'background only';
     validateKey(key);
     return completeNativeCall((callback) =>
-      requireStorageModule().setString(key, value, callback),
+      requireStorageModule().setString(key, value, callback, inMemory),
     );
   },
 
@@ -76,9 +86,13 @@ export const kv = {
     });
   },
 
-  async setJSON(key: string, value: unknown): Promise<void> {
+  async setJSON(
+    key: string,
+    value: unknown,
+    inMemory: boolean = false,
+  ): Promise<void> {
     'background only';
-    await this.setString(key, JSON.stringify(value));
+    await this.setString(key, JSON.stringify(value), inMemory);
   },
 
   async getJSON<T>(key: string, defaultValue: T): Promise<T> {

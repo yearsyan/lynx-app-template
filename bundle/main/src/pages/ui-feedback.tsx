@@ -21,6 +21,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 export function DialogPage() {
   const [show, setShow] = useState(false);
@@ -43,26 +44,26 @@ export function DialogPage() {
         >
           <DialogTrigger className="DemoButton DemoButton--primary">
             <text className="DemoButton__label DemoButton__label--primary">
-              打开对话框
+              {t('打开对话框')}
             </text>
           </DialogTrigger>
           <DialogView className="UiDialog__viewport">
             <DialogBackdrop className="UiDialog__backdrop" />
             <DialogContent className="UiDialog__content">
               <view className="UiDialog__body">
-                <text className="UiDialog__title">删除这条记录？</text>
+                <text className="UiDialog__title">{t('删除这条记录？')}</text>
                 <text className="UiDialog__desc">
-                  删除后无法恢复，请确认该操作是你本人发起。
+                  {t('删除后无法恢复，请确认该操作是你本人发起。')}
                 </text>
               </view>
               <view className="UiDialog__footer">
                 <DialogClose className="UiDialog__action">
-                  <text className="UiDialog__actionText">取消</text>
+                  <text className="UiDialog__actionText">{t('取消')}</text>
                 </DialogClose>
                 <DialogClose className="UiDialog__action UiDialog__action--danger">
                   <view bindtap={() => setResult('已确认删除')}>
                     <text className="UiDialog__actionText UiDialog__actionText--danger">
-                      删除
+                      {t('删除')}
                     </text>
                   </view>
                 </DialogClose>
@@ -109,9 +110,9 @@ export function SheetPage() {
             >
               <SheetHandle className="UiSheet__handle" />
               <view className="UiSheet__panel">
-                <text className="UiSheet__title">底部弹层</text>
+                <text className="UiSheet__title">{t('底部弹层')}</text>
                 <text className="UiSheet__desc">
-                  可以拖动顶部的把手调整高度，或点击遮罩区域关闭。
+                  {t('可以拖动顶部的把手调整高度，或点击遮罩区域关闭。')}
                 </text>
                 <DemoButton
                   label="关闭弹层"

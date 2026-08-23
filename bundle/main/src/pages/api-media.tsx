@@ -8,11 +8,16 @@ import { albumUtils } from '@lynx-template/autolink-album-utils';
 import type {
   AudioPlayerHandle,
   AudioPlayerStateEvent,
-} from '@lynx-template/autolink-audio-player';
-import { audioPlayer } from '@lynx-template/autolink-audio-player';
-import { readSafeAreaInsets } from '@lynx-template/autolink-device';
+  AudioRecorderHandle,
+} from '@lynx-template/autolink-audio';
+import { audioPlayer, audioRecorder } from '@lynx-template/autolink-audio';
+import {
+  readColorScheme,
+  readSafeAreaInsets,
+} from '@lynx-template/autolink-device';
 import { fileSystem } from '@lynx-template/autolink-file-system';
 import { imageTooling } from '@lynx-template/autolink-image-tooling';
+import { permissions } from '@lynx-template/autolink-permissions';
 import { screenshot } from '@lynx-template/autolink-screenshot';
 import type { ShareOutcome } from '@lynx-template/autolink-share';
 import { share } from '@lynx-template/autolink-share';
@@ -23,6 +28,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 // `idSelector` is a standard Lynx element attribute that the native
 // screenshot lookups resolve against; react-lynx's prop typings do not
@@ -241,7 +247,7 @@ function ScreenshotViewer(props: { shot: ShotResult; onClose: () => void }) {
         className="ShotViewer__hint"
         style={{ bottom: `${bottomInset + 16}px` }}
       >
-        双指或双击缩放 · 放大后单指拖动 · 点击空白关闭
+        {t('双指或双击缩放 · 放大后单指拖动 · 点击空白关闭')}
       </text>
     </view>
   );
@@ -277,7 +283,7 @@ export function ScreenshotPage() {
         desc="把指定卡片、整个 LynxView 或原生页面截为 PNG/JPEG，写入应用缓存目录。"
       >
         <view {...screenshotCardSelector} className="ShotTarget">
-          <text className="ShotTarget__text">我是被截取的卡片区域</text>
+          <text className="ShotTarget__text">{t('我是被截取的卡片区域')}</text>
         </view>
         <DemoButton
           label="截取上方卡片"
@@ -318,11 +324,13 @@ export function ScreenshotPage() {
             />
             <view className="ShotEntry__meta">
               <text className="ShotEntry__title">
-                {lastShot.label}截图已生成
+                {t(`${lastShot.label}截图已生成`)}
               </text>
               <text className="ShotEntry__hint">
-                {Math.round(lastShot.width)}×{Math.round(lastShot.height)} ·
-                点击全屏查看，支持缩放
+                {t('{width}×{height} · 点击全屏查看，支持缩放', {
+                  width: Math.round(lastShot.width),
+                  height: Math.round(lastShot.height),
+                })}
               </text>
             </view>
             <text className="ShotEntry__chevron">›</text>
@@ -518,94 +526,300 @@ export function AudioPlayerPage() {
   );
 }
 
+/** Microphone recording through the Audio autolink module. */
+export function AudioRecorderPage() {
+  const [status, setStatus] = useState('未开始录音');
+  const [recording, setRecording] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [takeUri, setTakeUri] = useState<string | null>(null);
+  const recorderRef = useRef<AudioRecorderHandle | null>(null);
+  const playerRef = useRef<AudioPlayerHandle | null>(null);
+
+  const describeRecordingState = useCallback(
+    (label: string, durationMs: number) => {
+      'background only';
+      setStatus(`${label} · ${formatClock(durationMs)}`);
+    },
+    [],
+  );
+
+  const begin = useCallback(() => {
+    'background only';
+    void (async () => {
+      try {
+        const state = await permissions.request('microphone');
+        if (state.status !== 'granted') {
+          setStatus('麦克风权限未授予，无法录音');
+          return;
+        }
+        recorderRef.current?.destroy();
+        playerRef.current?.destroy();
+        setTakeUri(null);
+        setStatus('录音中 · 0:00');
+        setRecording(true);
+        setPaused(false);
+
+        const recorder = audioRecorder.create({ durationLimitMs: 60_000 });
+        recorderRef.current = recorder;
+        recorder.addEventListener('state', (event) => {
+          'background only';
+          if (event.state === 'failed') {
+            setRecording(false);
+            setPaused(false);
+          }
+        });
+        recorder.addEventListener('progress', (event) => {
+          'background only';
+          describeRecordingState('录音中', event.durationMs);
+        });
+        recorder.addEventListener('end', (event) => {
+          'background only';
+          setRecording(false);
+          setPaused(false);
+          setTakeUri(event.uri);
+          setStatus(`已达时长上限自动停止 · ${formatClock(event.durationMs)}`);
+        });
+        recorder.addEventListener('error', (event) => {
+          'background only';
+          setStatus(`录音错误：${event.error}`);
+        });
+        await recorder.start();
+      } catch (error) {
+        setRecording(false);
+        setPaused(false);
+        setStatus(`无法开始录音：${(error as Error).message}`);
+      }
+    })();
+  }, [describeRecordingState]);
+
+  const togglePause = useCallback(() => {
+    'background only';
+    const recorder = recorderRef.current;
+    if (recorder === null) return;
+    const next = !paused;
+    const action = next
+      ? recorder.pause().then(() => setStatus('已暂停 · 可继续录音'))
+      : recorder.resume().then(() => setStatus('录音中'));
+    action
+      .then(() => {
+        'background only';
+        setPaused(next);
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, [paused]);
+
+  const finish = useCallback(() => {
+    'background only';
+    const recorder = recorderRef.current;
+    if (recorder === null) return;
+    recorder
+      .stop()
+      .then((result) => {
+        'background only';
+        setRecording(false);
+        setPaused(false);
+        setTakeUri(result.uri);
+        const size =
+          result.sizeBytes === null
+            ? '大小未知'
+            : `${(result.sizeBytes / 1024).toFixed(1)} KB`;
+        setStatus(`已保存 · ${formatClock(result.durationMs)} · ${size} · m4a`);
+      })
+      .catch((error: Error) => {
+        'background only';
+        setRecording(false);
+        setPaused(false);
+        setStatus(`停止失败：${error.message}`);
+      });
+  }, []);
+
+  const discard = useCallback(() => {
+    'background only';
+    const recorder = recorderRef.current;
+    if (recorder === null) return;
+    recorder
+      .cancel()
+      .then(() => {
+        'background only';
+        setRecording(false);
+        setPaused(false);
+        setTakeUri(null);
+        setStatus('已丢弃，可重新录音');
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, []);
+
+  const playback = useCallback(() => {
+    'background only';
+    if (takeUri === null) return;
+    playerRef.current?.destroy();
+    setStatus('回放中');
+    const player = audioPlayer.create({ uri: takeUri, autoPlay: true });
+    playerRef.current = player;
+    player.addEventListener('state', (event) => {
+      'background only';
+      setStatus(
+        `回放 · ${PLAYER_STATE_LABELS[event.state] ?? event.state} · ${formatClock(
+          event.positionMs,
+        )} / ${formatClock(event.durationMs)}`,
+      );
+    });
+    player.addEventListener('progress', (event) => {
+      'background only';
+      setStatus(
+        `回放 · ${formatClock(event.positionMs)} / ${formatClock(event.durationMs)}`,
+      );
+    });
+    player.addEventListener('error', (event) => {
+      'background only';
+      setStatus(`回放错误：${event.error}`);
+    });
+  }, [takeUri]);
+
+  useEffect(() => {
+    'background only';
+    return () => {
+      'background only';
+      recorderRef.current?.destroy();
+      recorderRef.current = null;
+      playerRef.current?.destroy();
+      playerRef.current = null;
+    };
+  }, []);
+
+  return (
+    <view>
+      <ApiName name="audioRecorder.create" />
+      <DemoCard
+        title="录音"
+        desc="先申请麦克风权限，再录制 AAC(m4a) 音频写入应用缓存目录；状态与时长经 audioRecorder 事件回传，上限 60 秒自动停止，录完可直接回放。"
+      >
+        <DemoButton
+          label="开始录音"
+          primary
+          disabled={recording}
+          onTap={begin}
+        />
+        <DemoButton
+          label={paused ? '继续录音' : '暂停'}
+          disabled={!recording}
+          onTap={togglePause}
+        />
+        <DemoButton label="停止并保存" disabled={!recording} onTap={finish} />
+        <DemoButton
+          label="丢弃重录"
+          disabled={!recording && takeUri === null}
+          onTap={discard}
+        />
+        <DemoButton
+          label="回放刚录的"
+          disabled={takeUri === null || recording}
+          onTap={playback}
+        />
+        <ResultLine text={status} placeholder="录音状态与结果展示在这里" />
+      </DemoCard>
+    </view>
+  );
+}
+
 // Self-contained demo page for the autolinked <module-webview>: it talks to
 // the same native modules the template uses (KV / Clipboard / Haptics)
 // through window.__lynxNativeBridge, the raw protocol behind
 // @lynx-template/autolink-webview-bridge/client. String concatenation
 // instead of template literals keeps this embeddable in the TSX template
 // literal below.
-const WEBVIEW_BRIDGE_DEMO_HTML = [
-  '<!DOCTYPE html><html><head><meta charset="utf-8">',
-  '<meta name="viewport" content="width=device-width, initial-scale=1">',
-  '<style>',
-  'body { font-family: -apple-system, sans-serif; margin: 10px; color: #1d1b20; }',
-  '.row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }',
-  'button { padding: 8px 12px; border: 1px solid #cac4d0; border-radius: 8px;',
-  '  background: #f3edf7; font-size: 13px; }',
-  'button.primary { background: #07c160; border-color: #07c160; color: #fff; }',
-  '#out { font-size: 12px; color: #49454f; word-break: break-all; min-height: 16px; }',
-  '</style></head><body>',
-  '<div class="row">',
-  '<button class="primary" onclick="saveKv()">KV 写入</button>',
-  '<button onclick="readKv()">KV 读取</button>',
-  '<button onclick="copyClip()">剪贴板</button>',
-  '<button onclick="buzz()">振动</button>',
-  '<button onclick="readDevice()">设备</button>',
-  '</div><div id="out">waiting for the bridge…</div>',
-  '<script>',
-  'var out = document.getElementById("out");',
-  'var selfTestStarted = false;',
-  'function say(text) { out.textContent = text; }',
-  'function call(module, method, args) {',
-  '  if (!window.__lynxNativeBridge) { say("bridge unavailable");',
-  '    return Promise.reject(new Error("bridge unavailable")); }',
-  '  return window.__lynxNativeBridge.invoke(module, method, args);',
-  '}',
-  'function saveKv() {',
-  '  call("Storage", "setString", ["webview.counter", String(Date.now())])',
-  '    .then(function () { say("KV saved"); },',
-  '      function (e) { say("KV save failed: " + e.message); });',
-  '}',
-  'function readKv() {',
-  '  call("Storage", "getString", ["webview.counter", null])',
-  '    .then(function (r) { say("KV value: " + r[0]); },',
-  '      function (e) { say("KV read failed: " + e.message); });',
-  '}',
-  'function copyClip() {',
-  '  call("Clipboard", "setString", ["from webview " + Date.now()])',
-  '    .then(function () { return call("Clipboard", "getString", []); })',
-  '    .then(function (r) { say("Clipboard: " + r[0]); },',
-  '      function (e) { say("Clipboard failed: " + e.message); });',
-  '}',
-  'function buzz() {',
-  '  call("Haptics", "impact", ["light"])',
-  '    .then(function () { say("haptic done"); },',
-  '      function (e) { say("haptic failed: " + e.message); });',
-  '}',
-  'function readDevice() {',
-  '  call("Device", "getInfo", [])',
-  '    .then(function (r) {',
-  '      var result = JSON.parse(r[0]);',
-  '      if (result.error) { throw new Error(result.error); }',
-  '      say("Device: " + result.value.manufacturer + " " + result.value.model);',
-  '    }, function (e) { say("Device failed: " + e.message); });',
-  '}',
-  'function runSelfTest() {',
-  '  if (selfTestStarted || !window.__lynxNativeBridge) { return; }',
-  '  selfTestStarted = true;',
-  '  var key = "webview.selftest";',
-  '  var expected = "ok-" + Date.now();',
-  '  call("Storage", "setString", [key, expected])',
-  '    .then(function () { return call("Storage", "getString", [key, null]); })',
-  '    .then(function (r) {',
-  '      if (r[0] !== expected) { throw new Error("KV round-trip mismatch"); }',
-  '      return call("Device", "getInfo", []);',
-  '    })',
-  '    .then(function (r) {',
-  '      var result = JSON.parse(r[0]);',
-  '      if (result.error || !result.value || !result.value.model) {',
-  '        throw new Error(result.error || "invalid Device payload");',
-  '      }',
-  '      say("WEBVIEW_BRIDGE_OK · " + result.value.manufacturer + " " + result.value.model);',
-  '    })',
-  '    .catch(function (e) { say("WEBVIEW_BRIDGE_FAIL · " + e.message); });',
-  '}',
-  'window.addEventListener("lynx-native-bridge-ready", runSelfTest);',
-  'if (window.__lynxNativeBridge) { setTimeout(runSelfTest, 0); }',
-  '</script></body></html>',
-].join('');
+function webViewBridgeDemoHtml(isDark: boolean): string {
+  const bodyColor = isDark ? '#f5f5f7' : '#1d1b20';
+  const bodyBackground = isDark ? '#1c1c1e' : '#ffffff';
+  const buttonBorder = isDark ? '#48484a' : '#cac4d0';
+  const buttonBackground = isDark ? '#2c2c2e' : '#f3edf7';
+  const outputColor = isDark ? '#c7c7cc' : '#49454f';
+  return [
+    '<!DOCTYPE html><html><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    `<meta name="color-scheme" content="${isDark ? 'dark' : 'light'}">`,
+    '<style>',
+    `html { color-scheme: ${isDark ? 'dark' : 'light'}; }`,
+    `body { font-family: -apple-system, sans-serif; margin: 10px; color: ${bodyColor}; background: ${bodyBackground}; }`,
+    '.row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }',
+    `button { padding: 8px 12px; border: 1px solid ${buttonBorder}; border-radius: 8px;`,
+    `  background: ${buttonBackground}; color: ${bodyColor}; font-size: 13px; }`,
+    'button.primary { background: #07c160; border-color: #07c160; color: #fff; }',
+    `#out { font-size: 12px; color: ${outputColor}; word-break: break-all; min-height: 16px; }`,
+    '</style></head><body>',
+    '<div class="row">',
+    `<button class="primary" onclick="saveKv()">${t('KV 写入')}</button>`,
+    `<button onclick="readKv()">${t('KV 读取')}</button>`,
+    `<button onclick="copyClip()">${t('剪贴板')}</button>`,
+    `<button onclick="buzz()">${t('振动')}</button>`,
+    `<button onclick="readDevice()">${t('设备')}</button>`,
+    '</div><div id="out">waiting for the bridge…</div>',
+    '<script>',
+    'var out = document.getElementById("out");',
+    'var selfTestStarted = false;',
+    'function say(text) { out.textContent = text; }',
+    'function call(module, method, args) {',
+    '  if (!window.__lynxNativeBridge) { say("bridge unavailable");',
+    '    return Promise.reject(new Error("bridge unavailable")); }',
+    '  return window.__lynxNativeBridge.invoke(module, method, args);',
+    '}',
+    'function saveKv() {',
+    '  call("Storage", "setString", ["webview.counter", String(Date.now())])',
+    '    .then(function () { say("KV saved"); },',
+    '      function (e) { say("KV save failed: " + e.message); });',
+    '}',
+    'function readKv() {',
+    '  call("Storage", "getString", ["webview.counter", null])',
+    '    .then(function (r) { say("KV value: " + r[0]); },',
+    '      function (e) { say("KV read failed: " + e.message); });',
+    '}',
+    'function copyClip() {',
+    '  call("Clipboard", "setString", ["from webview " + Date.now()])',
+    '    .then(function () { return call("Clipboard", "getString", []); })',
+    '    .then(function (r) { say("Clipboard: " + r[0]); },',
+    '      function (e) { say("Clipboard failed: " + e.message); });',
+    '}',
+    'function buzz() {',
+    '  call("Haptics", "impact", ["light"])',
+    '    .then(function () { say("haptic done"); },',
+    '      function (e) { say("haptic failed: " + e.message); });',
+    '}',
+    'function readDevice() {',
+    '  call("Device", "getInfo", [])',
+    '    .then(function (r) {',
+    '      var result = JSON.parse(r[0]);',
+    '      if (result.error) { throw new Error(result.error); }',
+    '      say("Device: " + result.value.manufacturer + " " + result.value.model);',
+    '    }, function (e) { say("Device failed: " + e.message); });',
+    '}',
+    'function runSelfTest() {',
+    '  if (selfTestStarted || !window.__lynxNativeBridge) { return; }',
+    '  selfTestStarted = true;',
+    '  var key = "webview.selftest";',
+    '  var expected = "ok-" + Date.now();',
+    '  call("Storage", "setString", [key, expected])',
+    '    .then(function () { return call("Storage", "getString", [key, null]); })',
+    '    .then(function (r) {',
+    '      if (r[0] !== expected) { throw new Error("KV round-trip mismatch"); }',
+    '      return call("Device", "getInfo", []);',
+    '    })',
+    '    .then(function (r) {',
+    '      var result = JSON.parse(r[0]);',
+    '      if (result.error || !result.value || !result.value.model) {',
+    '        throw new Error(result.error || "invalid Device payload");',
+    '      }',
+    '      say("WEBVIEW_BRIDGE_OK · " + result.value.manufacturer + " " + result.value.model);',
+    '    })',
+    '    .catch(function (e) { say("WEBVIEW_BRIDGE_FAIL · " + e.message); });',
+    '}',
+    'window.addEventListener("lynx-native-bridge-ready", runSelfTest);',
+    'if (window.__lynxNativeBridge) { setTimeout(runSelfTest, 0); }',
+    '</script></body></html>',
+  ].join('');
+}
 
 export function WebViewPage() {
+  const colorScheme = readColorScheme(useInitData());
   return (
     <view>
       <ApiName name="module-webview" />
@@ -615,7 +829,7 @@ export function WebViewPage() {
       >
         <module-webview
           className="WebviewBridgeDemo"
-          html={WEBVIEW_BRIDGE_DEMO_HTML}
+          html={webViewBridgeDemoHtml(colorScheme === 'dark')}
           webview-type="module-bridge"
           params={{
             'module-bridge': {
@@ -835,11 +1049,11 @@ export function ImageToolingPage() {
         />
         <view className="LogBox">
           {lines.length === 0 ? (
-            <text className="LogBox__empty">执行日志展示在这里</text>
+            <text className="LogBox__empty">{t('执行日志展示在这里')}</text>
           ) : (
             lines.map((line, index) => (
               <text key={index} className="LogBox__line">
-                {line}
+                {t(line)}
               </text>
             ))
           )}
@@ -857,7 +1071,7 @@ export function ImageToolingPage() {
               }}
             />
             <text className="DemoCard__desc">
-              叠加预览 {compressed.width}×{compressed.height}
+              {t('叠加预览')} {compressed.width}×{compressed.height}
             </text>
           </view>
         ) : null}
@@ -906,7 +1120,7 @@ export function SharePage() {
     run('文本', () =>
       share.open({
         title: 'Lynx Template',
-        text: '来自 Lynx Template 的系统分享：三端一致的分享面板 API。',
+        text: t('来自 Lynx Template 的系统分享：三端一致的分享面板 API。'),
       }),
     );
   }, [run]);
@@ -916,7 +1130,7 @@ export function SharePage() {
     run('链接', () =>
       share.open({
         title: 'Lynx',
-        text: 'Lynx 跨端框架',
+        text: t('Lynx 跨端框架'),
         url: 'https://lynxjs.org',
       }),
     );
@@ -927,8 +1141,8 @@ export function SharePage() {
     run('截图', async () => {
       const shot = await screenshot.capture({ format: 'jpeg', quality: 85 });
       return share.open({
-        title: 'Lynx 截图',
-        text: 'screenshot.capture 的产物直接交给分享面板',
+        title: t('Lynx 截图'),
+        text: t('screenshot.capture 的产物直接交给分享面板'),
         files: [shot.uri],
       });
     });

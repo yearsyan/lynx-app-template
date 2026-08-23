@@ -12,7 +12,11 @@ export * from './overlay.js';
 export interface NativeRouteEnvironment {
   bundle: string;
   statusBarStyle: 'dark-content' | 'light-content';
-  animation: 'default' | 'fade' | 'none' | 'present';
+  animation: 'default' | 'fade' | 'none';
+  /** Older hosts may omit it and implicitly use `page`. */
+  presentation?: 'page' | 'inputDialog' | 'overlay';
+  /** Native-owned bottom backdrop extension in Lynx logical pixels. */
+  contentInsetBottom?: number;
   params: Record<string, unknown>;
 }
 
@@ -28,6 +32,14 @@ export function useRouteParams<
 >(): Partial<T> {
   const initData = useInitData();
   return (initData?.route?.params ?? {}) as Partial<T>;
+}
+
+/** Reads the native route host's reactive bottom content inset. */
+export function useRouteContentInsetBottom(): number {
+  const value = useInitData()?.route?.contentInsetBottom;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, value)
+    : 0;
 }
 
 // ---------------------------------------------------------------------------

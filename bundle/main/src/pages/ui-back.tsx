@@ -12,6 +12,7 @@ import {
   DemoCard,
   ResultLine,
 } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 type OverlayLayer = '第一层' | '第二层';
 
@@ -117,22 +118,26 @@ export function BackOverlayPage() {
         <view className="BackOverlayDemo__flow">
           <view className="BackOverlayDemo__flowStep BackOverlayDemo__flowStep--active">
             <text className="BackOverlayDemo__flowIndex">1</text>
-            <text className="BackOverlayDemo__flowLabel">打开第一层</text>
+            <text className="BackOverlayDemo__flowLabel">
+              {t('打开第一层')}
+            </text>
           </view>
           <text className="BackOverlayDemo__flowArrow">›</text>
           <view className="BackOverlayDemo__flowStep">
             <text className="BackOverlayDemo__flowIndex">2</text>
-            <text className="BackOverlayDemo__flowLabel">叠加第二层</text>
+            <text className="BackOverlayDemo__flowLabel">
+              {t('叠加第二层')}
+            </text>
           </view>
           <text className="BackOverlayDemo__flowArrow">›</text>
           <view className="BackOverlayDemo__flowStep">
             <text className="BackOverlayDemo__flowIndex">↩</text>
-            <text className="BackOverlayDemo__flowLabel">逐层返回</text>
+            <text className="BackOverlayDemo__flowLabel">{t('逐层返回')}</text>
           </view>
         </view>
         <DemoButton label="打开第一层弹层" primary onTap={openFirst} />
         <DemoButton
-          label={`跟手下拉关闭：${dragEnabled ? '开启' : '关闭'}`}
+          label={`跟手下拉关闭：${dragEnabled ? '已开启' : '已关闭'}`}
           onTap={toggleDrag}
         />
         <ResultLine text={result} placeholder="尚未操作" />
@@ -147,15 +152,17 @@ export function BackOverlayPage() {
         desc="连续打开两层后，第一次返回或下拉只关闭第二层，第二次才关闭第一层。下拉距离不足时会原生回弹且不会出栈。"
       >
         <view className="BackOverlayDemo__checks">
-          <text className="BackOverlayDemo__check">• 后进先出（LIFO）</text>
           <text className="BackOverlayDemo__check">
-            • 单次手势固定消费同一层
+            {t('• 后进先出（LIFO）')}
           </text>
           <text className="BackOverlayDemo__check">
-            • Android / iOS 原生逐帧动画
+            {t('• 单次手势固定消费同一层')}
           </text>
           <text className="BackOverlayDemo__check">
-            • 下拉超过阈值关闭，否则回弹
+            {t('• Android / iOS 原生逐帧动画')}
+          </text>
+          <text className="BackOverlayDemo__check">
+            {t('• 下拉超过阈值关闭，否则回弹')}
           </text>
         </view>
       </DemoCard>
@@ -173,12 +180,14 @@ export function BackOverlayPage() {
         <view className="BackOverlayDemo__handle" />
         <view className="BackOverlayDemo__layerBadge">
           <text className="BackOverlayDemo__layerBadgeText">
-            返回栈 · 第 1 层
+            {t('返回栈 · 第 1 层')}
           </text>
         </view>
-        <text className="BackOverlayDemo__sheetTitle">底部弹层</text>
+        <text className="BackOverlayDemo__sheetTitle">{t('底部弹层')}</text>
         <text className="BackOverlayDemo__sheetDesc">
-          向下拖动会跟随手指移动；松手后超过阈值关闭，否则回弹。也可以继续打开第二层，验证返回栈顺序。
+          {t(
+            '向下拖动会跟随手指移动；松手后超过阈值关闭，否则回弹。也可以继续打开第二层，验证返回栈顺序。',
+          )}
         </text>
         <DemoButton label="在上方再打开第二层" primary onTap={openSecond} />
         <DemoButton label="直接关闭第一层" onTap={closeFirst} />
@@ -197,12 +206,14 @@ export function BackOverlayPage() {
         <view className="BackOverlayDemo__handle BackOverlayDemo__handle--blue" />
         <view className="BackOverlayDemo__layerBadge BackOverlayDemo__layerBadge--blue">
           <text className="BackOverlayDemo__layerBadgeText BackOverlayDemo__layerBadgeText--blue">
-            返回栈 · 第 2 层（栈顶）
+            {t('返回栈 · 第 2 层（栈顶）')}
           </text>
         </view>
-        <text className="BackOverlayDemo__sheetTitle">栈顶弹层</text>
+        <text className="BackOverlayDemo__sheetTitle">{t('栈顶弹层')}</text>
         <text className="BackOverlayDemo__sheetDesc">
-          这是当前栈顶。系统返回、点击遮罩或向下拖动都只会关闭这一层，下面的第一层不会被同一次操作消费。
+          {t(
+            '这是当前栈顶。系统返回、点击遮罩或向下拖动都只会关闭这一层，下面的第一层不会被同一次操作消费。',
+          )}
         </text>
         <DemoButton label="关闭栈顶，保留第一层" primary onTap={closeSecond} />
       </PredictiveBackOverlay>

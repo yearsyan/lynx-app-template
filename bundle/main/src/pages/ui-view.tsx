@@ -4,6 +4,7 @@ import { Swiper, SwiperItem } from '@lynx-js/lynx-ui';
 import { useRef, useState } from '@lynx-js/react';
 
 import { ApiName, DemoButton, DemoCard } from '../components/Demo.js';
+import { t } from '../i18n.js';
 
 const COLORS = ['#07C160', '#576B95', '#FA9D3B', '#E64340'];
 const TITLES = ['第一屏', '第二屏', '第三屏', '第四屏'];
@@ -42,7 +43,9 @@ export function SwiperPage() {
                   className="SwiperCard"
                   style={{ backgroundColor: COLORS[index] }}
                 >
-                  <text className="SwiperCard__text">{TITLES[index]}</text>
+                  <text className="SwiperCard__text">
+                    {t(TITLES[index] ?? '')}
+                  </text>
                 </view>
               </SwiperItem>
             )}

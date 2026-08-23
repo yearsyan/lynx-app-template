@@ -40,7 +40,6 @@ public final class NavigationModule extends LynxContextModule {
     public static final String ANIMATION_DEFAULT = "default";
     public static final String ANIMATION_FADE = "fade";
     public static final String ANIMATION_NONE = "none";
-    public static final String ANIMATION_PRESENT = "present";
     private static final String EVENT_NAME = "back";
 
     private static final String PLATFORM_ANDROID = "android";
@@ -133,7 +132,7 @@ public final class NavigationModule extends LynxContextModule {
 
     public static boolean isLynxRouteAnimation(String value) {
         return ANIMATION_DEFAULT.equals(value) || ANIMATION_FADE.equals(value)
-                || ANIMATION_NONE.equals(value) || ANIMATION_PRESENT.equals(value);
+                || ANIMATION_NONE.equals(value);
     }
 
     @LynxMethod

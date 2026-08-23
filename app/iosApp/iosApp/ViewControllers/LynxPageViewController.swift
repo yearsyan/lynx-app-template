@@ -58,26 +58,75 @@ private final class PresentScreenObserver: NSObject, LynxViewLifecycle {
   }
 }
 
+/// Relays intrinsic-size changes from a content-height dialog LynxView back to
+/// its native overlay so only that view follows the keyboard.
+private final class DialogLayoutObserver: NSObject, LynxViewLifecycle {
+  private let onLayoutChange: () -> Void
+
+  init(onLayoutChange: @escaping () -> Void) {
+    self.onLayoutChange = onLayoutChange
+  }
+
+  func lynxViewDidFirstScreen(_ view: LynxView) {
+    onLayoutChange()
+  }
+
+  func lynxViewDidChangeIntrinsicContentSize(_ view: LynxView) {
+    onLayoutChange()
+  }
+}
+
 /// Reusable native host for both the storyboard root and routed Lynx bundles.
-class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
+class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost,
+  UIGestureRecognizerDelegate {
   private let bundleRepository = LynxBundleRepository()
   private let bundleName: String
   private let route: [String: Any]?
   private var presentBackdrop: PresentBackdrop?
   private let presentIOSSwipeDownEnabled: Bool
+  private let presentDragDownToDismissEnabled: Bool
   /// Correlates this page with its opener's pending openForResult callback.
   let routeResultToken: String?
 
   var routeAnimation: NativeRouteAnimation {
     NativeRouteAnimation(rawValue: route?["animation"] as? String ?? "") ?? .standard
   }
+  var isInputDialogRoute: Bool {
+    route?["presentation"] as? String == NativeRoutePresentation.inputDialog.rawValue
+  }
+  /// Overlay routes carry the snapshot backdrop and its choreography.
+  var isOverlayRoute: Bool {
+    route?["presentation"] as? String == NativeRoutePresentation.overlay.rawValue
+  }
   private var nativeStatusBarStyle: NativeStatusBarStyle
   private var lynxView: LynxView?
   private var embeddedFallback: EmbeddedBundleFallback?
   private var presentScreenObserver: PresentScreenObserver?
+  private var dialogLayoutObserver: DialogLayoutObserver?
   private var hasLoadedInitialBundle = false
   private var canUpdateTemplate = false
   private var lastSafeAreaInsets: UIEdgeInsets?
+  private var lastColorScheme: String?
+  private var lastLocale: String?
+  private var dialogKeyboardOverlap: CGFloat = 0
+  private var dialogContentInsetBottom: CGFloat = 0
+  private var lastDialogContentInsetBottom: CGFloat?
+  private var dialogHasPresentedKeyboard = false
+  private var dialogKeyboardTransitionInProgress = false
+  private var dialogDismissInProgress = false
+  private var pendingDialogDismiss: (() -> Void)?
+  private var dialogDismissFallback: DispatchWorkItem?
+  private lazy var presentDragDownGesture: UIPanGestureRecognizer = {
+    let gesture = UIPanGestureRecognizer(
+      target: self,
+      action: #selector(handlePresentDragDown(_:))
+    )
+    gesture.maximumNumberOfTouches = 1
+    gesture.cancelsTouchesInView = true
+    gesture.delaysTouchesBegan = false
+    gesture.delegate = self
+    return gesture
+  }()
 
   #if DEBUG
   private var developmentButton: UIButton?
@@ -95,12 +144,14 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     presentEnterAnimation: PresentContentAnimationOptions = .standard,
     presentExitAnimation: PresentContentAnimationOptions = .standard,
     presentIOSSwipeDownEnabled: Bool = false,
+    presentDragDownToDismissEnabled: Bool = false,
     routeResultToken: String? = nil
   ) {
     self.bundleName = bundleName
     self.route = route
     self.routeResultToken = routeResultToken
     self.presentIOSSwipeDownEnabled = presentIOSSwipeDownEnabled
+    self.presentDragDownToDismissEnabled = presentDragDownToDismissEnabled
     presentBackdrop = snapshot.map {
       PresentBackdrop(
         image: $0,
@@ -119,12 +170,15 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     route = nil
     presentBackdrop = nil
     presentIOSSwipeDownEnabled = false
+    presentDragDownToDismissEnabled = false
     routeResultToken = nil
     nativeStatusBarStyle = .darkContent
     super.init(coder: coder)
   }
 
   deinit {
+    dialogDismissFallback?.cancel()
+    NotificationCenter.default.removeObserver(self)
     // Safety net: every real close path delivers from viewDidDisappear, but
     // a page dropped without a full disappearance pass must still resolve.
     if let routeResultToken {
@@ -136,9 +190,37 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     super.viewDidLoad()
     // Behind the shrinking snapshot the margins stay solid black, like iOS'
     // own present chrome; plain pages keep the light page background.
-    view.backgroundColor = presentBackdrop != nil
-      ? .black
-      : UIColor(red: 247 / 255, green: 247 / 255, blue: 251 / 255, alpha: 1)
+    view.backgroundColor = isInputDialogRoute
+      ? .clear
+      : (presentBackdrop != nil
+        ? .black
+        : .systemBackground)
+    if route == nil {
+      nativeStatusBarStyle = nativeColorScheme == "dark" ? .lightContent : .darkContent
+    }
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(nativeLocaleDidChange),
+      name: NSLocale.currentLocaleDidChangeNotification,
+      object: nil
+    )
+    if isInputDialogRoute {
+      let dimmingControl = UIControl(frame: view.bounds)
+      dimmingControl.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+      dimmingControl.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+      dimmingControl.addTarget(
+        self,
+        action: #selector(dialogBackdropTapped),
+        for: .touchUpInside
+      )
+      view.addSubview(dimmingControl)
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(dialogKeyboardWillChangeFrame(_:)),
+        name: UIResponder.keyboardWillChangeFrameNotification,
+        object: nil
+      )
+    }
     if let backdrop = presentBackdrop {
       // The snapshot fills the view from the first frame, before the Lynx
       // content exists, so the push with no animation is imperceptible.
@@ -167,16 +249,32 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     }
     WebviewModuleBridgeHostAdapter.attach(config, to: lynxView)
 
-    lynxView.backgroundColor = presentBackdrop != nil ? .clear : view.backgroundColor
-    lynxView.isOpaque = presentBackdrop == nil
-    lynxView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    lynxView.backgroundColor = presentBackdrop != nil || isInputDialogRoute
+      ? .clear
+      : view.backgroundColor
+    lynxView.isOpaque = presentBackdrop == nil && !isInputDialogRoute
+    lynxView.autoresizingMask = isInputDialogRoute
+      ? [.flexibleWidth]
+      : [.flexibleWidth, .flexibleHeight]
     lynxView.frame = view.bounds
     lynxView.preferredLayoutWidth = self.view.frame.size.width
     lynxView.preferredLayoutHeight = self.view.frame.size.height
     lynxView.layoutWidthMode = .exact
-    lynxView.layoutHeightMode = .exact
+    if isInputDialogRoute {
+      lynxView.preferredMaxLayoutHeight = self.view.frame.size.height
+      lynxView.layoutHeightMode = .max
+    } else {
+      lynxView.layoutHeightMode = .exact
+    }
     view.addSubview(lynxView)
     self.lynxView = lynxView
+    if presentDragDownToDismissEnabled {
+      // This recognizer is external to Lynx. If it wins UIKit's gesture
+      // arbitration, Lynx receives touch-cancel and native owns the same
+      // pointer until end/cancel. Page elements that explicitly block native
+      // gestures keep their own interaction instead.
+      view.addGestureRecognizer(presentDragDownGesture)
+    }
 
     // A dev server or OTA cache that cannot serve the bundle must not leave a
     // white screen; render the embedded bundle instead (once).
@@ -196,6 +294,15 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
       presentScreenObserver = observer
       backdrop.prepare(content: lynxView)
     }
+    if isInputDialogRoute {
+      let observer = DialogLayoutObserver { [weak self] in
+        DispatchQueue.main.async {
+          self?.layoutDialogLynxView()
+        }
+      }
+      lynxView.addLifecycleClient(observer)
+      dialogLayoutObserver = observer
+    }
 
     #if DEBUG
     if route == nil {
@@ -210,16 +317,41 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     updateNativeEnvironmentIfNeeded()
   }
 
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    guard previousTraitCollection?.hasDifferentColorAppearance(
+      comparedTo: traitCollection
+    ) ?? true else { return }
+
+    if !isInputDialogRoute, presentBackdrop == nil {
+      view.backgroundColor = .systemBackground
+      lynxView?.backgroundColor = .systemBackground
+    }
+    if route == nil {
+      nativeStatusBarStyle = nativeColorScheme == "dark" ? .lightContent : .darkContent
+      setNeedsStatusBarAppearanceUpdate()
+    }
+    updateNativeEnvironmentIfNeeded()
+  }
+
+  @objc private func nativeLocaleDidChange() {
+    updateNativeEnvironmentIfNeeded()
+  }
+
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     // `frame` is undefined while a view has a non-identity transform. The
     // present/dismiss choreography transforms the Lynx view, so updating its
     // frame during an animation can make the bottom sheet jump. Lay it out
     // through bounds and center, which remain stable under transforms.
-    lynxView?.bounds = CGRect(origin: .zero, size: view.bounds.size)
-    lynxView?.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
-    lynxView?.preferredLayoutWidth = view.bounds.width
-    lynxView?.preferredLayoutHeight = view.bounds.height
+    if isInputDialogRoute {
+      layoutDialogLynxView()
+    } else {
+      lynxView?.bounds = CGRect(origin: .zero, size: view.bounds.size)
+      lynxView?.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+      lynxView?.preferredLayoutWidth = view.bounds.width
+      lynxView?.preferredLayoutHeight = view.bounds.height
+    }
     loadInitialBundleIfReady()
     updateNativeEnvironmentIfNeeded()
     #if DEBUG
@@ -249,9 +381,112 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     // stack; only a real removal (pop, dismiss choreography) resolves the
     // opener's pending openForResult here. deinit is the safety net.
     let stillInStack = navigationController?.viewControllers.contains(self) ?? false
-    if !stillInStack, let routeResultToken {
+    let routeWasRemoved = isInputDialogRoute
+      ? (isBeingDismissed || presentingViewController == nil)
+      : !stillInStack
+    if routeWasRemoved, let routeResultToken {
       AppRouteHandler.completeRouteResult(token: routeResultToken)
     }
+  }
+
+  /// Hides the dialog's keyboard first; the supplied close action runs only
+  /// after UIKit has completed the keyboard transition.
+  func requestDialogDismiss(_ close: @escaping () -> Void) {
+    guard isInputDialogRoute, !dialogDismissInProgress else { return }
+    if pendingDialogDismiss == nil {
+      pendingDialogDismiss = close
+    }
+    let resignedEditor = view.endEditing(true)
+    if dialogKeyboardOverlap <= 0 && !dialogKeyboardTransitionInProgress && !resignedEditor {
+      completeDialogDismiss()
+      return
+    }
+    dialogDismissFallback?.cancel()
+    let fallback = DispatchWorkItem { [weak self] in
+      self?.completeDialogDismiss()
+    }
+    dialogDismissFallback = fallback
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: fallback)
+  }
+
+  @objc private func dialogBackdropTapped() {
+    requestDialogDismiss { [weak self] in
+      self?.dismiss(animated: false)
+    }
+  }
+
+  @objc private func dialogKeyboardWillChangeFrame(_ notification: Notification) {
+    guard isInputDialogRoute,
+          let userInfo = notification.userInfo,
+          let endValue = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else {
+      return
+    }
+    let endFrame = view.convert(endValue.cgRectValue, from: nil)
+    let overlap = max(view.bounds.intersection(endFrame).height, 0)
+    let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?
+      .doubleValue ?? 0.25
+    let curve = (userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?
+      .uintValue ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
+    dialogKeyboardTransitionInProgress = true
+    dialogKeyboardOverlap = overlap
+    // Keep the Lynx surface attached to the physical screen bottom. Matching
+    // route padding leaves its interactive content above the keyboard while
+    // its own background paints underneath the complete keyboard material.
+    dialogContentInsetBottom = overlap
+    if overlap > 0 {
+      dialogHasPresentedKeyboard = true
+    }
+    updateNativeEnvironmentIfNeeded()
+    UIView.animate(
+      withDuration: duration,
+      delay: 0,
+      options: UIView.AnimationOptions(rawValue: curve << 16),
+      animations: { [weak self] in
+        self?.layoutDialogLynxView()
+      },
+      completion: { [weak self] _ in
+        guard let self else { return }
+        self.dialogKeyboardTransitionInProgress = false
+        guard self.dialogHasPresentedKeyboard,
+              self.dialogKeyboardOverlap <= 0 else { return }
+        if self.pendingDialogDismiss == nil {
+          self.pendingDialogDismiss = { [weak self] in
+            self?.dismiss(animated: false)
+          }
+        }
+        self.completeDialogDismiss()
+      }
+    )
+  }
+
+  private func layoutDialogLynxView() {
+    guard isInputDialogRoute, let lynxView else { return }
+    let extendedBottom = view.bounds.height
+    let availableHeight = max(extendedBottom, 1)
+    lynxView.preferredLayoutWidth = view.bounds.width
+    lynxView.preferredMaxLayoutHeight = availableHeight
+    lynxView.layoutWidthMode = .exact
+    lynxView.layoutHeightMode = .max
+
+    let intrinsicHeight = lynxView.intrinsicContentSize.height
+    let candidateHeight = intrinsicHeight.isFinite && intrinsicHeight > 0
+      ? intrinsicHeight
+      : lynxView.bounds.height
+    let height = min(max(candidateHeight, 1), availableHeight)
+    lynxView.bounds = CGRect(x: 0, y: 0, width: view.bounds.width, height: height)
+    lynxView.center = CGPoint(
+      x: view.bounds.midX,
+      y: extendedBottom - height / 2
+    )
+  }
+
+  private func completeDialogDismiss() {
+    guard !dialogDismissInProgress, let close = pendingDialogDismiss else { return }
+    dialogDismissInProgress = true
+    dialogDismissFallback?.cancel()
+    dialogDismissFallback = nil
+    pendingDialogDismiss = nil
+    close()
   }
 
   override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -271,14 +506,56 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
     presentBackdrop?.preserveCornerClipping()
   }
 
-  var canBeginPresentSwipeDown: Bool {
-    presentIOSSwipeDownEnabled &&
-      routeAnimation == .present &&
+  private var canBeginPresentInteractiveDismiss: Bool {
+    isOverlayRoute &&
       presentBackdrop?.canBeginInteractiveDismiss == true
   }
 
+  var canBeginPresentSwipeDown: Bool {
+    presentIOSSwipeDownEnabled && canBeginPresentInteractiveDismiss
+  }
+
+  private var canBeginPresentDragDown: Bool {
+    presentDragDownToDismissEnabled && canBeginPresentInteractiveDismiss
+  }
+
+  func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === presentDragDownGesture,
+          canBeginPresentDragDown else { return false }
+    let velocity = presentDragDownGesture.velocity(in: view)
+    return velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
+  }
+
+  @objc private func handlePresentDragDown(_ gesture: UIPanGestureRecognizer) {
+    let height = max(view.bounds.height, 1)
+    let progress = min(max(gesture.translation(in: view).y / height, 0), 1)
+
+    switch gesture.state {
+    case .began:
+      _ = beginPresentSwipeDown()
+    case .changed:
+      updatePresentSwipeDown(progress: progress)
+    case .ended:
+      let velocity = gesture.velocity(in: view).y
+      if progress >= 0.25 || velocity >= 800 {
+        finishPresentSwipeDown { [weak self] in
+          guard let self,
+                let navigation = self.navigationController,
+                navigation.topViewController === self else { return }
+          navigation.popViewController(animated: false)
+        }
+      } else {
+        cancelPresentSwipeDown()
+      }
+    case .cancelled, .failed:
+      cancelPresentSwipeDown()
+    default:
+      break
+    }
+  }
+
   func beginPresentSwipeDown() -> Bool {
-    guard canBeginPresentSwipeDown,
+    guard canBeginPresentInteractiveDismiss,
           let backdrop = presentBackdrop,
           let content = lynxView else { return false }
     return backdrop.beginInteractiveDismiss(content: content)
@@ -330,6 +607,9 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
   private func loadBundle(fromURL url: String) {
     let safeAreaInsets = view.safeAreaInsets
     lastSafeAreaInsets = safeAreaInsets
+    lastColorScheme = nativeColorScheme
+    lastLocale = nativeLocale
+    lastDialogContentInsetBottom = dialogContentInsetBottom
     lynxView?.loadTemplate(
       fromURL: url,
       initData: nativeEnvironmentData(safeAreaInsets)
@@ -339,23 +619,50 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost {
 
   private func updateNativeEnvironmentIfNeeded() {
     let safeAreaInsets = view.safeAreaInsets
+    let colorScheme = nativeColorScheme
+    let locale = nativeLocale
+    let contentInsetBottom = dialogContentInsetBottom
     guard canUpdateTemplate,
-          !sameInsets(safeAreaInsets, lastSafeAreaInsets) else {
+          (!sameInsets(safeAreaInsets, lastSafeAreaInsets)
+            || colorScheme != lastColorScheme
+            || locale != lastLocale
+            || contentInsetBottom != lastDialogContentInsetBottom) else {
       return
     }
 
     lastSafeAreaInsets = safeAreaInsets
+    lastColorScheme = colorScheme
+    lastLocale = locale
+    lastDialogContentInsetBottom = contentInsetBottom
     let updateMeta = LynxUpdateMeta()
     updateMeta.data = nativeEnvironmentData(safeAreaInsets)
     lynxView?.updateMetaData(updateMeta)
   }
 
   private func nativeEnvironmentData(_ insets: UIEdgeInsets) -> LynxTemplateData {
-    var additionalData: [String: Any] = [:]
-    if let route {
+    var additionalData: [String: Any] = [
+      "nativeEnvironment": [
+        "colorScheme": nativeColorScheme,
+        "locale": nativeLocale,
+      ],
+    ]
+    if var route {
+      if isInputDialogRoute {
+        route["contentInsetBottom"] = dialogContentInsetBottom
+      }
       additionalData["route"] = route
     }
     return LynxDeviceTemplateData(insets, additionalData)
+  }
+
+  private var nativeColorScheme: String {
+    traitCollection.userInterfaceStyle == .dark ? "dark" : "light"
+  }
+
+  private var nativeLocale: String {
+    Bundle.main.preferredLocalizations.first
+      ?? Locale.preferredLanguages.first
+      ?? Locale.current.identifier
   }
 
   private func sameInsets(_ lhs: UIEdgeInsets, _ rhs: UIEdgeInsets?) -> Bool {

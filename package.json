@@ -15,7 +15,7 @@
     ],
     "autolinkModules": [
       "album-utils",
-      "audio-player",
+      "audio",
       "biometric",
       "clipboard",
       "device",
@@ -85,7 +85,7 @@
     "@biomejs/biome": "catalog:",
     "@lynx-js/types": "catalog:",
     "@lynx-template/autolink-album-utils": "workspace:*",
-    "@lynx-template/autolink-audio-player": "workspace:*",
+    "@lynx-template/autolink-audio": "workspace:*",
     "@lynx-template/autolink-biometric": "workspace:*",
     "@lynx-template/autolink-clipboard": "workspace:*",
     "@lynx-template/autolink-device": "workspace:*",

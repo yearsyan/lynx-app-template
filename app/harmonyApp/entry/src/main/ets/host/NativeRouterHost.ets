@@ -10,7 +10,8 @@ interface NativeRouteOptions {
   bundle: string;
   statusBarStyle?: string;
   animation?: string;
-  present?: NativeRoutePresentOptions;
+  presentation?: string;
+  overlay?: NativeRoutePresentOptions;
   params?: Record<string, Object>;
 }
 
@@ -23,6 +24,7 @@ interface NativeRoutePresentOptions {
   backdropBlur?: boolean;
   iosSwipeDown?: boolean;
   androidPredictiveBackDown?: boolean;
+  dragDownToDismiss?: boolean;
 }
 
 interface NativeRoutePresentContentAnimationOptions {
@@ -33,7 +35,9 @@ interface NativeRoutePresentContentAnimationOptions {
 const ROUTE_ANIMATION_DEFAULT: string = 'default';
 const ROUTE_ANIMATION_FADE: string = 'fade';
 const ROUTE_ANIMATION_NONE: string = 'none';
-const ROUTE_ANIMATION_PRESENT: string = 'present';
+export const ROUTE_PRESENTATION_PAGE: string = 'page';
+export const ROUTE_PRESENTATION_INPUT_DIALOG: string = 'inputDialog';
+export const ROUTE_PRESENTATION_OVERLAY: string = 'overlay';
 /** Blurred backdrops give up pixel alignment, so they capture small. */
 const BLURRED_CAPTURE_SCALE: number = 1 / 3;
 
@@ -63,16 +67,16 @@ class PendingRouteResult {
 }
 
 /**
- * Maps the shared route animation to the ArkUI navigation transition. The
- * present transition opens with no system animation; the page itself layers
- * the previous page's snapshot (see NativeRoute.snapshot) and plays the
- * iOS-like present choreography from the content's first screen.
+ * Maps the shared route animation to the ArkUI navigation transition. Overlay
+ * routes open with no system animation (their normalized animation is 'none');
+ * the page itself layers the previous page's snapshot (see NativeRoute.snapshot)
+ * and plays the iOS-like present choreography from the content's first screen.
  */
 export function nativeRouteTransitionType(animation: string): NavigationSystemTransitionType {
   if (animation === ROUTE_ANIMATION_FADE) {
     return NavigationSystemTransitionType.FADE;
   }
-  if (animation === ROUTE_ANIMATION_NONE || animation === ROUTE_ANIMATION_PRESENT) {
+  if (animation === ROUTE_ANIMATION_NONE) {
     return NavigationSystemTransitionType.NONE;
   }
   return NavigationSystemTransitionType.DEFAULT;
@@ -83,23 +87,26 @@ export class NativeRoute {
   bundle: string;
   statusBarStyle: string;
   animation: string;
+  presentation: string;
   params: Record<string, Object>;
-  /** Present routes only: snapshot of the previous page shown as the backdrop. */
+  /** Overlay routes only: snapshot of the previous page shown as the backdrop. */
   snapshot?: image.PixelMap;
-  /** Present routes only: scrim color ('#AARRGGBB') over the snapshot backdrop. */
+  /** Overlay routes only: scrim color ('#AARRGGBB') over the snapshot backdrop. */
   presentScrimColor?: string;
-  /** Present routes only: snapshot shrink choreography and its reverse on close. */
+  /** Overlay routes only: snapshot shrink choreography and its reverse on close. */
   presentBackdropTransition: boolean = true;
-  /** Present routes only: content entering opacity choreography. */
+  /** Overlay routes only: content entering opacity choreography. */
   presentEnterOpacity: boolean = false;
-  /** Present routes only: content entering full-viewport push choreography. */
+  /** Overlay routes only: content entering full-viewport push choreography. */
   presentEnterPush: boolean = true;
-  /** Present routes only: content exiting opacity choreography. */
+  /** Overlay routes only: content exiting opacity choreography. */
   presentExitOpacity: boolean = false;
-  /** Present routes only: content exiting full-viewport push choreography. */
+  /** Overlay routes only: content exiting full-viewport push choreography. */
   presentExitPush: boolean = true;
-  /** Present routes only: blur the snapshot (captured at reduced resolution). */
+  /** Overlay routes only: blur the snapshot (captured at reduced resolution). */
   presentBackdropBlur: boolean = false;
+  /** Overlay routes only: let an unclaimed downward pan dismiss interactively. */
+  presentDragDownToDismiss: boolean = false;
   /** openForResult routes only: correlates this route with its opener. */
   resultToken?: string;
   readonly nativeBackID: string;
@@ -108,12 +115,14 @@ export class NativeRoute {
     bundle: string,
     statusBarStyle: string = STATUS_BAR_STYLE_DARK_CONTENT,
     animation: string = ROUTE_ANIMATION_DEFAULT,
+    presentation: string = ROUTE_PRESENTATION_PAGE,
     params: Record<string, Object> = {},
     snapshot?: image.PixelMap,
   ) {
     this.bundle = bundle;
     this.statusBarStyle = statusBarStyle;
     this.animation = animation;
+    this.presentation = presentation;
     this.params = params;
     this.snapshot = snapshot;
     this.nativeBackID = `native-back-${NativeRoute.nextNativeBackID}`;
@@ -138,6 +147,11 @@ export class NativeRouterController {
   private readonly pathStack: NavPathStack;
   private uiContext: UIContext | undefined = undefined;
   private abilityContext: common.UIAbilityContext | undefined = undefined;
+  private activeDialogRoute: NativeRoute | undefined = undefined;
+  private dialogOpenHandler:
+    ((route: NativeRoute, callback: (error: string) => void) => void) | undefined = undefined;
+  private dialogCloseHandler:
+    ((callback: (error: string) => void) => void) | undefined = undefined;
   // Present routes register their reverse choreography so close() and system
   // Back pop only after the snapshot backdrop has restored the previous page.
   private readonly presentDismissers: Map<string, () => void> = new Map();
@@ -154,6 +168,14 @@ export class NativeRouterController {
 
   attachAbility(context: common.UIAbilityContext): void {
     this.abilityContext = context;
+  }
+
+  attachDialogHost(
+    open: (route: NativeRoute, callback: (error: string) => void) => void,
+    close: (callback: (error: string) => void) => void,
+  ): void {
+    this.dialogOpenHandler = open;
+    this.dialogCloseHandler = close;
   }
 
   registerPresentDismiss(routeID: string, dismiss: (() => void) | undefined): void {
@@ -200,7 +222,10 @@ export class NativeRouterController {
     callback: (error: string) => void,
   ): void {
     this.runOnUI(() => {
-      if (this.pathStack.size() > 0) {
+      const dialogRoute = this.activeDialogRoute;
+      if (dialogRoute?.resultToken !== undefined) {
+        this.pendingResults.get(dialogRoute.resultToken)?.setResult(result);
+      } else if (this.pathStack.size() > 0) {
         const top =
           this.pathStack.getParamByIndex(this.pathStack.size() - 1) as NativeRoute | undefined;
         if (top?.resultToken !== undefined) {
@@ -217,10 +242,13 @@ export class NativeRouterController {
    */
   completeRouteResult(route: NativeRoute): void {
     const token = route.resultToken;
-    if (token === undefined) {
-      return;
-    }
     this.runOnUI(() => {
+      if (this.activeDialogRoute === route) {
+        this.activeDialogRoute = undefined;
+      }
+      if (token === undefined) {
+        return;
+      }
       const pending = this.pendingResults.get(token);
       if (pending === undefined) {
         return;
@@ -252,23 +280,46 @@ export class NativeRouterController {
     resultToken: string | undefined,
     onPushFinished: (error: string) => void,
   ): void {
+    if (this.activeDialogRoute !== undefined) {
+      onPushFinished('An inputDialog route is already open');
+      return;
+    }
+    const presentation = options.presentation ?? ROUTE_PRESENTATION_PAGE;
+    if (
+      presentation !== ROUTE_PRESENTATION_PAGE &&
+      presentation !== ROUTE_PRESENTATION_INPUT_DIALOG &&
+      presentation !== ROUTE_PRESENTATION_OVERLAY
+    ) {
+      onPushFinished(`Invalid route presentation: ${presentation}`);
+      return;
+    }
+    // Overlay routes own their open/close choreography, so they always run
+    // without a system transition regardless of the animation value.
+    const animation = presentation === ROUTE_PRESENTATION_OVERLAY
+      ? ROUTE_ANIMATION_NONE
+      : options.animation ??
+        (presentation === ROUTE_PRESENTATION_INPUT_DIALOG
+          ? ROUTE_ANIMATION_NONE
+          : ROUTE_ANIMATION_DEFAULT);
     const route = new NativeRoute(
       options.bundle,
       options.statusBarStyle ?? STATUS_BAR_STYLE_DARK_CONTENT,
-      options.animation ?? ROUTE_ANIMATION_DEFAULT,
+      animation,
+      presentation,
       options.params ?? {},
     );
-    route.presentScrimColor = options.present?.scrimColor;
-    route.presentBackdropTransition = options.present?.backdropTransition ?? true;
-    const legacyContentTransition = options.present?.contentTransition ?? true;
-    route.presentEnterOpacity = options.present?.enter?.opacity ?? false;
-    route.presentEnterPush = options.present?.enter?.push ?? legacyContentTransition;
-    route.presentExitOpacity = options.present?.exit?.opacity ?? false;
-    route.presentExitPush = options.present?.exit?.push ?? legacyContentTransition;
-    route.presentBackdropBlur = options.present?.backdropBlur ?? false;
+    route.presentScrimColor = options.overlay?.scrimColor;
+    route.presentBackdropTransition = options.overlay?.backdropTransition ?? true;
+    const legacyContentTransition = options.overlay?.contentTransition ?? true;
+    route.presentEnterOpacity = options.overlay?.enter?.opacity ?? false;
+    route.presentEnterPush = options.overlay?.enter?.push ?? legacyContentTransition;
+    route.presentExitOpacity = options.overlay?.exit?.opacity ?? false;
+    route.presentExitPush = options.overlay?.exit?.push ?? legacyContentTransition;
+    route.presentBackdropBlur = options.overlay?.backdropBlur ?? false;
+    route.presentDragDownToDismiss = options.overlay?.dragDownToDismiss ?? false;
     route.resultToken = resultToken;
     this.runOnUI(() => {
-      if (route.animation === ROUTE_ANIMATION_PRESENT) {
+      if (route.presentation === ROUTE_PRESENTATION_OVERLAY) {
         // The snapshot must exist before the destination builds, so its very
         // first frame already shows the previous page's pixels.
         this.captureSnapshot(route.presentBackdropBlur)
@@ -283,11 +334,19 @@ export class NativeRouterController {
           });
         return;
       }
-      this.pushRoute(route, onPushFinished);
+      this.openRoute(route, onPushFinished);
     });
   }
 
   private performClose(callback: (error: string) => void): void {
+    if (this.activeDialogRoute !== undefined) {
+      if (this.dialogCloseHandler === undefined) {
+        callback('Native router has no dialog host');
+        return;
+      }
+      this.dialogCloseHandler(callback);
+      return;
+    }
     if (this.pathStack.size() === 0) {
       if (this.abilityContext !== undefined) {
         this.abilityContext.moveAbilityToBackground()
@@ -321,6 +380,24 @@ export class NativeRouterController {
     } catch (error) {
       callback(`Unable to open native route: ${JSON.stringify(error)}`);
     }
+  }
+
+  private openRoute(route: NativeRoute, callback: (error: string) => void): void {
+    if (route.presentation !== ROUTE_PRESENTATION_INPUT_DIALOG) {
+      this.pushRoute(route, callback);
+      return;
+    }
+    if (this.dialogOpenHandler === undefined) {
+      callback('Native router has no dialog host');
+      return;
+    }
+    this.activeDialogRoute = route;
+    this.dialogOpenHandler(route, (error: string): void => {
+      if (error.length > 0 && this.activeDialogRoute === route) {
+        this.activeDialogRoute = undefined;
+      }
+      callback(error);
+    });
   }
 
   private captureSnapshot(blurred: boolean): Promise<image.PixelMap> {

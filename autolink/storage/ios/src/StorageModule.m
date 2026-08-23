@@ -1,11 +1,53 @@
 #import "StorageModule.h"
 
 #import <MMKV/MMKV.h>
+#import <os/lock.h>
 #import <Security/Security.h>
 
 static NSString *const kStorageID = @"lynx.native.kv";
 static NSString *const kService = @"lynx.secure.storage";
 static const NSUInteger kMaxValueLength = 64 * 1024;
+
+// Process-wide overlay mirroring the shared MMKV instance (module instances
+// are per Lynx context, the store is not). Entries shadow MMKV until a
+// persisted write or remove drops them.
+static NSMutableDictionary<NSString *, NSString *> *kMemoryOverlay;
+static os_unfair_lock kMemoryOverlayLock = OS_UNFAIR_LOCK_INIT;
+
+static NSString *MemoryOverlayGet(NSString *key) {
+  os_unfair_lock_lock(&kMemoryOverlayLock);
+  NSString *value = kMemoryOverlay[key];
+  os_unfair_lock_unlock(&kMemoryOverlayLock);
+  return value;
+}
+
+static void MemoryOverlaySet(NSString *key, NSString *value) {
+  os_unfair_lock_lock(&kMemoryOverlayLock);
+  if (kMemoryOverlay == nil) {
+    kMemoryOverlay = [NSMutableDictionary new];
+  }
+  kMemoryOverlay[key] = value;
+  os_unfair_lock_unlock(&kMemoryOverlayLock);
+}
+
+static void MemoryOverlayRemove(NSString *key) {
+  os_unfair_lock_lock(&kMemoryOverlayLock);
+  [kMemoryOverlay removeObjectForKey:key];
+  os_unfair_lock_unlock(&kMemoryOverlayLock);
+}
+
+static void MemoryOverlayClear(void) {
+  os_unfair_lock_lock(&kMemoryOverlayLock);
+  [kMemoryOverlay removeAllObjects];
+  os_unfair_lock_unlock(&kMemoryOverlayLock);
+}
+
+static BOOL MemoryOverlayContains(NSString *key) {
+  os_unfair_lock_lock(&kMemoryOverlayLock);
+  BOOL contains = kMemoryOverlay[key] != nil;
+  os_unfair_lock_unlock(&kMemoryOverlayLock);
+  return contains;
+}
 
 static void EnsureMMKVInitialized(void) {
   static dispatch_once_t onceToken;
@@ -26,7 +68,11 @@ static void EnsureMMKVInitialized(void) {
 
 // The @LynxNativeModule annotation is what cocoapods-lynx-library scans for;
 // it expands to a harmless ObjC forward declaration when compiled.
-// Exported to Lynx as `Storage`.
+// Exported to Lynx as `Storage`. The KV store also keeps a process-wide
+// in-memory overlay: writes with inMemory=YES land only in the overlay
+// (shadowing the MMKV value until the process dies) while persisted writes
+// drop the overlay entry first; reads, remove, clear and contains all check
+// the overlay before MMKV.
 @LynxNativeModule("Storage")
 @implementation StorageModule {
   MMKV *_storage;
@@ -38,7 +84,7 @@ static void EnsureMMKVInitialized(void) {
 
 + (NSDictionary<NSString *, NSString *> *)methodLookup {
   return @{
-    @"setString" : NSStringFromSelector(@selector(setString:value:callback:)),
+    @"setString" : NSStringFromSelector(@selector(setString:value:callback:inMemory:)),
     @"getString" : NSStringFromSelector(@selector(getString:defaultValue:callback:)),
     @"getStringOrNull" : NSStringFromSelector(@selector(getStringOrNull:callback:)),
     @"remove" : NSStringFromSelector(@selector(remove:callback:)),
@@ -64,7 +110,20 @@ static void EnsureMMKVInitialized(void) {
 
 - (void)setString:(NSString *)key
             value:(NSString *)value
-         callback:(LynxCallbackBlock)callback {
+         callback:(LynxCallbackBlock)callback
+         inMemory:(BOOL)inMemory {
+  if (inMemory) {
+    // Overlay-only write: the MMKV copy keeps its previous value.
+    if (![self isValidKey:key] || value == nil) {
+      callback(@"Unable to set the in-memory value");
+      return;
+    }
+    MemoryOverlaySet(key, value);
+    callback(@"");
+    return;
+  }
+  // Persisted writes make MMKV authoritative again.
+  MemoryOverlayRemove(key);
   if (![self isValidKey:key] || ![_storage setString:value forKey:key]) {
     callback(@"Unable to persist MMKV key");
     return;
@@ -89,6 +148,11 @@ static void EnsureMMKVInitialized(void) {
     callback(defaultValue ?: NSNull.null);
     return;
   }
+  NSString *overlay = MemoryOverlayGet(key);
+  if (overlay != nil) {
+    callback(overlay);
+    return;
+  }
   NSString *value = [_storage getStringForKey:key defaultValue:defaultValue];
   callback(value ?: NSNull.null);
 }
@@ -99,16 +163,19 @@ static void EnsureMMKVInitialized(void) {
     return;
   }
   [_storage removeValueForKey:key];
+  MemoryOverlayRemove(key);
   callback(@"");
 }
 
 - (void)clear:(LynxCallbackBlock)callback {
   [_storage clearAll];
+  MemoryOverlayClear();
   callback(@"");
 }
 
 - (void)contains:(NSString *)key callback:(LynxCallbackBlock)callback {
-  callback(@([self isValidKey:key] && [_storage containsKey:key]));
+  callback(@([self isValidKey:key]
+      && (MemoryOverlayContains(key) || [_storage containsKey:key])));
 }
 
 #pragma mark - Small-secret secure store

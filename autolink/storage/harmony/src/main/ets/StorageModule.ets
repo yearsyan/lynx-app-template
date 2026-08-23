@@ -22,6 +22,11 @@ class SealedValue {
  * small-secret secure store whose values are sealed with an AES-256-GCM key
  * held inside HUKS; only the base64 IV and ciphertext are persisted in a
  * dedicated MMKV instance.
+ *
+ * The KV store also keeps a process-wide in-memory overlay: writes with
+ * inMemory=true land only in the overlay (shadowing the MMKV value until
+ * the process dies) while persisted writes drop the overlay entry first;
+ * reads, remove, clear and contains all check the overlay before MMKV.
  */
 export class StorageModule extends LynxModule {
   static readonly NAME: string = 'Storage';
@@ -31,6 +36,13 @@ export class StorageModule extends LynxModule {
   private static readonly TAG_BYTES: number = 16;
   /** Keeps the secure store to small secrets; mirrored by the shared TS facade. */
   private static readonly MAX_VALUE_BYTES: number = 64 * 1024;
+
+  /**
+   * Process-wide overlay mirroring the shared MMKV instance (module
+   * instances are per Lynx context, the store is not). Entries shadow MMKV
+   * until a persisted write or remove drops them.
+   */
+  private static readonly memoryValues: Map<string, string> = new Map<string, string>();
 
   private readonly storage: MMKV;
   private readonly secureStorage: MMKV;
@@ -46,7 +58,24 @@ export class StorageModule extends LynxModule {
   // Shared MMKV-backed KV store
   // ------------------------------------------------------------------
 
-  setString(key: string, value: string, callback: (error: string) => void): void {
+  setString(
+    key: string,
+    value: string,
+    callback: (error: string) => void,
+    inMemory: boolean,
+  ): void {
+    if (inMemory === true) {
+      // Overlay-only write: the MMKV copy keeps its previous value.
+      if (key.trim().length === 0 || value === undefined || value === null) {
+        callback('Unable to set the in-memory value');
+        return;
+      }
+      StorageModule.memoryValues.set(key, value);
+      callback('');
+      return;
+    }
+    // Persisted writes make MMKV authoritative again.
+    StorageModule.memoryValues.delete(key);
     if (key.trim().length === 0 || !this.storage.encodeString(key, value)) {
       callback('Unable to persist MMKV key');
       return;
@@ -75,16 +104,21 @@ export class StorageModule extends LynxModule {
       return;
     }
     this.storage.removeValueForKey(key);
+    StorageModule.memoryValues.delete(key);
     callback('');
   }
 
   clear(callback: (error: string) => void): void {
     this.storage.clearAll();
+    StorageModule.memoryValues.clear();
     callback('');
   }
 
   contains(key: string, callback: (contains: boolean) => void): void {
-    callback(key.trim().length > 0 && this.storage.containsKey(key));
+    callback(
+      key.trim().length > 0
+      && (StorageModule.memoryValues.has(key) || this.storage.containsKey(key)),
+    );
   }
 
   // ------------------------------------------------------------------
@@ -150,6 +184,15 @@ export class StorageModule extends LynxModule {
     defaultValue: string | null,
     callback: (value: string | null) => void,
   ): void {
+    if (!StorageModule.isValidKey(key)) {
+      callback(defaultValue);
+      return;
+    }
+    const overlay: string | undefined = StorageModule.memoryValues.get(key);
+    if (overlay !== undefined && overlay !== null) {
+      callback(overlay);
+      return;
+    }
     const value = this.storage.decodeString(key, defaultValue ?? undefined);
     callback(value ?? defaultValue);
   }

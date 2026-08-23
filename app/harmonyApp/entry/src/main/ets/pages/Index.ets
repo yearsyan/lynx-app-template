@@ -12,6 +12,8 @@ import {
   TemplateData,
 } from '@lynx/lynx';
 import { common } from '@kit.AbilityKit';
+import { inputMethod } from '@kit.IMEKit';
+import { LengthMetrics, window } from '@kit.ArkUI';
 import {
   BACK_REGISTRATION_CONTEXT_DATA_KEY,
   BackRegistration,
@@ -27,6 +29,10 @@ import {
 } from '@lynx-template/autolink-device';
 
 import { BundleConfig } from '../config/BundleConfig';
+import {
+  NATIVE_COLOR_SCHEME_KEY,
+  NATIVE_LOCALE_KEY,
+} from '../config/NativeEnvironmentConfig';
 import { DevelopmentSettings } from 'entry/ets/config/DevelopmentSettings';
 import {
   WebviewModuleBridgeHostAdapter,
@@ -36,6 +42,8 @@ import {
   NativeRoute,
   nativeRouteTransitionType,
   NativeRouterController,
+  ROUTE_PRESENTATION_INPUT_DIALOG,
+  ROUTE_PRESENTATION_OVERLAY,
 } from '../host/NativeRouterHost';
 import { DeepLinkResolution } from '../host/DeepLinkRouteResolver';
 import { StartupRoute } from '../host/StartupRoute';
@@ -97,11 +105,17 @@ class PresentScreenClient extends LynxViewClient {
   }
 }
 
-const ROUTE_ANIMATION_PRESENT: string = 'present';
 const PRESENT_DURATION_MS: number = 350;
 const PRESENT_BACKDROP_SHIFT: number = 0.08;
 const PRESENT_CONTENT_SHIFT_PERCENT: number = 100;
 const PRESENT_CORNER_RADIUS: number = 12;
+const PRESENT_DRAG_COMMIT_PROGRESS: number = 0.25;
+const PRESENT_DRAG_COMMIT_VELOCITY: number = 1000;
+const PRESENT_DRAG_MIN_DURATION_MS: number = 80;
+const DIALOG_KEYBOARD_DEFAULT_HIDE_DURATION_MS: number = 300;
+const DIALOG_KEYBOARD_FINAL_FRAME_LEAD_MS: number = 16;
+const DIALOG_KEYBOARD_DISMISS_FALLBACK_MS: number =
+  DIALOG_KEYBOARD_DEFAULT_HIDE_DURATION_MS - DIALOG_KEYBOARD_FINAL_FRAME_LEAD_MS;
 /** Gaussian blur radius (vp) for snapshots captured with a blurred backdrop. */
 const PRESENT_BLUR_RADIUS: number = 25;
 /** Default present scrim: 35% black. */
@@ -117,6 +131,8 @@ interface SafeAreaInsetsPayload {
 interface NativeEnvironmentPayload {
   schemaVersion: number;
   unit: string;
+  colorScheme: string;
+  locale: string;
   safeAreaInsets: SafeAreaInsetsPayload;
 }
 
@@ -129,14 +145,22 @@ interface NativeRoutePayload {
   bundle: string;
   statusBarStyle: string;
   animation: string;
+  presentation: string;
   params: Record<string, Object>;
 }
 
-function nativeEnvironmentData(insets: SafeAreaInsets, route: NativeRoute): TemplateData {
+function nativeEnvironmentData(
+  insets: SafeAreaInsets,
+  route: NativeRoute,
+  colorScheme: string,
+  locale: string,
+): TemplateData {
   const data: NativeEnvironmentInitData = {
     nativeEnvironment: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       unit: 'px',
+      colorScheme,
+      locale,
       safeAreaInsets: {
         top: insets.top,
         right: insets.right,
@@ -148,6 +172,7 @@ function nativeEnvironmentData(insets: SafeAreaInsets, route: NativeRoute): Temp
       bundle: route.bundle,
       statusBarStyle: route.statusBarStyle,
       animation: route.animation,
+      presentation: route.presentation,
       params: route.params,
     },
   };
@@ -166,6 +191,10 @@ class NativeModuleRegistration implements ModuleClassWrapper {
 
 @Component
 struct LynxBundlePage {
+  @StorageProp(NATIVE_COLOR_SCHEME_KEY) @Watch('onNativePreferencesChanged')
+  private colorScheme: string = 'light';
+  @StorageProp(NATIVE_LOCALE_KEY) @Watch('onNativePreferencesChanged')
+  private locale: string = 'en';
   route: NativeRoute = NativeRoute.main();
   routerController: NativeRouterController = new NativeRouterController(new NavPathStack());
   nativeBackController: NativeBackController = new NativeBackController();
@@ -175,7 +204,12 @@ struct LynxBundlePage {
   private bundleRepository: LynxBundleRepository = new LynxBundleRepository();
   private safeAreaInsets: SafeAreaInsets = new SafeAreaInsets();
   private safeAreaController: NativeSafeAreaController = new NativeSafeAreaController();
-  private metaData: MetaData = new MetaData(nativeEnvironmentData(this.safeAreaInsets, NativeRoute.main()));
+  private metaData: MetaData = new MetaData(nativeEnvironmentData(
+    this.safeAreaInsets,
+    NativeRoute.main(),
+    this.colorScheme,
+    this.locale,
+  ));
   private modules: Map<string, ModuleClassWrapper> = new Map();
   // Explicit Harmony adapter reuses the page-scoped host module registry.
   private webviewBehaviors: Map<string, Behavior> = new Map();
@@ -185,6 +219,8 @@ struct LynxBundlePage {
   // content hidden, 1 shrinks the backdrop behind the revealed content.
   @State private presentFraction: number = 0;
   @State private dismissingPresent: boolean = false;
+  @State private presentDragViewportHeight: number = 1;
+  private presentDragActive: boolean = false;
   private presentPlayed: boolean = false;
   private presentScreenClient: PresentScreenClient = new PresentScreenClient((): void => {
     this.playPresent();
@@ -215,7 +251,7 @@ struct LynxBundlePage {
       this.route.nativeBackID,
       this.route.statusBarStyle,
     );
-    if (this.isPresentRoute()) {
+    if (this.isOverlayRoute()) {
       this.routerController.registerPresentDismiss(
         this.route.nativeBackID,
         (): void => this.playDismissThenPop(),
@@ -238,7 +274,12 @@ struct LynxBundlePage {
         ),
       ],
     ]);
-    this.metaData.templateData = nativeEnvironmentData(this.safeAreaInsets, this.route);
+    this.metaData.templateData = nativeEnvironmentData(
+      this.safeAreaInsets,
+      this.route,
+      this.colorScheme,
+      this.locale,
+    );
     this.safeAreaController.attach(
       this.getUIContext(),
       (insets: SafeAreaInsets): void => {
@@ -296,8 +337,12 @@ struct LynxBundlePage {
     return this.route.snapshot !== undefined;
   }
 
-  private isPresentRoute(): boolean {
-    return this.route.animation === ROUTE_ANIMATION_PRESENT;
+  private isOverlayRoute(): boolean {
+    return this.route.presentation === ROUTE_PRESENTATION_OVERLAY;
+  }
+
+  private isInputDialogRoute(): boolean {
+    return this.route.presentation === ROUTE_PRESENTATION_INPUT_DIALOG;
   }
 
   /** Present routes with the backdrop transition cleared keep a static snapshot. */
@@ -306,12 +351,12 @@ struct LynxBundlePage {
   }
 
   private hasEnterContentAnimation(): boolean {
-    return this.isPresentRoute() &&
+    return this.isOverlayRoute() &&
       (this.route.presentEnterOpacity || this.route.presentEnterPush);
   }
 
   private hasExitContentAnimation(): boolean {
-    return this.isPresentRoute() &&
+    return this.isOverlayRoute() &&
       (this.route.presentExitOpacity || this.route.presentExitPush);
   }
 
@@ -331,8 +376,85 @@ struct LynxBundlePage {
       : this.playsPresentChoreography();
   }
 
+  private canBeginPresentDragDown(): boolean {
+    return this.route.presentDragDownToDismiss &&
+      this.presentPlayed &&
+      !this.dismissingPresent &&
+      this.presentFraction >= 1 &&
+      this.playsDismissChoreography();
+  }
+
+  private beginPresentDragDown(): void {
+    this.presentDragActive = this.canBeginPresentDragDown();
+    if (this.presentDragActive) {
+      // The parent's normal-priority gesture runs only after page gestures
+      // decline the sequence. Once recognized, ArkUI keeps this PanGesture as
+      // the winner until end/cancel, which is the desired drag lock.
+      this.dismissingPresent = true;
+    }
+  }
+
+  private updatePresentDragDown(event: GestureEvent): void {
+    if (!this.presentDragActive) {
+      return;
+    }
+    const progress: number = Math.min(
+      Math.max(event.offsetY / Math.max(this.presentDragViewportHeight, 1), 0),
+      1,
+    );
+    this.presentFraction = 1 - progress;
+  }
+
+  private endPresentDragDown(event: GestureEvent): void {
+    if (!this.presentDragActive) {
+      return;
+    }
+    this.updatePresentDragDown(event);
+    this.presentDragActive = false;
+    const progress: number = 1 - this.presentFraction;
+    if (progress >= PRESENT_DRAG_COMMIT_PROGRESS ||
+      event.velocityY >= PRESENT_DRAG_COMMIT_VELOCITY) {
+      const duration: number = this.presentInteractiveDuration(this.presentFraction);
+      this.getUIContext().animateTo(
+        { duration: duration, curve: Curve.EaseInOut },
+        (): void => {
+          this.presentFraction = 0;
+        },
+      );
+      setTimeout((): void => {
+        this.routerController.popAfterPresentDismiss();
+      }, duration);
+      return;
+    }
+    this.cancelPresentDragDown();
+  }
+
+  private cancelPresentDragDown(): void {
+    if (!this.presentDragActive && !this.dismissingPresent) {
+      return;
+    }
+    this.presentDragActive = false;
+    const duration: number = this.presentInteractiveDuration(1 - this.presentFraction);
+    this.getUIContext().animateTo(
+      { duration: duration, curve: Curve.EaseInOut },
+      (): void => {
+        this.presentFraction = 1;
+      },
+    );
+    setTimeout((): void => {
+      this.dismissingPresent = false;
+    }, duration);
+  }
+
+  private presentInteractiveDuration(distance: number): number {
+    return Math.max(
+      PRESENT_DRAG_MIN_DURATION_MS,
+      Math.round(PRESENT_DURATION_MS * Math.min(Math.max(distance, 0), 1)),
+    );
+  }
+
   private hasActiveContentOpacity(): boolean {
-    if (!this.isPresentRoute()) {
+    if (!this.isOverlayRoute()) {
       return false;
     }
     return this.dismissingPresent
@@ -341,7 +463,7 @@ struct LynxBundlePage {
   }
 
   private hasActiveContentPush(): boolean {
-    if (!this.isPresentRoute()) {
+    if (!this.isOverlayRoute()) {
       return false;
     }
     return this.dismissingPresent
@@ -351,7 +473,7 @@ struct LynxBundlePage {
 
   /** Plays the open choreography once the content painted its first screen. */
   private playPresent(): void {
-    if (this.presentPlayed || !this.isPresentRoute()) {
+    if (this.presentPlayed || !this.isOverlayRoute()) {
       return;
     }
     this.presentPlayed = true;
@@ -383,6 +505,7 @@ struct LynxBundlePage {
     // Both phase configurations resolve to identity and full opacity at 1, so
     // changing phase here is visually continuous even when enter != exit.
     this.dismissingPresent = true;
+    this.presentDragActive = false;
     if (!this.playsDismissChoreography()) {
       this.routerController.popAfterPresentDismiss();
       return;
@@ -443,7 +566,12 @@ struct LynxBundlePage {
       return;
     }
     this.safeAreaInsets = insets;
-    this.metaData.templateData = nativeEnvironmentData(insets, this.route);
+    this.metaData.templateData = nativeEnvironmentData(
+      insets,
+      this.route,
+      this.colorScheme,
+      this.locale,
+    );
     this.publishNativeEnvironment();
   }
 
@@ -463,8 +591,23 @@ struct LynxBundlePage {
       return;
     }
     this.lynxContext.updateMetaData(
-      new LynxUpdateMeta(nativeEnvironmentData(this.safeAreaInsets, this.route)),
+      new LynxUpdateMeta(nativeEnvironmentData(
+        this.safeAreaInsets,
+        this.route,
+        this.colorScheme,
+        this.locale,
+      )),
     );
+  }
+
+  private onNativePreferencesChanged(): void {
+    this.metaData.templateData = nativeEnvironmentData(
+      this.safeAreaInsets,
+      this.route,
+      this.colorScheme,
+      this.locale,
+    );
+    this.publishNativeEnvironment();
   }
 
   @Builder
@@ -477,13 +620,13 @@ struct LynxBundlePage {
       metaData: this.metaData,
       beforeLoadTemplate: this.lynxBeforeLoadTemplateCallback,
       onCreate: this.lynxCreateCallback,
-      clients: this.isPresentRoute()
+      clients: this.isOverlayRoute()
         ? [this.bundleLoadFallback, this.presentScreenClient]
         : [this.bundleLoadFallback],
+      fitContentHeight: this.isInputDialogRoute(),
       url: this.url,
     })
-      .width('100%')
-      .height('100%');
+      .width('100%');
   }
 
   build() {
@@ -547,7 +690,8 @@ struct LynxBundlePage {
         }
       }
       .backgroundColor(Color.Transparent)
-      .size({ width: '100%', height: '100%' })
+      .width('100%')
+      .height(this.isInputDialogRoute() ? 'auto' : '100%')
       .translate({
         y: `${this.hasActiveContentPush()
           ? (1 - this.presentFraction) * PRESENT_CONTENT_SHIFT_PERCENT
@@ -558,7 +702,55 @@ struct LynxBundlePage {
     // Opaque behind the backdrop so the shrunken snapshot shows solid black
     // margins instead of whatever renders below the Navigation destination.
     .backgroundColor(this.hasPresentBackdrop() ? '#000000' : Color.Transparent)
-    .size({ width: '100%', height: '100%' });
+    .width('100%')
+    .height(this.isInputDialogRoute() ? 'auto' : '100%')
+    .onAreaChange((_oldValue: Area, newValue: Area): void => {
+      if (typeof newValue.height === 'number' && newValue.height > 0) {
+        this.presentDragViewportHeight = newValue.height;
+      }
+    })
+    // Normal priority leaves the page's own gesture recognizers first. If no
+    // child wins, this downward pan becomes exclusive through finger release.
+    .gesture(
+      PanGesture({
+        fingers: 1,
+        direction: this.route.presentDragDownToDismiss && this.isOverlayRoute()
+          ? PanDirection.Down
+          : PanDirection.None,
+        distance: 5,
+      })
+        .onActionStart((_event: GestureEvent): void => {
+          this.beginPresentDragDown();
+        })
+        .onActionUpdate((event: GestureEvent): void => {
+          this.updatePresentDragDown(event);
+        })
+        .onActionEnd((event: GestureEvent): void => {
+          this.endPresentDragDown(event);
+        })
+        .onActionCancel((): void => {
+          this.cancelPresentDragDown();
+        }),
+      GestureMask.Normal,
+    );
+  }
+}
+
+@CustomDialog
+struct LynxBundleDialog {
+  controller?: CustomDialogController;
+  route: NativeRoute = NativeRoute.main();
+  routerController: NativeRouterController = new NativeRouterController(new NavPathStack());
+  nativeBackController: NativeBackController = new NativeBackController();
+  nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
+
+  build() {
+    LynxBundlePage({
+      route: this.route,
+      routerController: this.routerController,
+      nativeBackController: this.nativeBackController,
+      nativeStatusBarController: this.nativeStatusBarController,
+    });
   }
 }
 
@@ -571,6 +763,48 @@ struct Index {
   private nativeStatusBarController: NativeStatusBarController = new NativeStatusBarController();
   private rootRoute: NativeRoute = NativeRoute.main();
   @State private showDevelopmentSettings: boolean = false;
+  private dialogController: CustomDialogController | null = null;
+  private dialogRoute: NativeRoute | undefined = undefined;
+  private dialogKeyboardHeight: number = 0;
+  private dialogHasPresentedKeyboard: boolean = false;
+  private pendingDialogDismiss: (() => void) | undefined = undefined;
+  private pendingDialogCloseCallbacks: Array<(error: string) => void> = [];
+  private dialogDismissFallback: number = -1;
+  private keyboardWindow: window.Window | undefined = undefined;
+  private dialogKeyboardWindow: window.Window | undefined = undefined;
+  private keyboardHeightChangeCallback = (height: number): void => {
+    this.dialogKeyboardHeight = Math.max(height, 0);
+    if (height > 0) {
+      this.dialogHasPresentedKeyboard = true;
+      return;
+    }
+    if (this.dialogHasPresentedKeyboard && this.dialogController !== null) {
+      this.ensureDialogDismiss();
+      // On HarmonyOS versions without keyboardWillHide/keyboardDidHide,
+      // keyboardHeightChange reports zero when the hide animation starts.
+      // Keep the dialog through that animation, then remove it on its final frame.
+      this.scheduleDialogDismiss(DIALOG_KEYBOARD_DISMISS_FALLBACK_MS);
+    }
+  };
+  private keyboardWillHideCallback = (keyboardInfo: window.KeyboardInfo): void => {
+    if (!this.dialogHasPresentedKeyboard || this.dialogController === null) {
+      return;
+    }
+    this.ensureDialogDismiss();
+    const duration: number = keyboardInfo.animated === false
+      ? 0
+      : keyboardInfo.config?.duration ?? DIALOG_KEYBOARD_DEFAULT_HIDE_DURATION_MS;
+    this.scheduleDialogDismiss(
+      Math.max(duration - DIALOG_KEYBOARD_FINAL_FRAME_LEAD_MS, 0),
+    );
+  };
+  private keyboardDidHideCallback = (_keyboardInfo: window.KeyboardInfo): void => {
+    if (!this.dialogHasPresentedKeyboard || this.dialogController === null) {
+      return;
+    }
+    this.ensureDialogDismiss();
+    this.completeDialogDismiss();
+  };
   private handleStartupDeepLink = (resolution: DeepLinkResolution): void => {
     this.routerController.open(
       {
@@ -591,12 +825,219 @@ struct Index {
     }
     StartupRoute.registerHandler(this.handleStartupDeepLink);
     this.routerController.attach(this.getUIContext());
+    this.routerController.attachDialogHost(
+      (route: NativeRoute, callback: (error: string) => void): void => {
+        this.openDialogRoute(route, callback);
+      },
+      (callback: (error: string) => void): void => {
+        this.closeDialogRoute(callback);
+      },
+    );
     this.nativeBackController.attach(this.getUIContext());
     this.nativeStatusBarController.attach(this.getUIContext());
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext !== undefined) {
+      window.getLastWindow(hostContext as common.UIAbilityContext)
+        .then((hostWindow: window.Window): void => {
+          this.keyboardWindow = hostWindow;
+          hostWindow.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
+        })
+        .catch((error: Error): void => {
+          console.error(`Unable to observe keyboard height: ${error.message}`);
+        });
+    }
   }
 
   aboutToDisappear(): void {
     StartupRoute.registerHandler(undefined);
+    this.keyboardWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
+    this.keyboardWindow = undefined;
+    this.detachDialogKeyboardWindow();
+  }
+
+  private openDialogRoute(
+    route: NativeRoute,
+    callback: (error: string) => void,
+  ): void {
+    if (this.dialogController !== null) {
+      callback('An inputDialog route is already open');
+      return;
+    }
+    this.dialogRoute = route;
+    this.dialogKeyboardHeight = 0;
+    this.dialogHasPresentedKeyboard = false;
+    this.pendingDialogDismiss = undefined;
+    this.pendingDialogCloseCallbacks = [];
+    try {
+      this.dialogController = new CustomDialogController({
+        builder: LynxBundleDialog({
+          route: route,
+          routerController: this.routerController,
+          nativeBackController: this.nativeBackController,
+          nativeStatusBarController: this.nativeStatusBarController,
+        }),
+        autoCancel: true,
+        alignment: DialogAlignment.Bottom,
+        customStyle: true,
+        showInSubWindow: true,
+        isModal: true,
+        width: '100%',
+        backgroundColor: Color.Transparent,
+        maskColor: '#73000000',
+        cornerRadius: 0,
+        keyboardAvoidMode: KeyboardAvoidMode.DEFAULT,
+        keyboardAvoidDistance: LengthMetrics.vp(0),
+        openAnimation: { duration: 0 },
+        closeAnimation: { duration: 0 },
+        onWillDismiss: (action: DismissDialogAction): void => {
+          this.requestDialogDismiss(action.dismiss);
+        },
+        onDidAppear: (): void => {
+          this.attachDialogKeyboardWindow(route);
+        },
+        onDidDisappear: (): void => {
+          this.dialogDidDisappear(route);
+        },
+      });
+      this.dialogController.open();
+      callback('');
+    } catch (error) {
+      this.dialogController = null;
+      this.dialogRoute = undefined;
+      callback(`Unable to open inputDialog route: ${JSON.stringify(error)}`);
+    }
+  }
+
+  private attachDialogKeyboardWindow(
+    route: NativeRoute,
+    attemptsRemaining: number = 4,
+  ): void {
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext === undefined || this.dialogRoute !== route) {
+      return;
+    }
+    window.getLastWindow(hostContext as common.UIAbilityContext)
+      .then((dialogWindow: window.Window): void => {
+        if (this.dialogRoute !== route || this.dialogController === null) {
+          return;
+        }
+        if (dialogWindow.getWindowProperties().type !== window.WindowType.TYPE_DIALOG) {
+          if (attemptsRemaining > 0) {
+            setTimeout((): void => {
+              this.attachDialogKeyboardWindow(route, attemptsRemaining - 1);
+            }, 32);
+          }
+          return;
+        }
+        this.detachDialogKeyboardWindow();
+        this.dialogKeyboardWindow = dialogWindow;
+        dialogWindow.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
+        try {
+          dialogWindow.on('keyboardWillHide', this.keyboardWillHideCallback);
+        } catch (error) {
+          console.warn(`Unable to observe dialog keyboardWillHide: ${JSON.stringify(error)}`);
+        }
+        try {
+          dialogWindow.on('keyboardDidHide', this.keyboardDidHideCallback);
+        } catch (error) {
+          console.warn(`Unable to observe dialog keyboardDidHide: ${JSON.stringify(error)}`);
+        }
+      })
+      .catch((error: Error): void => {
+        console.error(`Unable to observe dialog keyboard height: ${error.message}`);
+      });
+  }
+
+  private detachDialogKeyboardWindow(): void {
+    this.dialogKeyboardWindow?.off(
+      'keyboardHeightChange',
+      this.keyboardHeightChangeCallback,
+    );
+    try {
+      this.dialogKeyboardWindow?.off('keyboardWillHide', this.keyboardWillHideCallback);
+    } catch (error) {
+      console.warn(`Unable to stop observing dialog keyboardWillHide: ${JSON.stringify(error)}`);
+    }
+    try {
+      this.dialogKeyboardWindow?.off('keyboardDidHide', this.keyboardDidHideCallback);
+    } catch (error) {
+      console.warn(`Unable to stop observing dialog keyboardDidHide: ${JSON.stringify(error)}`);
+    }
+    this.dialogKeyboardWindow = undefined;
+  }
+
+  private closeDialogRoute(callback: (error: string) => void): void {
+    if (this.dialogController === null) {
+      callback('No inputDialog route is open');
+      return;
+    }
+    this.pendingDialogCloseCallbacks.push(callback);
+    this.requestDialogDismiss((): void => {
+      this.dialogController?.close();
+    });
+  }
+
+  private requestDialogDismiss(dismiss: () => void): void {
+    if (this.pendingDialogDismiss === undefined) {
+      this.pendingDialogDismiss = dismiss;
+    }
+    // The IME belongs to the dialog subwindow. Always ask that window to
+    // release focus first: some devices report its height only after the
+    // first animation frame, so a zero here does not prove it is hidden yet.
+    this.getUIContext().getFocusController().clearFocus();
+    inputMethod.getController().stopInputSession().catch((): void => {});
+    // keyboardWillHide/keyboardDidHide are API 20 capabilities and are absent on
+    // some devices. Their fallback must match the system's ~300 ms IME animation;
+    // the old 450 ms timeout left the LynxView visible after the IME was gone.
+    this.scheduleDialogDismiss(DIALOG_KEYBOARD_DISMISS_FALLBACK_MS);
+  }
+
+  private ensureDialogDismiss(): void {
+    if (this.pendingDialogDismiss !== undefined) {
+      return;
+    }
+    this.pendingDialogDismiss = (): void => {
+      this.dialogController?.close();
+    };
+  }
+
+  private scheduleDialogDismiss(delay: number): void {
+    if (this.dialogDismissFallback >= 0) {
+      clearTimeout(this.dialogDismissFallback);
+    }
+    this.dialogDismissFallback = setTimeout((): void => {
+      this.completeDialogDismiss();
+    }, delay);
+  }
+
+  private completeDialogDismiss(): void {
+    const dismiss = this.pendingDialogDismiss;
+    if (dismiss === undefined) {
+      return;
+    }
+    this.pendingDialogDismiss = undefined;
+    if (this.dialogDismissFallback >= 0) {
+      clearTimeout(this.dialogDismissFallback);
+      this.dialogDismissFallback = -1;
+    }
+    dismiss();
+  }
+
+  private dialogDidDisappear(route: NativeRoute): void {
+    this.detachDialogKeyboardWindow();
+    if (this.dialogDismissFallback >= 0) {
+      clearTimeout(this.dialogDismissFallback);
+      this.dialogDismissFallback = -1;
+    }
+    this.routerController.completeRouteResult(route);
+    this.dialogController = null;
+    this.dialogRoute = undefined;
+    this.dialogKeyboardHeight = 0;
+    this.dialogHasPresentedKeyboard = false;
+    this.pendingDialogDismiss = undefined;
+    const callbacks = this.pendingDialogCloseCallbacks;
+    this.pendingDialogCloseCallbacks = [];
+    callbacks.forEach((callback: (error: string) => void): void => callback(''));
   }
 
   @Builder

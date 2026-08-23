@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Lynx Template</string>
+    <string name="updating_bundle">Updating…</string>
 </resources>

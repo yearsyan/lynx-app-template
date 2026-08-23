@@ -9,8 +9,8 @@ export const NATIVE_MODULE_CONTRACT = {
       saveToAlbum: { name: 'saveToAlbum', arity: 2 },
     },
   },
-  AudioPlayer: {
-    name: 'AudioPlayer',
+  Audio: {
+    name: 'Audio',
     methods: {
       create: { name: 'create', arity: 2 },
       play: { name: 'play', arity: 2 },
@@ -21,6 +21,14 @@ export const NATIVE_MODULE_CONTRACT = {
       setRate: { name: 'setRate', arity: 3 },
       setVolume: { name: 'setVolume', arity: 3 },
       getProps: { name: 'getProps', arity: 2 },
+      recorderCreate: { name: 'recorderCreate', arity: 2 },
+      recorderStart: { name: 'recorderStart', arity: 2 },
+      recorderPause: { name: 'recorderPause', arity: 2 },
+      recorderResume: { name: 'recorderResume', arity: 2 },
+      recorderStop: { name: 'recorderStop', arity: 2 },
+      recorderCancel: { name: 'recorderCancel', arity: 2 },
+      recorderGetProps: { name: 'recorderGetProps', arity: 2 },
+      recorderRelease: { name: 'recorderRelease', arity: 2 },
     },
   },
   Biometric: {
@@ -163,7 +171,7 @@ export const NATIVE_MODULE_CONTRACT = {
   Storage: {
     name: 'Storage',
     methods: {
-      setString: { name: 'setString', arity: 3 },
+      setString: { name: 'setString', arity: 4 },
       getString: { name: 'getString', arity: 3 },
       getStringOrNull: { name: 'getStringOrNull', arity: 2 },
       remove: { name: 'remove', arity: 2 },
@@ -194,7 +202,7 @@ export const NATIVE_MODULE_CONTRACT = {
 
 export const NATIVE_MODULE_NAMES = {
   AlbumUtils: NATIVE_MODULE_CONTRACT.AlbumUtils.name,
-  AudioPlayer: NATIVE_MODULE_CONTRACT.AudioPlayer.name,
+  Audio: NATIVE_MODULE_CONTRACT.Audio.name,
   Biometric: NATIVE_MODULE_CONTRACT.Biometric.name,
   Clipboard: NATIVE_MODULE_CONTRACT.Clipboard.name,
   Device: NATIVE_MODULE_CONTRACT.Device.name,
@@ -219,16 +227,25 @@ export const NATIVE_MODULE_METHODS = {
     pick: NATIVE_MODULE_CONTRACT.AlbumUtils.methods.pick.name,
     saveToAlbum: NATIVE_MODULE_CONTRACT.AlbumUtils.methods.saveToAlbum.name,
   },
-  AudioPlayer: {
-    create: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.create.name,
-    play: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.play.name,
-    pause: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.pause.name,
-    seek: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.seek.name,
-    stop: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.stop.name,
-    release: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.release.name,
-    setRate: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.setRate.name,
-    setVolume: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.setVolume.name,
-    getProps: NATIVE_MODULE_CONTRACT.AudioPlayer.methods.getProps.name,
+  Audio: {
+    create: NATIVE_MODULE_CONTRACT.Audio.methods.create.name,
+    play: NATIVE_MODULE_CONTRACT.Audio.methods.play.name,
+    pause: NATIVE_MODULE_CONTRACT.Audio.methods.pause.name,
+    seek: NATIVE_MODULE_CONTRACT.Audio.methods.seek.name,
+    stop: NATIVE_MODULE_CONTRACT.Audio.methods.stop.name,
+    release: NATIVE_MODULE_CONTRACT.Audio.methods.release.name,
+    setRate: NATIVE_MODULE_CONTRACT.Audio.methods.setRate.name,
+    setVolume: NATIVE_MODULE_CONTRACT.Audio.methods.setVolume.name,
+    getProps: NATIVE_MODULE_CONTRACT.Audio.methods.getProps.name,
+    recorderCreate: NATIVE_MODULE_CONTRACT.Audio.methods.recorderCreate.name,
+    recorderStart: NATIVE_MODULE_CONTRACT.Audio.methods.recorderStart.name,
+    recorderPause: NATIVE_MODULE_CONTRACT.Audio.methods.recorderPause.name,
+    recorderResume: NATIVE_MODULE_CONTRACT.Audio.methods.recorderResume.name,
+    recorderStop: NATIVE_MODULE_CONTRACT.Audio.methods.recorderStop.name,
+    recorderCancel: NATIVE_MODULE_CONTRACT.Audio.methods.recorderCancel.name,
+    recorderGetProps:
+      NATIVE_MODULE_CONTRACT.Audio.methods.recorderGetProps.name,
+    recorderRelease: NATIVE_MODULE_CONTRACT.Audio.methods.recorderRelease.name,
   },
   Biometric: {
     checkSupport: NATIVE_MODULE_CONTRACT.Biometric.methods.checkSupport.name,

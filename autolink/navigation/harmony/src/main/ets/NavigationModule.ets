@@ -18,6 +18,8 @@ export interface NativeRoutePresentOptions {
   iosSwipeDown?: boolean;
   /** Android-only interactive present dismissal flag; ignored on HarmonyOS. */
   androidPredictiveBackDown?: boolean;
+  /** Unclaimed downward page drag dismissal; supported on every native host. */
+  dragDownToDismiss?: boolean;
 }
 
 export interface NativeRoutePresentContentAnimationOptions {
@@ -29,7 +31,8 @@ export interface NativeRouteOptions {
   bundle: string;
   statusBarStyle?: string;
   animation?: string;
-  present?: NativeRoutePresentOptions;
+  presentation?: string;
+  overlay?: NativeRoutePresentOptions;
   params?: Record<string, Object>;
 }
 
@@ -66,20 +69,27 @@ export const BACK_REGISTRATION_CONTEXT_DATA_KEY: string =
 const ROUTE_ANIMATION_DEFAULT: string = 'default';
 const ROUTE_ANIMATION_FADE: string = 'fade';
 const ROUTE_ANIMATION_NONE: string = 'none';
-const ROUTE_ANIMATION_PRESENT: string = 'present';
+const ROUTE_PRESENTATION_PAGE: string = 'page';
+const ROUTE_PRESENTATION_INPUT_DIALOG: string = 'inputDialog';
+const ROUTE_PRESENTATION_OVERLAY: string = 'overlay';
 const STATUS_BAR_STYLE_DARK_CONTENT: string = 'dark-content';
 const STATUS_BAR_STYLE_LIGHT_CONTENT: string = 'light-content';
 
 function isRouteAnimation(value: string): boolean {
   return value === ROUTE_ANIMATION_DEFAULT ||
     value === ROUTE_ANIMATION_FADE ||
-    value === ROUTE_ANIMATION_NONE ||
-    value === ROUTE_ANIMATION_PRESENT;
+    value === ROUTE_ANIMATION_NONE;
 }
 
 function isStatusBarStyle(value: string): boolean {
   return value === STATUS_BAR_STYLE_DARK_CONTENT ||
     value === STATUS_BAR_STYLE_LIGHT_CONTENT;
+}
+
+function isRoutePresentation(value: string): boolean {
+  return value === ROUTE_PRESENTATION_PAGE ||
+    value === ROUTE_PRESENTATION_INPUT_DIALOG ||
+    value === ROUTE_PRESENTATION_OVERLAY;
 }
 
 /** JSON error envelope carried by openForResult callbacks. */
@@ -454,7 +464,19 @@ export class NavigationModule extends LynxModule {
       onError(`Invalid Lynx bundle name: ${options?.bundle ?? ''}`);
       return undefined;
     }
-    const animation = options.animation ?? ROUTE_ANIMATION_DEFAULT;
+    const presentation = options.presentation ?? ROUTE_PRESENTATION_PAGE;
+    if (!isRoutePresentation(presentation)) {
+      onError(`Invalid route presentation: ${presentation}`);
+      return undefined;
+    }
+    // Overlay routes own their open/close choreography, so they always run
+    // without a system transition regardless of the animation value.
+    const animation = presentation === ROUTE_PRESENTATION_OVERLAY
+      ? ROUTE_ANIMATION_NONE
+      : options.animation ??
+        (presentation === ROUTE_PRESENTATION_INPUT_DIALOG
+          ? ROUTE_ANIMATION_NONE
+          : ROUTE_ANIMATION_DEFAULT);
     if (!isRouteAnimation(animation)) {
       onError(`Invalid route animation: ${animation}`);
       return undefined;
@@ -464,16 +486,17 @@ export class NavigationModule extends LynxModule {
       onError(`Invalid status bar style: ${statusBarStyle}`);
       return undefined;
     }
-    const scrimColor = options.present?.scrimColor;
+    const scrimColor = options.overlay?.scrimColor;
     if (scrimColor !== undefined && !new RegExp('^#[0-9a-fA-F]{8}$').test(scrimColor)) {
-      onError(`Invalid present scrim color: ${scrimColor}`);
+      onError(`Invalid overlay scrim color: ${scrimColor}`);
       return undefined;
     }
     return {
       bundle: options.bundle,
       statusBarStyle,
       animation,
-      present: options.present,
+      presentation,
+      overlay: options.overlay,
       params: options.params ?? {},
     };
   }

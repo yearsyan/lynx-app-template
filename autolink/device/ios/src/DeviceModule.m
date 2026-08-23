@@ -34,8 +34,9 @@ LynxTemplateData *LynxDeviceTemplateData(
     NSDictionary<NSString *, id> *_Nullable additionalData) {
   NSMutableDictionary<NSString *, id> *data =
       [NSMutableDictionary dictionaryWithDictionary:additionalData ?: @{}];
-  data[@"nativeEnvironment"] = @{
-    @"schemaVersion" : @1,
+  NSMutableDictionary<NSString *, id> *nativeEnvironment =
+      [NSMutableDictionary dictionaryWithDictionary:@{
+    @"schemaVersion" : @2,
     @"unit" : @"px",
     @"safeAreaInsets" : @{
       @"top" : @(MAX(0, insets.top)),
@@ -43,7 +44,12 @@ LynxTemplateData *LynxDeviceTemplateData(
       @"bottom" : @(MAX(0, insets.bottom)),
       @"left" : @(MAX(0, insets.left)),
     },
-  };
+  }];
+  NSDictionary<NSString *, id> *overrides = additionalData[@"nativeEnvironment"];
+  if ([overrides isKindOfClass:NSDictionary.class]) {
+    [nativeEnvironment addEntriesFromDictionary:overrides];
+  }
+  data[@"nativeEnvironment"] = nativeEnvironment;
   return [[LynxTemplateData alloc] initWithDictionary:data];
 }
 

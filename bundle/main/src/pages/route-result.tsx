@@ -1,5 +1,6 @@
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useInitData, useState } from '@lynx-js/react';
 
+import { readColorScheme } from '@lynx-template/autolink-device';
 import { router } from '@lynx-template/autolink-navigation';
 import { useRouteParams } from '@lynx-template/autolink-navigation/react';
 
@@ -26,6 +27,7 @@ export function RouteResultPage() {
 }
 
 function RouteResultEntryPage() {
+  const colorScheme = readColorScheme(useInitData());
   const [result, setResult] = useState<string | null>(null);
 
   const openPicker = useCallback(() => {
@@ -33,6 +35,8 @@ function RouteResultEntryPage() {
     router
       .openForResult<{ picked: string }>({
         bundle: 'main',
+        statusBarStyle:
+          colorScheme === 'dark' ? 'light-content' : 'dark-content',
         params: { page: 'routeresult', mode: 'picker' },
       })
       .then((value) => {
@@ -45,7 +49,7 @@ function RouteResultEntryPage() {
       .catch((error: Error) => {
         setResult(`打开失败: ${error.message}`);
       });
-  }, []);
+  }, [colorScheme]);
 
   return (
     <view>

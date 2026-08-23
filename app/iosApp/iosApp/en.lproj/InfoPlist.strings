@@ -1,0 +1,8 @@
+"CFBundleDisplayName" = "Lynx Template";
+"NSCameraUsageDescription" = "Scan QR codes and barcodes in Lynx pages.";
+"NSFaceIDUsageDescription" = "Confirm your identity with Face ID in Lynx pages.";
+"NSLocalNetworkUsageDescription" = "Connect to a local Rspeedy server while developing Lynx bundles.";
+"NSLocationWhenInUseUsageDescription" = "Show which direction you are facing in Lynx pages.";
+"NSMicrophoneUsageDescription" = "Record audio in Lynx pages when you choose to.";
+"NSPhotoLibraryAddUsageDescription" = "Save images you choose to keep in your photo library.";
+"NSPhotoLibraryUsageDescription" = "Select photos you choose to use in Lynx pages.";

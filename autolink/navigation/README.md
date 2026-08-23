@@ -30,6 +30,57 @@ the host knows how to present Lynx pages:
 `openURL` resolves any system URL (deep links, `https://`, third-party
 schemes) through the platform router and needs no host wiring.
 
+### inputDialog routes
+
+`presentation: 'inputDialog'` opens the destination Lynx bundle in a
+dedicated native overlay while preserving the normal route lifecycle, Back
+handling and `openForResult` result channel:
+
+```ts
+const result = await router.openForResult<{ message: string }>({
+  bundle: 'main',
+  presentation: 'inputDialog',
+  params: { page: 'comment' },
+});
+```
+
+Its default animation is `none`. Android uses a dedicated `adjustResize`
+Window, iOS an over-full-screen controller, and HarmonyOS a custom-dialog
+subwindow. Keyboard adaptation stays inside that overlay, so the opener keeps
+its layout and soft-input policy.
+
+Native init data exposes the host style as `route.presentation`.
+
+The host overlay is full-width, bottom-aligned and content-height. The route
+therefore needs an intrinsically sized Lynx root (do not use `height: 100%` for
+that route). Native code owns backdrop dimming, outside-tap dismissal and the
+final placement above the IME; the Lynx page only draws the dialog surface.
+An outside tap or Back first hides the IME; the overlay closes only after the
+keyboard reaches its hidden state.
+
+### overlay routes
+
+`presentation: 'overlay'` fakes a transparent full-screen page over the
+previous one. The host snapshots the current page before opening, replays that
+snapshot as the new page's backdrop and plays an iOS-like present choreography
+(backdrop shrinks with rounded corners, content slides in); no translucent
+native page is involved, so it composes with the normal back stack:
+
+```ts
+await router.open({
+  bundle: 'main',
+  presentation: 'overlay',
+  statusBarStyle: 'light-content',
+  overlay: { scrimColor: '#59000000', dragDownToDismiss: true },
+  params: { page: 'sheet' },
+});
+```
+
+Overlay routes own their open/close choreography, so the `animation` option is
+ignored (they always run without a system transition). Native init data
+exposes the host style as `route.presentation`, and the page should render a
+transparent-root modal layout (see `bundle/main`'s overlay demo page).
+
 ## Result routing
 
 `router.openForResult(options)` takes the same options as `open` but its
@@ -49,20 +100,26 @@ of their route handler (default methods on Android, `@optional` on iOS,
 optional interface members on HarmonyOS); the template's handlers show the
 wiring.
 
-For `animation: 'present'`, `present.enter` and `present.exit` independently
-configure the new page's `opacity` and full-viewport `push` choreography. Both
-phases default to `{ opacity: false, push: true }`, so the entering page starts
-with zero visible area and does not fade. The deprecated `contentTransition`
-flag remains a fallback for both phases' `push` value; an explicit phase value
-wins.
+For `presentation: 'overlay'`, `overlay.enter` and `overlay.exit`
+independently configure the new page's `opacity` and full-viewport `push`
+choreography. Both phases default to `{ opacity: false, push: true }`, so the
+entering page starts with zero visible area and does not fade. The deprecated
+`contentTransition` flag remains a fallback for both phases' `push` value; an
+explicit phase value wins.
 
 Interactive dismissal is opt-in and platform-specific:
-`present.iosSwipeDown` lets an iOS leading-edge swipe drive the configured
-exit choreography, while `present.androidPredictiveBackDown` maps Android's
+`overlay.iosSwipeDown` lets an iOS leading-edge swipe drive the configured
+exit choreography, while `overlay.androidPredictiveBackDown` maps Android's
 predictive Back progress to the same choreography. They default to `false`,
 can be enabled independently, and a cancelled gesture restores the fully
 presented state. With the default exit phase, the foreground page moves down
 while the backdrop expands back to fullscreen.
+
+`overlay.dragDownToDismiss` is the cross-platform page-drag alternative. An
+unclaimed downward gesture enters a native, vertical-only drag session. After
+native recognition wins, the page owns the pointer until release; it then
+finishes the configured exit choreography or restores the presented state.
+The option is supported by iOS, Android and HarmonyOS and defaults to `false`.
 
 ## Back interception
 

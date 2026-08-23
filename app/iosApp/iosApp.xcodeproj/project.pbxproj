@@ -21,6 +21,7 @@
 		CC0000010000000000000001 /* DevelopmentSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000020000000000000002 /* DevelopmentSettings.swift */; };
 		CC0000030000000000000003 /* DebugSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000040000000000000004 /* DebugSettingsViewController.swift */; };
 		AB0000010000000000000001 /* LynxGenericResourceFetcher.m in Sources */ = {isa = PBXBuildFile; fileRef = AB0000020000000000000002 /* LynxGenericResourceFetcher.m */; };
+		DD0000010000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = DD0000040000000000000004 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,8 @@
 		CC0000040000000000000004 /* DebugSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSettingsViewController.swift; sourceTree = "<group>"; };
 		AB0000020000000000000002 /* LynxGenericResourceFetcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxGenericResourceFetcher.m; sourceTree = "<group>"; };
 		AB0000030000000000000003 /* LynxGenericResourceFetcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LynxGenericResourceFetcher.h; sourceTree = "<group>"; };
+		DD0000020000000000000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		DD0000030000000000000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		C4B67B2104D0445A811952B8 /* libPods-iosApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iosApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -84,6 +87,7 @@
 				2B94A3CA2D6613730060892C /* SceneDelegate.swift */,
 				2B94A3D12D6613740060892C /* Assets.xcassets */,
 				2B94A3D62D6613740060892C /* Info.plist */,
+				DD0000040000000000000004 /* InfoPlist.strings */,
 				2B94A3DC2D6614980060892C /* LynxBundleRepository.swift */,
 				AB0000020000000000000002 /* LynxGenericResourceFetcher.m */,
 				AB0000030000000000000003 /* LynxGenericResourceFetcher.h */,
@@ -175,6 +179,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hans",
 			);
 			mainGroup = 2B94A3BC2D6613730060892C;
 			productRefGroup = 2B94A3C62D6613730060892C /* Products */;
@@ -193,10 +198,23 @@
 			files = (
 				2BE49E032D7720F0000D068C /* lynxbundle in Resources */,
 				2B94A3D22D6613740060892C /* Assets.xcassets in Resources */,
+				DD0000010000000000000001 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		DD0000040000000000000004 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DD0000020000000000000002 /* en */,
+				DD0000030000000000000003 /* zh-Hans */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		1A6D9ADAF68CC04F0BA85760 /* [CP] Check Pods Manifest.lock */ = {
