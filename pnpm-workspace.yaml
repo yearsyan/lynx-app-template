@@ -13,6 +13,3 @@ catalog:
   '@types/react': ^19.2.17
   typescript: ~6.0.3
   ws: 8.21.3
-
-patchedDependencies:
-  '@lynx-js/lynx-ui-input@3.136.0': patches/@lynx-js__lynx-ui-input@3.136.0.patch
