@@ -34,6 +34,8 @@
     "oh_modules",
     "xcuserdata",
     "build",
+    "build-compat-test",
+    "build-device",
     "dist",
     "generated",
     "artifacts",
