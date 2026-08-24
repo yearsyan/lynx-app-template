@@ -19,8 +19,6 @@ import { fileSystem } from '@lynx-template/autolink-file-system';
 import { imageTooling } from '@lynx-template/autolink-image-tooling';
 import { permissions } from '@lynx-template/autolink-permissions';
 import { screenshot } from '@lynx-template/autolink-screenshot';
-import type { ShareOutcome } from '@lynx-template/autolink-share';
-import { share } from '@lynx-template/autolink-share';
 
 import {
   ApiName,
@@ -252,7 +250,6 @@ function ScreenshotViewer(props: { shot: ShotResult; onClose: () => void }) {
     </view>
   );
 }
-
 export function ScreenshotPage() {
   const [result, setResult] = useState<string | null>(null);
   const [lastShot, setLastShot] = useState<ShotResult | null>(null);
@@ -1075,111 +1072,6 @@ export function ImageToolingPage() {
             </text>
           </view>
         ) : null}
-      </DemoCard>
-    </view>
-  );
-}
-
-/** System share panel for text, links and local files. */
-export function SharePage() {
-  const [result, setResult] = useState<string | null>(null);
-  const [sharing, setSharing] = useState(false);
-
-  const run = useCallback(
-    (label: string, action: () => Promise<ShareOutcome>) => {
-      'background only';
-      if (sharing) {
-        return;
-      }
-      setSharing(true);
-      setResult(`${label}：分享面板已打开…`);
-      action()
-        .then((outcome) => {
-          if (outcome.code === 'sent') {
-            setResult(
-              `${label}：已交给目标${
-                outcome.activityType === null
-                  ? ''
-                  : `（${outcome.activityType}）`
-              }`,
-            );
-          } else if (outcome.code === 'dismissed') {
-            setResult(`${label}：已取消`);
-          } else {
-            setResult(`${label}：${outcome.message || outcome.code}`);
-          }
-        })
-        .catch((error: Error) => setResult(`${label}：${error.message}`))
-        .finally(() => setSharing(false));
-    },
-    [sharing],
-  );
-
-  const shareText = useCallback(() => {
-    'background only';
-    run('文本', () =>
-      share.open({
-        title: 'Lynx Template',
-        text: t('来自 Lynx Template 的系统分享：三端一致的分享面板 API。'),
-      }),
-    );
-  }, [run]);
-
-  const shareLink = useCallback(() => {
-    'background only';
-    run('链接', () =>
-      share.open({
-        title: 'Lynx',
-        text: t('Lynx 跨端框架'),
-        url: 'https://lynxjs.org',
-      }),
-    );
-  }, [run]);
-
-  const shareScreenshot = useCallback(() => {
-    'background only';
-    run('截图', async () => {
-      const shot = await screenshot.capture({ format: 'jpeg', quality: 85 });
-      return share.open({
-        title: t('Lynx 截图'),
-        text: t('screenshot.capture 的产物直接交给分享面板'),
-        files: [shot.uri],
-      });
-    });
-  }, [run]);
-
-  const sharePicked = useCallback(() => {
-    'background only';
-    run('相册', async () => {
-      const uris = await albumUtils.pick({ maxSelection: 3 });
-      if (uris.length === 0) {
-        throw new Error('已取消选择');
-      }
-      return share.open({ files: uris });
-    });
-  }, [run]);
-
-  return (
-    <view>
-      <ApiName name="share.open" />
-      <DemoCard
-        title="系统分享"
-        desc="调起系统分享面板发送文本、链接与本地文件。iOS 报告真实送达/取消与目标；Android 报告选中目标包名，取消为尽力检测；HarmonyOS 只报告面板关闭。"
-      >
-        <DemoButton label="分享文本" disabled={sharing} onTap={shareText} />
-        <DemoButton label="分享链接" disabled={sharing} onTap={shareLink} />
-        <DemoButton
-          label="截图并分享"
-          primary
-          disabled={sharing}
-          onTap={shareScreenshot}
-        />
-        <DemoButton
-          label="选图并分享（最多 3 张）"
-          disabled={sharing}
-          onTap={sharePicked}
-        />
-        <ResultLine text={result} placeholder="分享结果展示在这里" />
       </DemoCard>
     </view>
   );

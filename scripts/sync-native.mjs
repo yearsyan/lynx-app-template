@@ -83,6 +83,22 @@ for (const entry of entries) {
     throw new Error(`Invalid Lynx bundle name: ${name}`);
   }
 
+  // Optional preload trigger list: `downloadAt: ['main']` means "download me
+  // shortly after main's first screen". Validated against the bundle set
+  // below, then inverted into each bundle's `preload_bundles` list.
+  const downloadAt = bundleConfig.downloadAt ?? [];
+  if (
+    !Array.isArray(downloadAt) ||
+    downloadAt.some(
+      (trigger) =>
+        typeof trigger !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(trigger),
+    )
+  ) {
+    throw new Error(
+      `bundle/${entry.name}/package.json: lynxBundle.downloadAt must be a list of bundle names`,
+    );
+  }
+
   const source = join(
     workspaceDirectory,
     entry.name,
@@ -97,6 +113,7 @@ for (const entry of entries) {
     sha256: createHash('sha256').update(data).digest('hex'),
     size: data.byteLength,
     source,
+    downloadAt,
   });
 }
 
@@ -105,6 +122,27 @@ if (bundles.length === 0) {
 }
 
 bundles.sort((left, right) => left.name.localeCompare(right.name));
+
+const bundleNames = new Set(bundles.map((bundle) => bundle.name));
+const preloadByTrigger = new Map();
+for (const bundle of bundles) {
+  for (const trigger of bundle.downloadAt) {
+    if (!bundleNames.has(trigger)) {
+      throw new Error(
+        `bundle/${bundle.name}/package.json: downloadAt trigger "${trigger}" is not a known bundle`,
+      );
+    }
+    if (trigger === bundle.name) {
+      throw new Error(
+        `bundle/${bundle.name}/package.json: downloadAt must not list the bundle itself`,
+      );
+    }
+    if (!preloadByTrigger.has(trigger)) {
+      preloadByTrigger.set(trigger, []);
+    }
+    preloadByTrigger.get(trigger).push(bundle.name);
+  }
+}
 
 // Deep link config: the single source of truth for the URL prefix and the
 // path-to-bundle route table. It ships next to lynx-bundles.json so every
@@ -135,7 +173,12 @@ const manifest = {
   sdkVersion,
   channel: process.env.LYNX_RELEASE_CHANNEL ?? 'production',
   generatedAt,
-  bundles: bundles.map(({ source: _, ...bundle }) => bundle),
+  bundles: bundles.map(({ source: _, downloadAt: __, ...bundle }) => ({
+    ...bundle,
+    // All bundles to download shortly after this bundle's first screen
+    // (inverted from each bundle's lynxBundle.downloadAt).
+    preload_bundles: [...(preloadByTrigger.get(bundle.name) ?? [])].sort(),
+  })),
 };
 const serializedManifest = `${JSON.stringify(manifest, null, 2)}\n`;
 

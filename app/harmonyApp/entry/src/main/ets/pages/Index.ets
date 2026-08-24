@@ -28,7 +28,6 @@ import {
   SafeAreaInsets,
 } from '@lynx-template/autolink-device';
 
-import { BundleConfig } from '../config/BundleConfig';
 import {
   NATIVE_COLOR_SCHEME_KEY,
   NATIVE_LOCALE_KEY,
@@ -93,6 +92,23 @@ class EmbeddedBundleFallbackClient extends LynxViewClient {
  * below it, so opening with no system transition is imperceptible.
  */
 class PresentScreenClient extends LynxViewClient {
+  private readonly onFirstScreenCallback: () => void;
+
+  constructor(onFirstScreenCallback: () => void) {
+    super();
+    this.onFirstScreenCallback = onFirstScreenCallback;
+  }
+
+  public onFirstScreen(): void {
+    this.onFirstScreenCallback();
+  }
+}
+
+/**
+ * Kicks the OTA preload 200ms after the page's first screen (bundles whose
+ * package.json lynxBundle.downloadAt listed this one).
+ */
+class PreloadScreenClient extends LynxViewClient {
   private readonly onFirstScreenCallback: () => void;
 
   constructor(onFirstScreenCallback: () => void) {
@@ -225,6 +241,9 @@ struct LynxBundlePage {
   private presentScreenClient: PresentScreenClient = new PresentScreenClient((): void => {
     this.playPresent();
   });
+  private preloadScreenClient: PreloadScreenClient = new PreloadScreenClient((): void => {
+    this.preloadDependentBundles();
+  });
   // LynxView only reads `url` at creation; bumping this token flips the
   // build branch below so a changed URL recreates the view and reloads.
   @State private lynxReloadToken: number = 0;
@@ -297,28 +316,35 @@ struct LynxBundlePage {
     this.lynxReloadToken += 1;
   }
 
+  /** Preloads the bundles declared to download after this page's first screen. */
+  private preloadDependentBundles(): void {
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext === undefined) {
+      return;
+    }
+    this.bundleRepository.schedulePreloadAfterFirstScreen(
+      hostContext as common.UIAbilityContext,
+      this.route.bundle,
+    );
+  }
+
   private startBundle(context: common.UIAbilityContext): void {
     if (this.hasStartedBundle) {
       return;
     }
     this.hasStartedBundle = true;
-    this.setBundleURL(this.initialURL());
-    if (this.route.bundle !== BundleConfig.BUNDLE_NAME ||
-      this.bundleRepository.developmentURL(this.route.bundle).length > 0) {
-      return;
-    }
-    this.bundleRepository.resolveStartupURL(context).then((url: string) => {
-      this.setBundleURL(url);
-      this.bundleRepository.checkForUpdate(context).then((updatedURL: string | null) => {
-        if (updatedURL !== null) {
-          this.setBundleURL(updatedURL);
-        }
-      }).catch((error: Error) => {
-        console.error(`Lynx bundle update failed: ${error.message}`);
+    // The OTA entry gate: dev override, verified cache, or embedded asset —
+    // a changed bundle downloads (bounded) before the view loads instead of
+    // reloading afterwards. The empty-url build branch shows the entry
+    // splash meanwhile.
+    this.bundleRepository.resolveEntry(context, this.route.bundle)
+      .then((url: string): void => {
+        this.setBundleURL(url);
+      })
+      .catch((error: Error): void => {
+        console.error(`Lynx bundle entry resolution failed: ${error.message}`);
+        this.setBundleURL(this.route.bundleURL());
       });
-    }).catch((error: Error) => {
-      console.error(`Lynx bundle resolution failed: ${error.message}`);
-    });
   }
 
   aboutToDisappear(): void {
@@ -521,17 +547,6 @@ struct LynxBundlePage {
     }, PRESENT_DURATION_MS);
   }
 
-  private initialURL(): string {
-    const developmentURL: string = this.bundleRepository.developmentURL(this.route.bundle);
-    if (developmentURL.length > 0) {
-      return developmentURL;
-    }
-    if (this.route.bundle === BundleConfig.BUNDLE_NAME) {
-      return BundleConfig.EMBEDDED_BUNDLE_PATH;
-    }
-    return this.route.bundleURL();
-  }
-
   private createModules(): Map<string, ModuleClassWrapper> {
     const modules = new Map<string, ModuleClassWrapper>();
     // Package-owned libraries, including Navigation, are installed globally
@@ -576,9 +591,7 @@ struct LynxBundlePage {
   }
 
   private fallBackToEmbeddedBundle(): void {
-    const embedded: string = this.route.bundle === BundleConfig.BUNDLE_NAME
-      ? BundleConfig.EMBEDDED_BUNDLE_PATH
-      : this.route.bundleURL();
+    const embedded: string = this.route.bundleURL();
     if (this.url === embedded) {
       return;
     }
@@ -621,8 +634,8 @@ struct LynxBundlePage {
       beforeLoadTemplate: this.lynxBeforeLoadTemplateCallback,
       onCreate: this.lynxCreateCallback,
       clients: this.isOverlayRoute()
-        ? [this.bundleLoadFallback, this.presentScreenClient]
-        : [this.bundleLoadFallback],
+        ? [this.bundleLoadFallback, this.presentScreenClient, this.preloadScreenClient]
+        : [this.bundleLoadFallback, this.preloadScreenClient],
       fitContentHeight: this.isInputDialogRoute(),
       url: this.url,
     })
@@ -687,8 +700,14 @@ struct LynxBundlePage {
           } else {
             this.bundleView();
           }
+        } else if (!this.isOverlayRoute() && !this.isInputDialogRoute()) {
+          // Entry splash while the OTA gate resolves the bundle URL.
+          LoadingProgress()
+            .width(48)
+            .height(48)
         }
       }
+      .justifyContent(FlexAlign.Center)
       .backgroundColor(Color.Transparent)
       .width('100%')
       .height(this.isInputDialogRoute() ? 'auto' : '100%')

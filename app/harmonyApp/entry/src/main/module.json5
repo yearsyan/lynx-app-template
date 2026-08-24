@@ -89,7 +89,8 @@
         "name": "ohos.permission.GET_NETWORK_INFO"
       },
       {
-        // User-granted permission prompted by the Permissions native module.
+        // User-granted permission prompted by Camera/x-camera-view and the
+        // Permissions native module.
         "name": "ohos.permission.CAMERA",
         "reason": "$string:camera_permission",
         "usedScene": {

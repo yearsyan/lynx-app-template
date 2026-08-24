@@ -58,6 +58,20 @@ private final class PresentScreenObserver: NSObject, LynxViewLifecycle {
   }
 }
 
+/// Kicks the OTA preload 200ms after the page's first screen (bundles whose
+/// package.json `lynxBundle.downloadAt` listed this one).
+private final class BundlePreloadObserver: NSObject, LynxViewLifecycle {
+  private let onFirstScreen: () -> Void
+
+  init(onFirstScreen: @escaping () -> Void) {
+    self.onFirstScreen = onFirstScreen
+  }
+
+  func lynxViewDidFirstScreen(_ view: LynxView) {
+    onFirstScreen()
+  }
+}
+
 /// Relays intrinsic-size changes from a content-height dialog LynxView back to
 /// its native overlay so only that view follows the keyboard.
 private final class DialogLayoutObserver: NSObject, LynxViewLifecycle {
@@ -102,8 +116,11 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost,
   private var lynxView: LynxView?
   private var embeddedFallback: EmbeddedBundleFallback?
   private var presentScreenObserver: PresentScreenObserver?
+  private var bundlePreloadObserver: BundlePreloadObserver?
   private var dialogLayoutObserver: DialogLayoutObserver?
   private var hasLoadedInitialBundle = false
+  /// Loading cover over opaque pages while the OTA entry gate resolves.
+  private var entrySplashView: UIView?
   private var canUpdateTemplate = false
   private var lastSafeAreaInsets: UIEdgeInsets?
   private var lastColorScheme: String?
@@ -284,6 +301,13 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost,
     }
     lynxView.addLifecycleClient(fallback)
     embeddedFallback = fallback
+
+    let preloadObserver = BundlePreloadObserver { [weak self] in
+      guard let self else { return }
+      self.bundleRepository.schedulePreloadAfterFirstScreen(for: self.bundleName)
+    }
+    lynxView.addLifecycleClient(preloadObserver)
+    bundlePreloadObserver = preloadObserver
 
     if let backdrop = presentBackdrop {
       let observer = PresentScreenObserver { [weak self] in
@@ -592,16 +616,41 @@ class LynxPageViewController: UIViewController, LynxDeviceStatusBarHost,
   private func loadInitialBundleIfReady() {
     guard !hasLoadedInitialBundle, view.window != nil else { return }
     hasLoadedInitialBundle = true
-    loadBundle(fromURL: bundleRepository.url(forBundle: bundleName))
+    showEntrySplashIfNeeded()
 
-    guard bundleName == "main" else { return }
-    bundleRepository.checkForUpdate { [weak self] updated in
-      guard updated else { return }
-      DispatchQueue.main.async {
-        guard let self else { return }
-        self.loadBundle(fromURL: self.bundleRepository.cachedURL())
-      }
+    // The OTA entry gate: dev override, verified cache, or embedded asset —
+    // a changed bundle downloads (bounded) before the first render instead
+    // of reloading afterwards.
+    bundleRepository.resolveEntry(forBundle: bundleName) { [weak self] url in
+      guard let self else { return }
+      self.hideEntrySplash()
+      self.loadBundle(fromURL: url)
     }
+  }
+
+  /// Plain loading cover for opaque pages while the OTA entry gate resolves.
+  private func showEntrySplashIfNeeded() {
+    guard presentBackdrop == nil, !isInputDialogRoute, entrySplashView == nil else {
+      return
+    }
+    let splash = UIView(frame: view.bounds)
+    splash.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    splash.backgroundColor = view.backgroundColor
+    let spinner = UIActivityIndicatorView(style: .medium)
+    spinner.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+    spinner.autoresizingMask = [
+      .flexibleLeftMargin, .flexibleRightMargin,
+      .flexibleTopMargin, .flexibleBottomMargin,
+    ]
+    spinner.startAnimating()
+    splash.addSubview(spinner)
+    view.addSubview(splash)
+    entrySplashView = splash
+  }
+
+  private func hideEntrySplash() {
+    entrySplashView?.removeFromSuperview()
+    entrySplashView = nil
   }
 
   private func loadBundle(fromURL url: String) {

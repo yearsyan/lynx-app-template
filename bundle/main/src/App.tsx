@@ -18,7 +18,7 @@ import './App.css';
 import './components/native-elements.js';
 import { PageFrame } from './components/PageFrame.js';
 import { setAppLocale, t } from './i18n.js';
-import { PAGES, TABS } from './pages/registry.js';
+import { PAGES, TABS, pageBundle } from './pages/registry.js';
 import type { DemoTabMeta } from './pages/registry.js';
 
 const DARK_TILE_BACKGROUNDS: Record<string, string> = {
@@ -277,9 +277,11 @@ export function App() {
   const open = useCallback(
     (pageKey: string) => {
       'background only';
+      // Items declared with a `bundle` (e.g. the share demo in `profile`)
+      // route across bundles; everything else pushes a page in `main`.
       router
         .open({
-          bundle: 'main',
+          bundle: pageBundle(pageKey) ?? 'main',
           statusBarStyle:
             colorScheme === 'dark' ? 'light-content' : 'dark-content',
           params: { page: pageKey },

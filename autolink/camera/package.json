@@ -1,0 +1,23 @@
+{
+  "name": "@lynx-template/autolink-camera",
+  "description": "Autolinked camera module for Lynx hosts (Android, iOS & HarmonyOS)",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raw": "./src/native.generated.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "harmony",
+    "src",
+    "types",
+    "lynx.lib.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@lynx-js/types": "^4.0.0"
+  }
+}

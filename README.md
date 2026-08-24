@@ -20,6 +20,7 @@
 ├── autolink          # Lynx 原生库，三端均由官方 Autolink 注册
 │   ├── app-installer # AppInstaller（高权限、默认关闭的 Android 自更新交接）
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
+│   ├── camera        # Camera + x-camera-view（系统拍照 + 内嵌原生相机）
 │   ├── clipboard     # Clipboard
 │   ├── device        # Device（设备信息与应用标识、安全区、状态栏、跳应用设置、电量、显示宽度/亮度/常亮、加速度计/罗盘/陀螺仪/磁力计/气压计）
 │   ├── file-system   # FileSystem（系统文件选择器 + URI 文件操作）
@@ -70,7 +71,8 @@ Autolink Provider 清单。NativeModule 库均提供 HarmonyOS 源码 HAR；其�
 声明式返回事件和路由会话接到包内控制器。StatusBar、SafeArea、电量、显示与传感器位于
 `autolink/device`。iOS 的
 `glass-switch` 与 `glass-dropdown` 也已作为
-`autolink/liquid-glass` 中的 Element 自动接入。集成细节见
+`autolink/liquid-glass` 中的 Element 自动接入；三端的 `x-camera-view` 由
+`autolink/camera` 自动接入，默认 cover 填满并居中裁边。集成细节见
 [NativeModules 文档的 Autolink 章节](docs/native-modules.md#lynx-autolink-集成)。
 
 ## 环境要求

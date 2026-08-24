@@ -1,5 +1,5 @@
 import type { ReactNode } from '@lynx-js/react';
-
+import { CameraPage } from './api-camera.js';
 import {
   BatteryPage,
   BiometricPage,
@@ -23,7 +23,6 @@ import {
   AudioRecorderPage,
   ImageToolingPage,
   ScreenshotPage,
-  SharePage,
   WebViewPage,
 } from './api-media.js';
 import {
@@ -57,6 +56,8 @@ export interface DemoItemMeta {
   key: string;
   title: string;
   subtitle?: string;
+  /** When set, the item opens in this bundle instead of a pushed main page. */
+  bundle?: string;
 }
 
 export interface DemoCategoryMeta {
@@ -84,7 +85,7 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
     key: 'api',
     label: '接口',
     glyph: '接',
-    headline: 'Lynx 接口能力展示',
+    headline: 'Lynx 接口能力展示（OTA v2）',
     description:
       '以下将演示 Lynx 跨端接口能力，具体属性参数详见 Lynx 开发文档。所有接口在 Android / iOS / HarmonyOS 三端行为一致。',
     categories: [
@@ -141,8 +142,9 @@ export const TABS: [DemoTabMeta, DemoTabMeta] = [
         tileBackground: '#fff3e0',
         tileColor: '#f57c00',
         items: [
+          { key: 'camera', title: '相机' },
           { key: 'screenshot', title: '截图' },
-          { key: 'share', title: '系统分享' },
+          { key: 'share', title: '系统分享', bundle: 'profile' },
           { key: 'imagetooling', title: '图片工具' },
           { key: 'audio', title: '音频播放' },
           { key: 'audio-recorder', title: '录音' },
@@ -249,8 +251,8 @@ export const PAGES: Record<string, DemoPageEntry> = {
   networkinfo: { title: '网络状态', render: () => <NetworkInfoPage /> },
   websocket: { title: 'WebSocket', render: () => <WebSocketPage /> },
   openurl: { title: '打开链接', render: () => <OpenUrlPage /> },
+  camera: { title: '相机', render: () => <CameraPage /> },
   screenshot: { title: '截图', render: () => <ScreenshotPage /> },
-  share: { title: '系统分享', render: () => <SharePage /> },
   imagetooling: { title: '图片工具', render: () => <ImageToolingPage /> },
   album: { title: '相册', render: () => <AlbumPage /> },
   audio: { title: '音频播放', render: () => <AudioPlayerPage /> },
@@ -287,3 +289,16 @@ export const PAGES: Record<string, DemoPageEntry> = {
   actionsheet: { title: '底部弹层', render: () => <SheetPage /> },
   swiper: { title: '轮播', render: () => <SwiperPage /> },
 };
+
+/** The owning bundle for a demo item, or undefined for pushed main pages. */
+export function pageBundle(pageKey: string): string | undefined {
+  for (const tab of TABS) {
+    for (const category of tab.categories) {
+      const item = category.items.find((entry) => entry.key === pageKey);
+      if (item) {
+        return item.bundle;
+      }
+    }
+  }
+  return undefined;
+}

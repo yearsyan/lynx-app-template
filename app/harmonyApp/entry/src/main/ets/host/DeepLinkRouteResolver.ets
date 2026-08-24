@@ -10,7 +10,7 @@ export interface DeepLinkResolution {
 class DeepLinkRouteEntry {
   path: string = '';
   bundle: string = '';
-  params: Record<string, Object> = {};
+  params: Record<string, Object> | undefined = undefined;
 }
 
 class DeepLinkConfig {
@@ -78,10 +78,11 @@ export class DeepLinkRouteResolver {
     }
 
     const params: Record<string, Object> = {};
-    const staticKeys: string[] = Object.keys(entry.params);
+    const staticParams: Record<string, Object> = entry.params ?? {};
+    const staticKeys: string[] = Object.keys(staticParams);
     for (let index: number = 0; index < staticKeys.length; index++) {
       const key: string = staticKeys[index];
-      params[key] = entry.params[key];
+      params[key] = staticParams[key];
     }
     const queryKeys: string[] = Object.keys(parsed.query);
     for (let index: number = 0; index < queryKeys.length; index++) {

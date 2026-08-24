@@ -35,6 +35,10 @@ static NSString *LynxDeviceJSON(NSDictionary<NSString *, id> *result) {
              : [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 }
 
+static NSString *LynxDeviceBooleanJSON(BOOL value) {
+  return LynxDeviceJSON(@{ @"value" : @(value) });
+}
+
 LynxTemplateData *LynxDeviceTemplateData(
     UIEdgeInsets insets,
     NSDictionary<NSString *, id> *_Nullable additionalData) {
@@ -318,26 +322,29 @@ LynxTemplateData *LynxDeviceTemplateData(
 
 - (void)isAvailable:(NSString *)type callback:(LynxCallbackBlock)callback {
   if ([type isEqualToString:kTypeAccelerometer]) {
-    callback([self valueString:self.motionManager.isAccelerometerAvailable]);
+    callback(LynxDeviceBooleanJSON(
+        self.motionManager.isAccelerometerAvailable));
     return;
   }
   if ([type isEqualToString:kTypeCompass]) {
-    callback([self valueString:CLLocationManager.headingAvailable]);
+    callback(LynxDeviceBooleanJSON(CLLocationManager.headingAvailable));
     return;
   }
   if ([type isEqualToString:kTypeGyroscope]) {
-    callback([self valueString:self.motionManager.isGyroAvailable]);
+    callback(LynxDeviceBooleanJSON(self.motionManager.isGyroAvailable));
     return;
   }
   if ([type isEqualToString:kTypeMagnetometer]) {
-    callback([self valueString:self.motionManager.isMagnetometerAvailable]);
+    callback(LynxDeviceBooleanJSON(
+        self.motionManager.isMagnetometerAvailable));
     return;
   }
   if ([type isEqualToString:kTypeBarometer]) {
-    callback([self valueString:CMAltimeter.isRelativeAltitudeAvailable]);
+    callback(
+        LynxDeviceBooleanJSON(CMAltimeter.isRelativeAltitudeAvailable));
     return;
   }
-  callback(@"Unknown sensor type");
+  callback(LynxDeviceJSON(@{ @"error" : @"Unknown sensor type" }));
 }
 
 - (void)start:(NSString *)type callback:(LynxCallbackBlock)callback {

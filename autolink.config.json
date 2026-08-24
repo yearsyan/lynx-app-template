@@ -15,6 +15,9 @@
       "name": "biometric"
     },
     {
+      "name": "camera"
+    },
+    {
       "name": "clipboard"
     },
     {

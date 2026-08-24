@@ -37,6 +37,8 @@ PODS:
     - Lynx
   - lynx-app-biometric (2.0.0):
     - Lynx
+  - lynx-app-camera (1.0.0):
+    - Lynx
   - lynx-app-clipboard (1.0.0):
     - Lynx
   - lynx-app-device (1.0.0):
@@ -231,6 +233,7 @@ DEPENDENCIES:
   - lynx-app-album-utils (from `/Users/u/workspace/lynx-template/autolink/album-utils/ios`)
   - lynx-app-audio (from `/Users/u/workspace/lynx-template/autolink/audio/ios`)
   - lynx-app-biometric (from `/Users/u/workspace/lynx-template/autolink/biometric/ios`)
+  - lynx-app-camera (from `/Users/u/workspace/lynx-template/autolink/camera/ios`)
   - lynx-app-clipboard (from `/Users/u/workspace/lynx-template/autolink/clipboard/ios`)
   - lynx-app-device (from `/Users/u/workspace/lynx-template/autolink/device/ios`)
   - lynx-app-download-manager (from `/Users/u/workspace/lynx-template/autolink/download-manager/ios`)
@@ -291,6 +294,8 @@ EXTERNAL SOURCES:
     :path: "/Users/u/workspace/lynx-template/autolink/audio/ios"
   lynx-app-biometric:
     :path: "/Users/u/workspace/lynx-template/autolink/biometric/ios"
+  lynx-app-camera:
+    :path: "/Users/u/workspace/lynx-template/autolink/camera/ios"
   lynx-app-clipboard:
     :path: "/Users/u/workspace/lynx-template/autolink/clipboard/ios"
   lynx-app-device:
@@ -340,6 +345,7 @@ SPEC CHECKSUMS:
   lynx-app-album-utils: 945e846361c8b9a3f51f2afed5a2363f3c3efcde
   lynx-app-audio: 3e25daf134c63dac76ad0c00108a8fddf883cc3a
   lynx-app-biometric: 66417a6b646030fe640a7f4d415738c8c37f2f6e
+  lynx-app-camera: 11eb408ba8cede939a87e7449fa0ab753cbc36d3
   lynx-app-clipboard: 4fa5b6d19bbf978336d5c8b09e303bee5ae35821
   lynx-app-device: 9de9a1d7b98e9ff0f4673fa9584400b0a827a631
   lynx-app-download-manager: c16880cee87fb3d324fb4e7eaa2809d925a0ac61

@@ -33,6 +33,11 @@ val deepLinkScheme: String = runCatching {
     config["scheme"] as String
 }.getOrNull() ?: "lynxapp"
 
+// Optional local signing for release builds: drop a keystore at
+// app/androidApp/verify.keystore (see docs; gitignored) to produce a signed
+// release APK for local verification. Without it, release stays unsigned.
+val verifyKeystore = rootProject.file("verify.keystore")
+
 android {
     namespace = "com.lynxapp"
     compileSdk = 36
@@ -81,6 +86,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (verifyKeystore.exists()) {
+                signingConfig = signingConfigs.create("verify") {
+                    storeFile = verifyKeystore
+                    storePassword = "lynxverify"
+                    keyAlias = "verify"
+                    keyPassword = "lynxverify"
+                }
+            }
         }
     }
     compileOptions {

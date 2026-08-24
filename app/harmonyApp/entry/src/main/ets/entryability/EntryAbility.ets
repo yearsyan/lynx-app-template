@@ -12,6 +12,7 @@ import BuildProfile from 'BuildProfile';
 import { LynxTemplateHttpService } from '../service/LynxTemplateHttpService';
 import { DeepLinkRouteResolver } from '../host/DeepLinkRouteResolver';
 import { StartupRoute } from '../host/StartupRoute';
+import { LynxBundleRepository } from '../provider/LynxBundleRepository';
 import {
   NATIVE_COLOR_SCHEME_KEY,
   NATIVE_LOCALE_KEY,
@@ -47,6 +48,9 @@ export default class EntryAbility extends UIAbility {
     LynxEnv.enableDevtool(BuildProfile.DEBUG);
     LynxEnv.setLogBoxEnabled(BuildProfile.DEBUG);
     // Init LynxEnv end
+    // Prefetch the OTA version list so page entries can consult it from
+    // memory; never blocks ability creation.
+    LynxBundleRepository.refreshManifest();
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }
 

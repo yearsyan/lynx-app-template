@@ -104,6 +104,35 @@ test('iOS accelerometer normalizes Core Motion g values to m/s^2', async () => {
   }
 });
 
+test('iOS sensor availability returns JSON booleans', async () => {
+  const source = await readFile(
+    join(repositoryDirectory, 'autolink/device/ios/src/DeviceModule.m'),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /LynxDeviceBooleanJSON\(BOOL value\)[\s\S]*?@\{ @"value" : @\(value\) \}/,
+  );
+  for (const availability of [
+    'self.motionManager.isAccelerometerAvailable',
+    'CLLocationManager.headingAvailable',
+    'self.motionManager.isGyroAvailable',
+    'self.motionManager.isMagnetometerAvailable',
+    'CMAltimeter.isRelativeAltitudeAvailable',
+  ]) {
+    assert.match(
+      source,
+      new RegExp(
+        `LynxDeviceBooleanJSON\\(\\s*${availability.replaceAll('.', '\\.')}\\s*\\)`,
+      ),
+    );
+  }
+  assert.match(
+    source,
+    /LynxDeviceJSON\(@\{ @"error" : @"Unknown sensor type" \}\)/,
+  );
+});
+
 async function doesNotExist(path) {
   await assert.rejects(access(path), (error) => error?.code === 'ENOENT');
 }

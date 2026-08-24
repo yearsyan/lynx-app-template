@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "android": {
+      "packageName": "com.lynxapp.autolink.camera",
+      "sourceDir": "android"
+    },
+    "ios": {
+      "sourceDir": "ios",
+      "podspecPath": "ios/lynx-app-camera.podspec"
+    },
+    "harmony": {
+      "packageDir": "harmony"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@lynx-template/autolink-camera",
+  "version": "1.0.0",
+  "description": "Autolinked camera module for Lynx hosts (HarmonyOS source HAR)",
+  "main": "Index.ets",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@lynx/lynx": "4.2.0-nightly.202608180606.150.ga573c3b8"
+  }
+}

@@ -1,12 +1,17 @@
 package com.lynxapp
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.AtomicFile
 import android.util.Log
 import com.lynx.tasm.provider.AbsTemplateProvider
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.Call
 import okhttp3.Callback as OkHttpCallback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -16,14 +21,19 @@ import org.json.JSONObject
 
 /**
  * Resolves dev server, verified OTA cache, and embedded assets in that order,
- * and owns the OTA version list: the Application prefetches the manifest once
- * per process ([refreshManifest]); the root startup flow and route opens then
- * consult [pendingUpdateFor] and [download].
+ * and owns the OTA version list. The Application prefetches the manifest once
+ * per process ([refreshManifest]); every page entry (root and pushed routes)
+ * then goes through [resolveEntryUrl], which briefly waits for the manifest
+ * and for a changed bundle before falling back to the best verified source.
  */
 class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     private val appContext = context.applicationContext
     private val client = AppHttpClient.instance
     private val cacheDirectory = File(appContext.filesDir, "lynx-bundles")
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val ioExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "lynx-bundle-resolver").apply { isDaemon = true }
+    }
 
     // Manifest and download state. OkHttp callbacks arrive on background
     // threads, so every access synchronizes on updateLock.
@@ -34,6 +44,8 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     private val manifestWaiters = mutableListOf<(Boolean) -> Unit>()
     private val downloadsInFlight = mutableMapOf<String, MutableList<(Boolean) -> Unit>>()
     private var cachedShaMemo: Pair<String, String?>? = null
+    private val embeddedShaMemo = ConcurrentHashMap<String, String?>()
+    private var embeddedPreloadMap: Map<String, List<String>>? = null
 
     init {
         cacheDirectory.mkdirs()
@@ -42,39 +54,91 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     /** Dev override, then the verified per-bundle cache, then the embedded asset. */
     fun urlForBundle(bundleName: String): String {
         DevelopmentSettings.recordLoadedBundle(appContext, bundleName)
-        DevelopmentSettings.developmentUrl(appContext, bundleName)?.let { return it }
-        DevelopmentSettings.deviceFileDevelopmentUrl(bundleName)?.let { return it }
-        if (bundleName == BUNDLE_NAME) {
-            val developmentUrl = BuildConfig.LYNX_DEV_BUNDLE_URL.trim()
-            if (BuildConfig.DEBUG && developmentUrl.isNotEmpty()) return developmentUrl
+        developmentOverridesFor(bundleName)?.let { return it }
+        cachedSha256For(bundleName)?.let { return cachedUrl(bundleName, it) }
+        return embeddedUrlForBundle(bundleName)
+    }
+
+    /**
+     * Unified entry resolution for every page (root and pushed routes):
+     * 1. a dev override wins immediately — development flows skip OTA;
+     * 2. otherwise wait up to [MANIFEST_WAIT_MS] for the prefetched manifest
+     *    and compare its SHA-256 with the verified cache (or the embedded
+     *    asset when no download exists);
+     * 3. on a mismatch, wait up to [DOWNLOAD_TIMEOUT_MS] for the download to
+     *    finish. The result is the best verified source — a timed-out or
+     *    failed download keeps the previous cache or embedded bundle; the
+     *    download itself continues in the background for the next entry.
+     *
+     * [onDownloadStarted] fires once on the main thread (before [onReady])
+     * when a bundle download will block the entry, so the caller can show a
+     * splash. [onReady] fires exactly once on the main thread.
+     */
+    fun resolveEntryUrl(
+        bundleName: String,
+        onReady: (String) -> Unit,
+        onDownloadStarted: () -> Unit = {},
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { resolveEntryUrl(bundleName, onReady, onDownloadStarted) }
+            return
         }
-        return if (cachedSha256For(bundleName) != null) {
-            cachedUrl(bundleName)
-        } else {
-            embeddedUrlForBundle(bundleName)
+        DevelopmentSettings.recordLoadedBundle(appContext, bundleName)
+        developmentOverridesFor(bundleName)?.let { return onReady(it) }
+
+        val settled = AtomicBoolean(false)
+        fun finish(url: String) {
+            if (settled.compareAndSet(false, true)) {
+                mainHandler.post { onReady(url) }
+            }
+        }
+        waitForManifestWithin(MANIFEST_WAIT_MS) {
+            ioExecutor.execute {
+                val update = synchronized(updateLock) { manifestEntries }?.get(bundleName)
+                val fallback = bestUrlFor(bundleName)
+                if (update == null || update.sha256 == currentShaFor(bundleName)) {
+                    finish(fallback)
+                } else {
+                    mainHandler.post(onDownloadStarted)
+                    downloadWithin(update, DOWNLOAD_TIMEOUT_MS) { success ->
+                        finish(
+                            if (success) {
+                                cachedUrl(bundleName, update.sha256)
+                            } else {
+                                fallback
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 
-    fun cachedUrl(bundleName: String): String = "$CACHE_SCHEME://$bundleName"
+    /** The cache URL embeds the SHA-256 so engine groups key per version. */
+    fun cachedUrl(bundleName: String, sha256: String): String =
+        "$CACHE_SCHEME://$bundleName?v=$sha256"
 
     /** Embedded asset path for any bundle; the white-screen fallback target. */
     fun embeddedUrlForBundle(bundleName: String): String =
         "$EMBEDDED_BUNDLE_DIRECTORY/$bundleName.lynx.bundle"
 
     override fun loadTemplate(uri: String, callback: Callback) {
+        // The version query only versions the URL for engine groups; the
+        // provider always resolves the plain cache path.
+        val path = uri.substringBefore('?')
         when {
-            uri.startsWith("https://") || uri.startsWith("http://") -> {
-                loadRemote(uri, callback)
+            path.startsWith("https://") || path.startsWith("http://") -> {
+                loadRemote(path, callback)
             }
-            uri.startsWith("$CACHE_SCHEME://") -> {
-                loadFile(cachedBundleFor(uri.removePrefix("$CACHE_SCHEME://")), callback)
+            path.startsWith("$CACHE_SCHEME://") -> {
+                loadFile(cachedBundleFor(path.removePrefix("$CACHE_SCHEME://")), callback)
             }
             else -> {
                 Thread {
                     try {
-                        appContext.assets.open(uri).use { callback.onSuccess(it.readBytes()) }
+                        appContext.assets.open(path).use { callback.onSuccess(it.readBytes()) }
                     } catch (error: IOException) {
-                        callback.onFailed(error.message ?: "Unable to load $uri")
+                        callback.onFailed(error.message ?: "Unable to load $path")
                     }
                 }.start()
             }
@@ -83,9 +147,9 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
 
     /**
      * Fetches the OTA manifest once per process. Concurrent callers and later
-     * [runWhenManifestReady] waiters share one request; once the fetch has
-     * settled, its outcome is replayed instead of refetching. `true` means a
-     * parsed version list is available.
+     * waiters share one request; once the fetch has settled, its outcome is
+     * replayed instead of refetching. `true` means a parsed version list is
+     * available.
      */
     fun refreshManifest(onComplete: (Boolean) -> Unit) {
         var fetch = false
@@ -111,47 +175,12 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     }
 
     /**
-     * Runs [block] once the startup manifest fetch settled — immediately with
-     * the outcome when already settled. Kicks off the fetch defensively when
-     * nothing has started it yet so callers cannot wait forever.
-     */
-    fun runWhenManifestReady(block: (hasManifest: Boolean) -> Unit) {
-        var startFetch = false
-        val ready: Boolean? = synchronized(updateLock) {
-            when {
-                manifestEntries != null -> true
-                manifestSettled -> false
-                else -> {
-                    manifestWaiters.add(block)
-                    if (!manifestInFlight) startFetch = true
-                    null
-                }
-            }
-        }
-        if (ready != null) {
-            block(ready)
-        } else if (startFetch) {
-            refreshManifest { }
-        }
-    }
-
-    /**
-     * The manifest entry for [bundleName] when it differs from the verified
-     * cache; null when the bundle is up to date or no version list is known.
-     * Safe on the UI thread: the cached digest is memoized per bundle.
-     */
-    internal fun pendingUpdateFor(bundleName: String): Update? {
-        val update = synchronized(updateLock) { manifestEntries }?.get(bundleName) ?: return null
-        return if (update.sha256 == cachedSha256For(bundleName)) null else update
-    }
-
-    /**
      * Downloads and verifies [update] into the per-bundle cache: the byte
      * count must match `size`, the SHA-256 must match, and both files are
      * written atomically. Concurrent downloads of the same bundle share one
      * request.
      */
-    internal fun download(update: Update, onComplete: (Boolean) -> Unit) {
+    private fun download(update: Update, onComplete: (Boolean) -> Unit) {
         synchronized(updateLock) {
             val waiters = downloadsInFlight.getOrPut(update.bundle) { mutableListOf() }
             waiters.add(onComplete)
@@ -203,11 +232,7 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
     }
 
     private fun fetchManifest() {
-        if (
-            DevelopmentSettings.developmentUrl(appContext, BUNDLE_NAME) != null ||
-            DevelopmentSettings.deviceFileDevelopmentUrl(BUNDLE_NAME) != null ||
-            (BuildConfig.DEBUG && BuildConfig.LYNX_DEV_BUNDLE_URL.isNotBlank())
-        ) {
+        if (developmentOverridesFor(BUNDLE_NAME) != null) {
             finishManifest(null)
             return
         }
@@ -289,6 +314,160 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
         }
         return byName
     }
+
+    private fun developmentOverridesFor(bundleName: String): String? {
+        DevelopmentSettings.developmentUrl(appContext, bundleName)?.let { return it }
+        DevelopmentSettings.deviceFileDevelopmentUrl(bundleName)?.let { return it }
+        if (bundleName == BUNDLE_NAME) {
+            val developmentUrl = BuildConfig.LYNX_DEV_BUNDLE_URL.trim()
+            if (BuildConfig.DEBUG && developmentUrl.isNotEmpty()) return developmentUrl
+        }
+        return null
+    }
+
+    /**
+     * Runs [onDone] once on the main thread, as soon as the manifest settles
+     * or [timeoutMs] passes — whichever comes first.
+     */
+    private fun waitForManifestWithin(timeoutMs: Long, onDone: () -> Unit) {
+        val fired = AtomicBoolean(false)
+        fun fire() {
+            if (fired.compareAndSet(false, true)) mainHandler.post(onDone)
+        }
+        var startFetch = false
+        synchronized(updateLock) {
+            when {
+                manifestSettled -> fire()
+                else -> {
+                    manifestWaiters.add { _ -> fire() }
+                    if (!manifestInFlight) {
+                        manifestInFlight = true
+                        startFetch = true
+                    }
+                }
+            }
+        }
+        if (startFetch) fetchManifest()
+        mainHandler.postDelayed({ fire() }, timeoutMs)
+    }
+
+    /**
+     * Runs [block] on the IO executor once the manifest has settled, however
+     * long that takes (a missing URL settles immediately; the network is
+     * bounded by the HTTP client's own timeouts). Used by the background
+     * preload, which must not skip bundles just because the manifest was slow.
+     */
+    private fun whenManifestReadyOnIo(block: () -> Unit) {
+        var startFetch = false
+        val ready = synchronized(updateLock) {
+            when {
+                manifestSettled -> true
+                else -> {
+                    manifestWaiters.add { _ -> ioExecutor.execute(block) }
+                    if (!manifestInFlight) {
+                        manifestInFlight = true
+                        startFetch = true
+                    }
+                    false
+                }
+            }
+        }
+        if (ready) ioExecutor.execute(block)
+        if (startFetch) fetchManifest()
+    }
+
+    /**
+     * Schedules the OTA preload for [triggerBundle]'s dependents 200ms after
+     * its first screen: every bundle whose package.json `lynxBundle.downloadAt`
+     * listed this one downloads in parallel when the manifest marks it
+     * outdated. Bundles without an update are skipped, and in-flight
+     * downloads are shared with page-entry waits, never restarted.
+     */
+    fun schedulePreloadAfterFirstScreen(triggerBundle: String) {
+        mainHandler.postDelayed({
+            ioExecutor.execute {
+                val targets = preloadTargetsFor(triggerBundle)
+                if (targets.isEmpty()) return@execute
+                whenManifestReadyOnIo {
+                    for (target in targets) preloadIfOutdated(target)
+                }
+            }
+        }, PRELOAD_DELAY_MS)
+    }
+
+    /** Fire-and-forget download of an outdated bundle, deduped in flight. */
+    private fun preloadIfOutdated(bundleName: String) {
+        if (developmentOverridesFor(bundleName) != null) return
+        val update = synchronized(updateLock) { manifestEntries }?.get(bundleName) ?: return
+        if (update.sha256 == currentShaFor(bundleName)) return
+        Log.i(TAG, "Preloading outdated bundle $bundleName")
+        download(update) { }
+    }
+
+    /**
+     * The `preload_bundles` list for [bundleName] from the embedded
+     * lynx-bundles.json; parsed once per process and tolerant of manifests
+     * generated before the field existed.
+     */
+    private fun preloadTargetsFor(bundleName: String): List<String> {
+        synchronized(updateLock) { embeddedPreloadMap }?.let { return it[bundleName].orEmpty() }
+        val parsed = runCatching { parseEmbeddedPreloadMap() }.getOrElse { error ->
+            Log.w(TAG, "Unable to parse embedded lynx-bundles.json", error)
+            emptyMap()
+        }
+        synchronized(updateLock) { embeddedPreloadMap = parsed }
+        return parsed[bundleName].orEmpty()
+    }
+
+    private fun parseEmbeddedPreloadMap(): Map<String, List<String>> {
+        appContext.assets.open("$EMBEDDED_BUNDLE_DIRECTORY/lynx-bundles.json").use { stream ->
+            val entries = JSONObject(stream.readBytes().decodeToString()).getJSONArray("bundles")
+            val byTrigger = mutableMapOf<String, List<String>>()
+            for (index in 0 until entries.length()) {
+                val entry = entries.getJSONObject(index)
+                val preload = entry.optJSONArray("preload_bundles") ?: continue
+                val targets = mutableListOf<String>()
+                for (position in 0 until preload.length()) {
+                    targets.add(preload.getString(position))
+                }
+                byTrigger[entry.getString("name")] = targets
+            }
+            return byTrigger
+        }
+    }
+
+    /**
+     * [download] with a timeout: fires once on the main thread; a timed-out
+     * download keeps running so its result lands for the next entry.
+     */
+    private fun downloadWithin(update: Update, timeoutMs: Long, onDone: (Boolean) -> Unit) {
+        val fired = AtomicBoolean(false)
+        fun fire(success: Boolean) {
+            if (fired.compareAndSet(false, true)) mainHandler.post { onDone(success) }
+        }
+        download(update) { success -> fire(success) }
+        mainHandler.postDelayed({ fire(false) }, timeoutMs)
+    }
+
+    /** The verified per-bundle cache when present, otherwise the embedded asset. */
+    private fun bestUrlFor(bundleName: String): String {
+        cachedSha256For(bundleName)?.let { return cachedUrl(bundleName, it) }
+        return embeddedUrlForBundle(bundleName)
+    }
+
+    /**
+     * The SHA-256 of the currently best source: the verified cache digest, or
+     * the embedded asset's digest when no download exists. Memoized per bundle.
+     */
+    private fun currentShaFor(bundleName: String): String? =
+        cachedSha256For(bundleName) ?: embeddedShaFor(bundleName)
+
+    private fun embeddedShaFor(bundleName: String): String? =
+        embeddedShaMemo.getOrPut(bundleName) { computeEmbeddedSha(bundleName) }
+
+    private fun computeEmbeddedSha(bundleName: String): String? = runCatching {
+        appContext.assets.open(embeddedUrlForBundle(bundleName)).use { sha256(it.readBytes()) }
+    }.getOrNull()
 
     /**
      * SHA-256 recorded in the cache metadata for [bundleName] after
@@ -385,6 +564,9 @@ class LynxBundleRepository(context: Context) : AbsTemplateProvider() {
         private const val CACHE_SCHEME = "lynx-cache"
         private const val EMBEDDED_BUNDLE_DIRECTORY = "lynxbundle"
         private const val ENGINE_VERSION = "3.9"
+        private const val MANIFEST_WAIT_MS = 400L
+        private const val DOWNLOAD_TIMEOUT_MS = 3000L
+        private const val PRELOAD_DELAY_MS = 200L
         private val SHA_256 = Regex("^[a-f0-9]{64}$")
     }
 }

@@ -8,15 +8,24 @@ import { LynxBundleRepository } from './LynxBundleRepository';
 
 export class LaunchpadTemplateResourceFetcher extends LynxTemplateResourceFetcher {
   private readonly bundleRepository: LynxBundleRepository = new LynxBundleRepository();
+  private static readonly CACHE_SCHEME_LENGTH: number = 'lynx-cache://'.length;
 
   fetchTemplate(request: LynxResourceRequest,
     callback: AsyncCallback<TemplateProviderResult, void>) {
     if (this.bundleRepository.isCachedURL(request.url)) {
       try {
         const context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
+        // The version query only versions the URL; the cache file is keyed by
+        // the plain bundle name.
+        let bundleName: string =
+          request.url.substring(LaunchpadTemplateResourceFetcher.CACHE_SCHEME_LENGTH);
+        const queryIndex: number = bundleName.indexOf('?');
+        if (queryIndex >= 0) {
+          bundleName = bundleName.substring(0, queryIndex);
+        }
         const error: BusinessError | undefined = undefined;
         callback(error, {
-          binary: this.bundleRepository.readCachedBundle(context),
+          binary: this.bundleRepository.readCachedBundle(context, bundleName),
         });
       } catch (error) {
         callback(error as BusinessError, { binary: new ArrayBuffer(0) });

@@ -16,6 +16,7 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `Clipboard`：读写系统剪贴板纯文本；
 - `Haptics`：单击式震动反馈，分 light / medium / heavy 三档；
 - `Biometric`：静默查询生物识别（指纹 / 面容）可用性，并拉起系统认证弹窗，可选降级到锁屏凭证；
+- `Camera`：拉起系统相机拍照并返回本地 JPEG URI；同时注册三端原生 `<x-camera-view>`，自动申请相机权限、渲染实时预览并提供镜头、缩放、补光灯、闪光灯、曝光、成片质量与对焦控制；
 - `AlbumUtils`：从系统相册选择一张或多张图片，或把图片 URI 保存回系统相册；
 - `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64，并在缓存沙箱内写入 / 删除 / 列举文件；
 - `Device`：按需读取机型、OS/App 版本、应用标识（`bundleId`，Android 包名 / iOS bundle identifier / HarmonyOS bundleName）、密度、locale、平板/折叠屏与当前安全区，负责状态栏前景样式，跳转本应用的系统设置页（`appSettings.open()`，权限被拒后的标准去处），读取电量（0..1，读不到时为 null）与充电状态，查询屏幕/窗口/LynxView 宽度（统一为 Lynx 逻辑像素）、窗口亮度与屏幕常亮，并提供加速度计、罗盘、陀螺仪、磁力计与气压计的流式读数（经 `GlobalEventEmitter` 事件回传，监听计数归零自动停流）；TypeScript 提供 `deviceInfo`、`safeArea`、`statusBar`、`appSettings`、`display`、`battery`、`sensors` facade；
@@ -30,7 +31,7 @@ Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle
 - `Audio`：播放本地音频文件（`file://` / Android `content://`），按 `media` / `ambient` / `alarm` / `notification` 四种流路由音量键与音频焦点，进度与状态经 `audioPlayer` 事件回传；并把麦克风录音为缓存目录中的 AAC(m4a) 文件（`audioRecorder` 事件回传状态 / 时长）；
 - `Storage`：小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
 `Navigation`、`WebSocket`、`Storage`、`Clipboard`、`Haptics`、`AlbumUtils`、`FileSystem`、
-`Biometric`、`Device`、`NetworkInfo`、`ImageTooling`、`Screenshot`、`Scanner`、
+`Biometric`、`Camera`、`Device`、`NetworkInfo`、`ImageTooling`、`Screenshot`、`Scanner`、
 `Audio`、`Toast` 与 `Share` 均由 `autolink/` workspace 目录中的三端原生库提供并自动注册
 （见下文「Lynx Autolink 集成」）。HarmonyOS 使用 4.2 nightly 的官方 Hvigor Autolink
 （源码 HAR + 全局 Registry + AppStartup）。HarmonyOS 的 Back 能力由 Autolink 注册的
@@ -656,6 +657,64 @@ if (photoURI) {
   const bytes = await fileSystem.readArrayBuffer(photoURI); // ArrayBuffer
 }
 ```
+
+### 相机与内嵌预览
+
+`Camera` 同时提供一次性的系统相机 facade 和三端原生 Element：
+
+```tsx
+import { camera, cameraView } from '@lynx-template/autolink-camera';
+
+const outcome = await camera.takePhoto({ lens: 'back' });
+if (outcome.success && outcome.photo) {
+  // { uri, width, height, mimeType: 'image/jpeg', sizeBytes }
+}
+
+<x-camera-view
+  id="checkout-camera"
+  style={{ width: '100%', height: '320px' }}
+  active
+  lens="back"
+  zoom={2}
+  torch="off"
+  flash="auto"
+  exposure-compensation={0}
+  photo-quality={92}
+  mirror-photo
+  preview-fit="cover"
+  bindready={(event) => console.log(event.detail.maxZoom)}
+  binderror={(event) => console.log(event.detail.code)}
+/>
+
+const photo = await cameraView.capture('#checkout-camera');
+await cameraView.focusAtPoint('#checkout-camera', 0.5, 0.5);
+```
+
+`camera.takePhoto()` 打开用户可见的系统相机，成功、用户取消、权限被拒、相机不可用与并发
+请求分别 resolve `success`、`userCancel`、`permissionDenied`、`unavailable`、`busy`；只有参数
+或桥接契约错误才 reject。Android 的 `ACTION_IMAGE_CAPTURE` 与 iOS 的系统相机控制器没有统一
+的缩放、曝光、闪光灯参数协议，因此 facade 只传递前/后镜头偏好，而且 Android 相机 App 仍可
+忽略该提示。需要精确控制时使用 `<x-camera-view>`。
+
+`<x-camera-view>` 显示后自动申请相机权限，`active={false}` 会释放相机；页面退到后台或 Element
+被移除时原生实现也会停止 session。`preview-fit="cover"` 是默认值：按比例放大后从画面中心裁掉
+超出 Element 的长边，内容填满且不拉伸；`contain` 显示完整画面并允许留黑边。该裁剪仅影响实时
+预览，`capture()` 返回相机传感器比例的完整 JPEG，业务若需要同形状成片可继续交给
+`imageTooling.crop()`。
+
+`ready` 事件报告设备实际的 `minZoom` / `maxZoom`、曝光补偿范围和补光灯支持状态；传入范围外的
+`zoom` 与 `exposure-compensation` 会在原生层夹紧。可配置项还包括 `lens`、持续补光 `torch`、
+拍照闪光 `flash`、`photo-quality`（1–100）、前置成片镜像 `mirror-photo` 与 `preview-fit`。
+`focusAtPoint` 使用左上角 `(0, 0)`、右下角 `(1, 1)` 的归一化坐标进行对焦和测光。
+
+| 平台 | 系统相机 | `<x-camera-view>` | 权限与缓存 |
+| --- | --- | --- | --- |
+| Android | `ACTION_IMAGE_CAPTURE` + 透明结果 Activity | CameraX `PreviewView` / `ImageCapture` | 库 manifest 声明 `CAMERA` 并自动请求；JPEG 位于应用 cache，通过专属 FileProvider 交给系统相机写入 |
+| iOS | `UIImagePickerController` | `AVCaptureSession` + `AVCaptureVideoPreviewLayer` + `AVCapturePhotoOutput` | 宿主声明 `NSCameraUsageDescription`，Element 自动请求；JPEG 位于 Caches/LynxCamera |
+| HarmonyOS | Camera Picker | CameraKit `PhotoSession` + ArkUI `XComponent` Surface | 宿主声明 `ohos.permission.CAMERA`，Element 自动请求；内嵌成片写入 cache，系统相机返回系统媒体 URI |
+
+返回 URI 应视为不透明的本地 URI，缓存文件可能被系统清理。长期保存时调用相册或文件能力完成
+显式持久化。系统相机是模态 UI；打开前应暂停同页内嵌预览，模板演示页已自动这样处理。
 
 ### 扫码
 
@@ -1470,6 +1529,7 @@ autolink/
 ├── app-installer/ # AppInstaller（高权限、默认关闭的 Android 自更新交接）
 ├── navigation/    # Navigation（应用内导航 + 系统 scheme 打开 + 系统返回拦截 + Android/iOS 预测进度）
 ├── biometric/     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
+├── camera/        # Camera + x-camera-view（系统拍照 + 内嵌预览、拍照与控制）
 ├── device/        # Device（设备事实、安全区、状态栏、电量、显示宽度/亮度/常亮、加速度计/罗盘/陀螺仪/磁力计/气压计流式读数）
 ├── toast/         # Toast（原生轻提示；iOS 为模块自绘气泡）
 ├── file-system/   # FileSystem（系统文件选择器 + URI 元数据、缓存复制、受限读取与缓存沙箱写入/删除/列举）
@@ -1502,8 +1562,9 @@ autolink/
 所在的宿主后委托给宿主安装的无状态 handler（Android 在 `LynxTemplateApplication`、
 iOS 在 `AppDelegate` 中各调用一次 `NavigationModule.setRouteHandler(AppRouteHandler())`）；
 `openURL` 则完全在库内直通系统，详见[系统路由](#系统路由)。
-`biometric` 与 Navigation 的 Back 能力对 Android 宿主有相同的形态要求：`BiometricPrompt` 和
-`OnBackPressedDispatcher` callback 都托管在 `FragmentActivity` 上，本模板所有创建
+`biometric`、`camera` 与 Navigation 的 Back 能力对 Android 宿主有相同的形态要求：
+`BiometricPrompt`、相机权限请求和 `OnBackPressedDispatcher` callback 都托管在
+`FragmentActivity` 上，本模板所有创建
 LynxView 的 Activity 均继承 `FragmentActivity`。iOS 使用 Face ID 还需要宿主声明
 `NSFaceIDUsageDescription`。
 
@@ -1564,7 +1625,7 @@ ohpm `@lynx/lynx` 与 gradle `org.lynxsdk.lynx:*` 的版本钉）由 `pnpm nativ
 
 ## 原生实现位置
 
-- Autolink NativeModule 库（三端）：`autolink/navigation`、`autolink/websocket`、`autolink/storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/album-utils`、`autolink/device`、`autolink/network-info`、`autolink/image-tooling`、`autolink/file-system`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio`、`autolink/toast`、`autolink/share`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
+- Autolink NativeModule 库（三端）：`autolink/navigation`、`autolink/websocket`、`autolink/storage`、`autolink/clipboard`、`autolink/haptics`、`autolink/biometric`、`autolink/camera`、`autolink/album-utils`、`autolink/device`、`autolink/network-info`、`autolink/image-tooling`、`autolink/file-system`、`autolink/scanner`、`autolink/screenshot`、`autolink/audio`、`autolink/toast`、`autolink/share`、`autolink/permissions`、`autolink/local-notification`；每个包的 HarmonyOS 实现都位于自身 `harmony/` 源码 HAR，由官方 Hvigor 插件生成 Registry HAR 与 AppStartup 自动注册；
 - iOS-only Autolink Element：`autolink/liquid-glass`；
 - Android 宿主：`nativemodule/` 下只保留 `AppRouteHandler.kt`（Navigation 的宿主导航）以及 `LynxPageActivity.kt`；Back 与路由导航位于 `autolink/navigation/android`，StatusBar/SafeArea/电量/传感器位于 `autolink/device/android`，Autolink Registry 只存在于 Gradle 生成目录；
 - iOS 宿主：`NativeModules/AppRouteHandler.swift` 提供 Navigation 导航策略，`LynxPageViewController.swift` 创建页面；Back 与 Device 都从自身 pod 自动定位页面；

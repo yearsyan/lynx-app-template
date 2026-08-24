@@ -27,6 +27,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     LynxNavigationModule.setRouteHandler(AppRouteHandler())
     // Installs the loader selected only by the autolinked <module-webview>.
     WebviewModuleBridgeHostAdapter.install()
+    // Prefetch the OTA version list so page entries can consult it from
+    // memory; never blocks launch.
+    LynxBundleRepository.prefetchManifest()
     // LynxEnv init drives the LynxService lazy-load scan; it must run before
     // any LynxServices.getInstanceWith lookup or the registry is still empty.
     let lynxEnv = LynxEnv.sharedInstance()

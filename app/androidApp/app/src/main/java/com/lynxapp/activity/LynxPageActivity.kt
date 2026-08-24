@@ -17,6 +17,7 @@ import com.lynxapp.R
 import com.lynxapp.LynxTemplateApplication
 import com.lynxapp.autolink.device.DeviceSystemUI
 import com.lynxapp.autolink.device.NativeEnvironmentBridge
+import com.lynxapp.component.LoadingOverlay
 import com.lynxapp.component.createLynxView
 import com.lynxapp.autolink.navigation.NavigationModule
 
@@ -83,6 +84,7 @@ open class LynxPageActivity : FragmentActivity() {
     private val routeScreenClient = object : LynxViewClient() {
         override fun onFirstScreen() {
             presentBackdrop?.playPresent(lynxView)
+            bundleRepository.schedulePreloadAfterFirstScreen(bundleName)
             onLynxFirstScreen()
         }
     }
@@ -150,11 +152,6 @@ open class LynxPageActivity : FragmentActivity() {
         } else {
             null
         }
-        lynxView = createLynxView(
-            bundleRepository,
-            bundleName,
-            onBundleLoadFailure = ::fallBackToEmbeddedBundle,
-        ).also(::prepareLynxView)
         root = PresentDragDismissLayout(this).apply {
             dragDismissEnabled = dragDownToDismissEnabled && presentBackdrop != null
             dragDismissListener = object : PresentDragDismissLayout.Listener {
@@ -198,10 +195,6 @@ open class LynxPageActivity : FragmentActivity() {
                     ),
                 )
             }
-            addView(
-                lynxView,
-                routeContentLayoutParams(),
-            )
         }
         setContentView(
             root,
@@ -213,11 +206,47 @@ open class LynxPageActivity : FragmentActivity() {
         if (presentBackdrop != null) {
             onBackPressedDispatcher.addCallback(this, presentBackCallback.apply { isEnabled = true })
         }
+        resolveEntryAndLoad()
+    }
+
+    /**
+     * The OTA entry gate: resolve the best source — dev override, verified
+     * cache, or embedded asset — before the LynxView and its engine group
+     * exist, so the group key matches the final URL. A changed bundle
+     * downloads behind the loading overlay with a timeout; a slow manifest or
+     * download falls back to the current source instead of blocking the page.
+     */
+    private fun resolveEntryAndLoad() {
+        bundleRepository.resolveEntryUrl(
+            bundleName,
+            onDownloadStarted = {
+                LoadingOverlay.show(this, getString(R.string.updating_bundle))
+            },
+            onReady = { url ->
+                LoadingOverlay.hide(this)
+                if (isFinishing || isDestroyed) return@resolveEntryUrl
+                attachLynxView(url)
+            },
+        )
+    }
+
+    private fun attachLynxView(url: String) {
+        lynxView = createLynxView(
+            bundleRepository,
+            bundleName,
+            groupUrl = url,
+            onBundleLoadFailure = ::fallBackToEmbeddedBundle,
+        ).also(::prepareLynxView)
+        root.addView(
+            lynxView,
+            if (presentBackdrop != null) 2 else 0,
+            routeContentLayoutParams(),
+        )
         nativeEnvironmentBridge = NativeEnvironmentBridge(
             lynxView = lynxView,
             additionalData = routeData(),
         )
-        nativeEnvironmentBridge.attach(::loadBundle)
+        nativeEnvironmentBridge.attach { renderBundle(url) }
     }
 
     /** Configures the Window before the route creates and attaches its LynxView. */
@@ -230,19 +259,11 @@ open class LynxPageActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
-        nativeEnvironmentBridge.detach()
-        lynxView.destroy()
+        if (this::nativeEnvironmentBridge.isInitialized) nativeEnvironmentBridge.detach()
+        if (this::lynxView.isInitialized) lynxView.destroy()
         presentBackdrop?.release()
         super.onDestroy()
     }
-
-    private fun loadBundle() {
-        renderBundle(bundleRepository.urlForBundle(bundleName))
-        onInitialBundleRendered()
-    }
-
-    /** Called after the first render request; the root overrides it to apply OTA updates. */
-    protected open fun onInitialBundleRendered() {}
 
     /** Called on each LynxView's first screen, including an embedded fallback. */
     protected open fun onLynxFirstScreen() {}

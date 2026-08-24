@@ -75,6 +75,25 @@
       }
     },
     {
+      "name": "Camera",
+      "interfaceName": "CameraModule",
+      "declaration": "autolink/camera/types/platform-native-module.d.ts",
+      "declarationName": "Camera",
+      "webview": false,
+      "autolink": {
+        "directory": "camera",
+        "exportName": "CAMERA_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/camera/android/src/main/java",
+          "fileName": "CameraModule.java"
+        },
+        "ios": "autolink/camera/ios/src/CameraModule.m",
+        "harmony": "autolink/camera/harmony/src/main/ets/CameraModule.ets"
+      }
+    },
+    {
       "name": "Clipboard",
       "interfaceName": "ClipboardModule",
       "declaration": "autolink/clipboard/types/platform-native-module.d.ts",

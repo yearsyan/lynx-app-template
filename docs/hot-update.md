@@ -17,15 +17,14 @@
       "version": "1.0.0",
       "url": "main.lynx.bundle",
       "sha256": "<64 lowercase hex characters>",
-      "size": 123456
+      "size": 123456,
+      "preload_bundles": ["settings"]
     }
   ]
 }
 ```
 
-`url` 可以是 HTTPS 绝对地址，也可以相对 manifest 所在目录。客户端只选择与请求名称匹配的条目。
-
-Android 宿主解析 manifest 的全部条目并按 bundle 名索引缓存：`main` 在启动时自动检查，其他 bundle 在 Navigation 打开路由前按内存中的 manifest 对比缓存（有更新时先在 loading 遮罩下下载再进页）。iOS/Harmony 目前只对 `main` 自动检查；次级 bundle 在这两端使用随 App 发布的内置资源。
+`url` 可以是 HTTPS 绝对地址，也可以相对 manifest 所在目录。三个宿主都解析 manifest 的全部条目并按 bundle 名索引缓存，任意 bundle 均支持自动更新。
 
 ## 客户端校验
 
@@ -37,15 +36,41 @@ Android 宿主解析 manifest 的全部条目并按 bundle 名索引缓存：`ma
 6. 校验后先写临时文件，再替换正式缓存；
 7. 任意步骤失败都继续使用上次有效缓存或安装包内资源。
 
-Android 宿主的检查入口有两处：`LynxTemplateApplication` 启动时预取 manifest
-（不阻塞进程启动），根页面首帧渲染完成后对比 `main` 缓存，有更新则在
-loading 遮罩下下载并重建 Activity 使新缓存生效；`AppRouteHandler` 打开任意
-bundle 路由前也会做同样的对比与下载。开发服务器覆盖生效时（debug 构建或
-DevelopmentSettings 配置）以上检查全部跳过。
+三个宿主使用同一套入口闸门（entry gate）流程：
+
+1. 进程启动时预取 manifest（Android `LynxTemplateApplication`、iOS `AppDelegate`、Harmony `EntryAbility`），不阻塞启动；
+2. 每次进入页面（根路由与每次打开路由）时，最多等待 400ms 让 manifest 就绪，然后把目标 bundle 的 SHA-256 与当前最优来源（已校验的缓存，没有缓存时为内置资源）比对；
+3. 版本不一致时在 splash/loading 遮罩下等待下载完成再进入，下载超时 3s；超时或失败则进入历史缓存或内置版本，下载在后台继续、结果留给下次进入使用；
+4. 缓存 URL 形如 `lynx-cache://<bundle>?v=<sha256>`，版本参数保证引擎模板缓存按版本隔离，因此不需要重建 Activity 或原地重载模板。
+
+开发服务器覆盖生效时（debug 构建或 DevelopmentSettings 配置）以上检查全部跳过。
+
+## 首帧预下载（preload）
+
+bundle 的 `package.json` 可以在 `lynxBundle` 中声明 `downloadAt` 列表：
+
+```json
+{
+  "lynxBundle": {
+    "name": "settings",
+    "entry": "settings",
+    "downloadAt": ["main"]
+  }
+}
+```
+
+含义是“当 `main` 的首帧渲染完成后，自动预下载我”。`pnpm build:lynx` 把这层依赖反转收集进内置 `lynx-bundles.json`：每个 bundle 条目生成 `preload_bundles` 列表，代表该 bundle 首帧完成后需要预下载的全部 bundle（构建时校验引用的名字必须存在且不能是自身）。
+
+运行期行为（三个宿主一致）：
+
+1. 页面首帧渲染完成 200ms 后，宿主读取内置 `preload_bundles`，对每个目标做更新检查；
+2. 只有 manifest 中 SHA-256 与当前来源（已校验缓存或内置资源）不一致的 bundle 才会下载，已是最新的直接跳过；
+3. 预下载与页面进入闸门共用同一去重队列：某个 bundle 正在下载（无论由预下载还是页面打开触发）时，后来的触发方等待同一任务完成，不会重复发起；
+4. 预下载在后台进行、并行执行，不阻塞任何页面；dev 覆盖生效的 bundle 跳过。
 
 ## 本地缓存元数据
 
-OTA 校验通过后，三个宿主把同一份 JSON 元数据与 bundle 一起写入应用私有目录（文件名 `main.metadata.json`）：
+OTA 校验通过后，三个宿主把同一份 JSON 元数据与 bundle 一起写入应用私有目录（文件名 `<bundle>.metadata.json`）：
 
 ```json
 {

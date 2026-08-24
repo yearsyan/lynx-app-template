@@ -3,11 +3,8 @@ package com.lynxapp.nativemodule
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
-import android.util.Log
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.ReadableMap
-import com.lynxapp.LynxTemplateApplication
-import com.lynxapp.R
 import com.lynxapp.activity.LynxDialogActivity
 import com.lynxapp.activity.LynxPageActivity
 import com.lynxapp.activity.PresentBackdrop
@@ -20,7 +17,6 @@ import com.lynxapp.autolink.navigation.NavigationModule.ANIMATION_FADE
 import com.lynxapp.autolink.navigation.NavigationModule.ANIMATION_NONE
 import com.lynxapp.autolink.navigation.NavigationModule.isLynxRouteAnimation
 import com.lynxapp.autolink.device.DeviceSystemUI
-import com.lynxapp.component.LoadingOverlay
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicLong
@@ -55,14 +51,14 @@ private class PendingRouteResult(
 
 /**
  * Host navigation behind the autolinked Navigation module: opens another Lynx
- * bundle in a real Android Activity. When the Application-prefetched OTA
- * version list marks the target bundle outdated, the update downloads behind
- * a loading overlay before the page opens against the fresh cache. State on
- * the calling Activity's route (such as its animation) drives how close()
- * undoes the transition. `presentation: 'overlay'` snapshots the calling page
- * first; the opened page replays that snapshot as its backdrop (see
- * PresentBackdrop) instead of relying on a translucent activity, so the
- * iOS-like present transition also composes with the normal back stack.
+ * bundle in a real Android Activity. The opened LynxPageActivity gates on the
+ * prefetched OTA manifest in its own splash before rendering, so navigation
+ * starts immediately here. State on the calling Activity's route (such as its
+ * animation) drives how close() undoes the transition. `presentation:
+ * 'overlay'` snapshots the calling page first; the opened page replays that
+ * snapshot as its backdrop (see PresentBackdrop) instead of relying on a
+ * translucent activity, so the iOS-like present transition also composes with
+ * the normal back stack.
  *
  * openForResult routes carry a result token through the launched intent; the
  * pending callback registry here delivers the recorded result (or none) from
@@ -168,34 +164,13 @@ class AppRouteHandler(
         callback.invoke("")
     }
 
-    /**
-     * Opens the route immediately, or once a pending bundle update has
-     * downloaded behind [LoadingOverlay] (a failed download opens the page
-     * with the current source instead of blocking navigation). The open
-     * callback resolves as soon as the flow is initiated.
-     */
+    /** Starts the route immediately; the opened page gates on OTA itself. */
     private fun openWhenReady(
         activity: Activity,
         route: ValidatedRoute,
         resultToken: String?,
     ) {
-        val repository = (activity.application as LynxTemplateApplication).bundleRepository
-        val update = repository.pendingUpdateFor(route.bundle)
-        if (update == null) {
-            startActivityForRoute(activity, route, resultToken)
-            return
-        }
-        LoadingOverlay.show(activity, activity.getString(R.string.updating_bundle))
-        repository.download(update) { updated ->
-            if (!updated) {
-                Log.w(TAG, "Bundle ${route.bundle} update failed; opening the current source")
-            }
-            activity.runOnUiThread {
-                LoadingOverlay.hide(activity)
-                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
-                startActivityForRoute(activity, route, resultToken)
-            }
-        }
+        startActivityForRoute(activity, route, resultToken)
     }
 
     private fun startActivityForRoute(
@@ -434,7 +409,6 @@ class AppRouteHandler(
     ) {}
 
     companion object {
-        private const val TAG = "AppRouteHandler"
         /** Correlates a launched route with its opener's pending callback. */
         internal const val EXTRA_RESULT_TOKEN = "lynx.route.result-token"
         private val BUNDLE_NAME = Regex("^[a-z0-9][a-z0-9-]*$")
