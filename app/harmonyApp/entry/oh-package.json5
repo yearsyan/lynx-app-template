@@ -12,8 +12,6 @@
     "@lynx-template/autolink-device": "file:../../../autolink/device/harmony",
     "@lynx/lynx": "4.2.0-nightly.202608180606.150.ga573c3b8",
     "@lynx/lynx_base": "4.2.0-nightly.202608180606.150.ga573c3b8",
-    "@lynx/lynx_devtool": "4.2.0-nightly.202608180606.150.ga573c3b8",
-    "@lynx/lynx_devtool_service": "4.2.0-nightly.202608180606.150.ga573c3b8",
     "@lynx/lynx_log_service": "4.2.0-nightly.202608180606.150.ga573c3b8",
     "@lynx/primjs": "4.2.0-alpha.0",
     "@ohos/imageknife": "3.2.6",

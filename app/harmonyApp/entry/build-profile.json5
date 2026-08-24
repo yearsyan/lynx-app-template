@@ -1,13 +1,6 @@
 {
   "apiType": "stageMode",
   "buildOption": {
-    "arkOptions": {
-      "runtimeOnly": {
-        "packages": [
-          "@lynx/lynx_devtool"
-        ]
-      }
-    },
     "externalNativeOptions": {
       "path": "./src/main/cpp/CMakeLists.txt",
       "arguments": "",
@@ -36,6 +29,20 @@
       // compile the real UI, MMKV keys or URL parsing. Consumers use
       // module-qualified entry/ets/... imports so source-root resolution runs.
       "name": "debug",
+      "config": {
+        "buildOption": {
+          // The DevTool service loads this package dynamically. Keeping the
+          // runtime-only entry on the debug target prevents its ETS, native
+          // libraries and resources from being forced into release HAPs.
+          "arkOptions": {
+            "runtimeOnly": {
+              "packages": [
+                "@lynx/lynx_devtool"
+              ]
+            }
+          }
+        }
+      },
       "source": {
         "sourceRoots": ["./src/debug"]
       }

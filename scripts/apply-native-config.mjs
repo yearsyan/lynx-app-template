@@ -76,13 +76,7 @@ const harmonyLynxPinTargets = [
   },
   {
     path: 'app/harmonyApp/entry/oh-package.json5',
-    packages: [
-      '@lynx/lynx',
-      '@lynx/lynx_base',
-      '@lynx/lynx_devtool',
-      '@lynx/lynx_devtool_service',
-      '@lynx/lynx_log_service',
-    ],
+    packages: ['@lynx/lynx', '@lynx/lynx_base', '@lynx/lynx_log_service'],
   },
 ];
 

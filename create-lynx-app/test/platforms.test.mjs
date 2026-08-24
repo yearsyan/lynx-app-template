@@ -270,6 +270,46 @@ async function verifySinglePlatformScaffold(platform) {
       await doesNotExist(
         join(projectDirectory, 'app/harmonyApp/entry/oh-package-lock.json5'),
       );
+
+      const harmonyRoot = join(projectDirectory, 'app/harmonyApp');
+      const entryManifest = await readFile(
+        join(harmonyRoot, 'entry/oh-package.json5'),
+        'utf8',
+      );
+      assert.doesNotMatch(entryManifest, /@lynx\/lynx_devtool/);
+
+      const entryBuildProfile = await readFile(
+        join(harmonyRoot, 'entry/build-profile.json5'),
+        'utf8',
+      );
+      assert.match(
+        entryBuildProfile,
+        /"name": "debug"[\s\S]*"runtimeOnly"[\s\S]*"@lynx\/lynx_devtool"/,
+      );
+      assert.equal(
+        [...entryBuildProfile.matchAll(/"@lynx\/lynx_devtool"/g)].length,
+        1,
+      );
+
+      const hvigorConfig = await readFile(
+        join(harmonyRoot, 'hvigorconfig.ts'),
+        'utf8',
+      );
+      assert.match(hvigorConfig, /context\.getBuildMode\(\) !== 'debug'/);
+      assert.match(hvigorConfig, /context\.setDependenciesOpt\(dependencies\)/);
+      assert.match(hvigorConfig, /'@lynx\/lynx_devtool'/);
+      assert.match(hvigorConfig, /'@lynx\/lynx_devtool_service'/);
+
+      const releaseInitializer = await readFile(
+        join(harmonyRoot, 'entry/src/main/ets/devtool/DevToolInitializer.ets'),
+        'utf8',
+      );
+      assert.doesNotMatch(releaseInitializer, /@lynx\/lynx_devtool/);
+      const debugInitializer = await readFile(
+        join(harmonyRoot, 'entry/src/debug/ets/devtool/DevToolInitializer.ets'),
+        'utf8',
+      );
+      assert.match(debugInitializer, /@lynx\/lynx_devtool_service/);
     }
 
     if (platform === 'android') {
@@ -601,6 +641,45 @@ test('new NativeModule scaffolds a package-local generated bridge', async () => 
       'utf8',
     );
     assert.match(facade, /from '\.\/bridge\.generated\.js'/);
+
+    // The Java stub must live under the scaffolded project's own package
+    // directory and declare the matching package; the repository's original
+    // com/lynxapp layout must not leak into generated apps.
+    const javaStub = await readFile(
+      join(
+        projectDirectory,
+        'autolink/echo-sample/android/src/main/java/com/example/autolinkfixture/autolink/echosample/EchoSampleModule.java',
+      ),
+      'utf8',
+    );
+    assert.match(
+      javaStub,
+      /^package com\.example\.autolinkfixture\.autolink\.echosample;/,
+    );
+    await doesNotExist(
+      join(
+        projectDirectory,
+        'autolink/echo-sample/android/src/main/java/com/lynxapp',
+      ),
+    );
+    const libJson = JSON.parse(
+      await readFile(
+        join(projectDirectory, 'autolink/echo-sample/lynx.lib.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(
+      libJson.platforms.android.packageName,
+      'com.example.autolinkfixture.autolink.echosample',
+    );
+    const gradle = await readFile(
+      join(projectDirectory, 'autolink/echo-sample/android/build.gradle.kts'),
+      'utf8',
+    );
+    assert.match(
+      gradle,
+      /namespace = "com\.example\.autolinkfixture\.autolink\.echosample"/,
+    );
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

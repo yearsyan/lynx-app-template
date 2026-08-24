@@ -24,7 +24,7 @@ Platform notes:
 - HarmonyOS: delayed delivery uses in-process timers, so pending delays
   (and `cancelAll` coverage) do not outlive the app process.
 
-- Android: `android/src/main/java/com/lynxapp/autolink/localnotification/LocalNotificationModule.java`
+- Android: `LocalNotificationModule.java` under `android/src/main/java` (package `com.lynxapp.autolink.localnotification`)
 - iOS: `ios/src/LocalNotificationModule.m`
 - HarmonyOS: `harmony/src/main/ets/LocalNotificationModule.ets` (source HAR, autolink-registered)
 - Raw TypeScript contract: `types/platform-native-module.d.ts`

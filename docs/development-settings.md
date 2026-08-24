@@ -52,6 +52,6 @@ adb 推入的文件默认全局可读，App 用应用内 `File` API 直读即可
 
 - Android：配置 Activity 和入口只位于 `src/debug`；Release 使用 `src/release` 空入口，R8 会裁掉共享读取代码。
 - iOS：配置页和入口由 `#if DEBUG` 编译；共享读取逻辑在非 Debug 分支固定返回空值。
-- HarmonyOS：配置页与存储的默认实现是 `entry/src/main` 下的同名空壳，`entry@debug` target 通过扩展源码根 `src/debug` 在同路径覆盖为真实实现；Release 不编译配置文案、MMKV key 或 URL 解析逻辑（可通过解包 release HAP 检索 `lynx.debug.development-settings` 验证）。
+- HarmonyOS：配置页、存储与 DevTool 注册的默认实现是 `entry/src/main` 下的同名空壳，`entry@debug` target 通过扩展源码根 `src/debug` 在同路径覆盖为真实实现；Hvigor 仅在 debug build mode 注入 DevTool 依赖，同时该 target 用 `runtimeOnly` 保留动态加载的实现。Release 不编译配置文案、MMKV key、URL 解析或 DevTool service，也不打包 `liblynxdevtool.so` 与 DevTool 资源（可通过解包 release HAP 检索验证）。
 
 三端 Release 仍只允许 HTTPS 网络策略；本地明文 HTTP 只用于 Debug 开发。

@@ -135,6 +135,12 @@ async function main() {
 
   const directory = join(repositoryDirectory, 'autolink', name);
   const packageSegment = name.replace(/-/g, '');
+  // The dotted identifier is tokenized by the template exporter, so scaffolded
+  // projects resolve it to their own bundle ID. Deriving the source directory
+  // from the same constant keeps the Java file path and its `package`
+  // declaration consistent by construction.
+  const androidPackageName = `com.lynxapp.autolink.${packageSegment}`;
+  const androidPackageDirectory = androidPackageName.replace(/\./g, '/');
   const interfaceName = `${moduleName}Module`;
   const exportName = `${pascalToScreamingSnake(moduleName)}_MODULE_NAME`;
   const facadeName = kebabToCamelCase(name);
@@ -181,7 +187,7 @@ async function main() {
       {
         platforms: {
           android: {
-            packageName: `com.lynxapp.autolink.${packageSegment}`,
+            packageName: androidPackageName,
             sourceDir: 'android',
           },
           ios: {
@@ -203,7 +209,7 @@ The generated \`ping\` method demonstrates a direct structured bridge value,
 while \`src/index.ts\` owns its Promise facade; replace both with real
 functionality without moving handwritten TypeScript out of this package.
 
-- Android: \`android/src/main/java/com/lynxapp/autolink/${packageSegment}/${interfaceName}.java\`
+- Android: \`android/src/main/java/${androidPackageDirectory}/${interfaceName}.java\`
 - iOS: \`ios/src/${interfaceName}.m\`
 - HarmonyOS: \`harmony/src/main/ets/${interfaceName}.ets\` (source HAR, autolink-registered)
 - Raw TypeScript contract: \`types/platform-native-module.d.ts\`
@@ -261,7 +267,7 @@ export const ${facadeName} = {
 }
 
 android {
-    namespace = "com.lynxapp.autolink.${packageSegment}"
+    namespace = "${androidPackageName}"
     compileSdk = 36
 
     defaultConfig {
@@ -277,7 +283,7 @@ dependencies {
 `,
     'android/src/main/AndroidManifest.xml': `<manifest />
 `,
-    [`android/src/main/java/com/lynxapp/autolink/${packageSegment}/${interfaceName}.java`]: `package com.lynxapp.autolink.${packageSegment};
+    [`android/src/main/java/${androidPackageDirectory}/${interfaceName}.java`]: `package ${androidPackageName};
 
 import com.lynx.jsbridge.LynxContextModule;
 import com.lynx.jsbridge.LynxMethod;

@@ -12,6 +12,13 @@ The development settings live in `src/main` (the bundle repository is shared
 by both build modes); every read and write is guarded by `BuildProfile.DEBUG`,
 so release builds never observe debug values.
 
+DevTool service registration follows the same target-source override pattern:
+`src/main` provides a dependency-free no-op, while `entry@debug` replaces it
+from `src/debug`. The project Hvigor hook injects the DevTool packages only for
+debug builds, and the debug target keeps the dynamically loaded implementation
+in `runtimeOnly`. Release HAPs therefore contain neither the DevTool service
+code nor its native library and resources.
+
 For command-line builds, use the Node runtime bundled with DevEco Studio. Newer
 system Node releases can be incompatible with the bundled hvigor plugin:
 

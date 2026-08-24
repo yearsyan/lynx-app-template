@@ -4,7 +4,6 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { LLog, LynxEnv, LynxServiceCenter, LynxServiceType } from '@lynx/lynx';
 import { LynxBaseServiceCenter, LynxBaseServiceType } from '@lynx/lynx_base';
-import { LynxDevToolService } from '@lynx/lynx_devtool_service';
 import { LynxLogService } from '@lynx/lynx_log_service';
 import { MMKV } from '@tencent/mmkv';
 import BuildProfile from 'BuildProfile';
@@ -19,6 +18,7 @@ import {
   resolvedColorScheme,
   resolvedLocale,
 } from '../config/NativeEnvironmentConfig';
+import { DevToolInitializer } from 'entry/ets/devtool/DevToolInitializer';
 
 const DOMAIN = 0x0000;
 
@@ -33,7 +33,7 @@ export default class EntryAbility extends UIAbility {
     // the page first appears (StartupRoute.deliver falls back to pending).
     this.acceptDeepLinkWant(want);
     // Init LynxService start
-    LynxServiceCenter.registerService(LynxServiceType.DevTool, LynxDevToolService.instance);
+    DevToolInitializer.registerService();
     LynxServiceCenter.registerService(LynxServiceType.Http, LynxTemplateHttpService.instance);
     LynxBaseServiceCenter.registerService(LynxBaseServiceType.Log, LynxLogService.instance);
     // Init LynxService end

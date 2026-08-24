@@ -31,7 +31,7 @@ Host requirements:
   must be declared in the entry module's `requestPermissions`
   (notification enablement goes through `requestEnableNotification`).
 
-- Android: `android/src/main/java/com/lynxapp/autolink/permissions/PermissionsModule.java`
+- Android: `PermissionsModule.java` under `android/src/main/java` (package `com.lynxapp.autolink.permissions`)
 - iOS: `ios/src/PermissionsModule.m`
 - HarmonyOS: `harmony/src/main/ets/PermissionsModule.ets` (source HAR, autolink-registered)
 - Raw TypeScript contract: `types/platform-native-module.d.ts`

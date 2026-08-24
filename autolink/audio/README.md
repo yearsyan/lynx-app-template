@@ -6,7 +6,7 @@ error-string acknowledgements; playback events flow back as `audioPlayer`
 and recording events as `audioRecorder` global events. The package root
 exports the high-level `audioPlayer` and `audioRecorder` Promise APIs.
 
-- Android: `android/src/main/java/com/lynxapp/autolink/audio/AudioModule.java`
+- Android: `AudioModule.java` under `android/src/main/java` (package `com.lynxapp.autolink.audio`)
   (framework `MediaPlayer` + `MediaRecorder`; manual audio-focus handling; no
   extra dependencies)
 - iOS: `ios/src/AudioModule.m` (`AVAudioPlayer` / `AVAudioRecorder` +
