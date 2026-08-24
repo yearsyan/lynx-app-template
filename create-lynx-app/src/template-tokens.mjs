@@ -26,6 +26,9 @@ export const templateReplacements = [
   // The HarmonyOS vendor directory is the standalone "lynxapp", not the
   // com.lynxapp prefix.
   ['"vendor": "lynxapp"', '"vendor": "{{vendor}}"'],
+  // Documentation and scripts can mention the Android source path rather
+  // than the dotted application ID used in source files.
+  ['com/lynxapp', '{{packagePath}}'],
   ['com.lynxapp.harmony', '{{harmonyBundle}}'],
   ['com.lynxapp.debug', '{{package}}.debug'],
   ['com.lynxapp', '{{package}}'],

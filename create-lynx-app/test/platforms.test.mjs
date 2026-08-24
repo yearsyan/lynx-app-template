@@ -87,6 +87,12 @@ test('release template excludes local Harmony signing material', async () => {
   await doesNotExist(join(templateDirectory, 'app/harmonyApp/.ohos-sign'));
 });
 
+test('release template includes project agent skills', async () => {
+  for (const skill of ['lynx-devtool', 'lynx-native-debug']) {
+    await access(join(templateDirectory, '.agent/skills', skill, 'SKILL.md'));
+  }
+});
+
 test('iOS accelerometer normalizes Core Motion g values to m/s^2', async () => {
   const source = await readFile(
     join(repositoryDirectory, 'autolink/device/ios/src/DeviceModule.m'),
@@ -173,6 +179,19 @@ async function verifySinglePlatformScaffold(platform) {
       displayName: 'Platform Fixture',
       platforms: [platform],
     });
+
+    const agentAndroidReference = await readFile(
+      join(
+        projectDirectory,
+        '.agent/skills/lynx-native-debug/references/android.md',
+      ),
+      'utf8',
+    );
+    assert.match(
+      agentAndroidReference,
+      /java\/com\/example\/fixture\/PlatformFixtureApplication\.kt/,
+    );
+    assert.doesNotMatch(agentAndroidReference, /\{\{|com\/lynxapp/);
 
     const packageJson = JSON.parse(
       await readFile(join(projectDirectory, 'package.json'), 'utf8'),

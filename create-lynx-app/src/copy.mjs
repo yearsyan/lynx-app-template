@@ -25,9 +25,13 @@ export async function copyTemplate(templateDir, targetDir, tokens) {
     throw new Error(`target directory already exists: ${targetDir}`);
   }
 
-  assertTokensSupplied(tokens);
+  const materializationTokens = {
+    ...tokens,
+    packagePath: tokens.package.replaceAll('.', '/'),
+  };
+  assertTokensSupplied(materializationTokens);
   const selected = selectedPlatforms(tokens.platforms);
-  await materializeTree(templateDir, targetDir, tokens);
+  await materializeTree(templateDir, targetDir, materializationTokens);
   await configureSelections(targetDir, selected, tokens.autolinkModules);
 
   for (const [platform, relativeDir] of Object.entries(PLATFORM_DIRS)) {

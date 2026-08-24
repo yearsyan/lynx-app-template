@@ -18,7 +18,6 @@
   ],
   "excludeNames": [
     ".git",
-    ".agent",
     ".zcode",
     ".idea",
     ".github",
