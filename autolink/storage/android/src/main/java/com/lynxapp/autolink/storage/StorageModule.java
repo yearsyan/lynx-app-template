@@ -88,7 +88,7 @@ public final class StorageModule extends LynxContextModule {
     // ------------------------------------------------------------------
 
     @LynxMethod
-    public void setString(String key, String value, Callback callback, Boolean inMemory) {
+    public void setString(String key, String value, Boolean inMemory, Callback callback) {
         if (Boolean.TRUE.equals(inMemory)) {
             // Overlay-only write: the MMKV copy keeps its previous value.
             if (!isValidKey(key) || value == null) {

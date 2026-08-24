@@ -90,7 +90,12 @@ export function resolveAutolinkSelection(modules, platforms, requested) {
   const allByName = new Map(modules.map((module) => [module.name, module]));
   const required = requiredAutolinkModuleNames(modules, platforms);
 
-  if (requested === undefined || requested === 'all') {
+  if (requested === undefined) {
+    return applicable
+      .filter((module) => module.defaultEnabled || required.has(module.name))
+      .map((module) => module.name);
+  }
+  if (requested === 'all') {
     return applicable.map((module) => module.name);
   }
 
@@ -203,6 +208,10 @@ export async function loadAutolinkModules(rootDirectory = repositoryDirectory) {
       entry.requiredFor === undefined
         ? []
         : requireStringArray(entry.requiredFor, `${location}.requiredFor`);
+    const defaultEnabled = entry.defaultEnabled ?? true;
+    if (typeof defaultEnabled !== 'boolean') {
+      throw new Error(`${location}.defaultEnabled must be a boolean`);
+    }
     const packageDirectory = join(rootDirectory, 'autolink', name);
     const packageJson = requireRecord(
       await readJson(join(packageDirectory, 'package.json'), `${name} package`),
@@ -248,6 +257,7 @@ export async function loadAutolinkModules(rootDirectory = repositoryDirectory) {
       packageName: packageJson.name,
       platforms,
       requiredFor,
+      defaultEnabled,
     });
   }
 

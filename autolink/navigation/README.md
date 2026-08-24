@@ -10,6 +10,7 @@ Autolinked route navigation and Back interception for Lynx hosts
 | `openForResult(options, callback)` | `router.openForResult(options): Promise<T \| undefined>` |
 | `closeWithResult(result, callback)` | `router.closeWithResult(result): Promise<void>` |
 | `openURL(url, callback)` | `router.openURL(url): Promise<void>` |
+| `canOpenURL(url, callback)` | `router.canOpen(url): Promise<boolean>` |
 | `setEnabled(enabled, callback)` | `back.setEnabled(enabled): Promise<void>` |
 | `configure(enabled, interceptorId, targetId, revision, callback)` | `backStack` reconciliation (internal) |
 
@@ -29,6 +30,14 @@ the host knows how to present Lynx pages:
 
 `openURL` resolves any system URL (deep links, `https://`, third-party
 schemes) through the platform router and needs no host wiring.
+
+`canOpen` probes whether `openURL` would find a handler without launching
+anything. All three platforms gate scheme discovery behind a host
+declaration: Android `<queries>` (this library ships a broad
+`ACTION_VIEW` query), iOS `LSApplicationQueriesSchemes` in Info.plist,
+HarmonyOS `querySchemes` in module.json5 (the template host declares
+`https` and `lynxapp`). Undeclared schemes and unknown links resolve to
+`false`; invalid URLs reject.
 
 ### inputDialog routes
 

@@ -26,32 +26,42 @@ test.before(async () => {
   modules = await loadAutolinkModules();
 });
 
-test('checkbox state defaults to all and keeps required modules locked', () => {
+test('checkbox state honors opt-in defaults and keeps required modules locked', () => {
   const choices = [
     {
       name: 'navigation',
       label: 'Navigation',
       platforms: ['android', 'ios', 'harmony'],
       requiredFor: ['android', 'ios', 'harmony'],
+      defaultEnabled: true,
     },
     {
       name: 'storage',
       label: 'MMKV',
       platforms: ['android', 'ios', 'harmony'],
       requiredFor: [],
+      defaultEnabled: true,
+    },
+    {
+      name: 'app-installer',
+      label: 'App Installer',
+      platforms: ['android', 'ios', 'harmony'],
+      requiredFor: [],
+      defaultEnabled: false,
     },
     {
       name: 'liquid-glass',
       label: 'Liquid Glass',
       platforms: ['ios'],
       requiredFor: [],
+      defaultEnabled: true,
     },
   ];
   let state = createAutolinkSelectionState(choices, ['android']);
   assert.deepEqual(state.selected, ['navigation', 'storage']);
   assert.deepEqual(
     state.choices.map((choice) => choice.name),
-    ['navigation', 'storage'],
+    ['navigation', 'storage', 'app-installer'],
   );
 
   state = updateAutolinkSelectionState(state, 'toggle');
@@ -60,7 +70,22 @@ test('checkbox state defaults to all and keeps required modules locked', () => {
   state = updateAutolinkSelectionState(state, 'toggle');
   assert.deepEqual(state.selected, ['navigation']);
   state = updateAutolinkSelectionState(state, 'toggle-all');
-  assert.deepEqual(state.selected, ['navigation', 'storage']);
+  assert.deepEqual(state.selected, ['navigation', 'storage', 'app-installer']);
+});
+
+test('default resolution excludes opt-in modules but explicit all includes them', () => {
+  const defaultSelection = resolveAutolinkSelection(
+    modules,
+    ['android'],
+    undefined,
+  );
+  assert.equal(defaultSelection.includes('app-installer'), false);
+  assert.equal(
+    resolveAutolinkSelection(modules, ['android'], 'all').includes(
+      'app-installer',
+    ),
+    true,
+  );
 });
 
 test('non-interactive CLI selection adds host-required integrations', async () => {

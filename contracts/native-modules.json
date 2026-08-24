@@ -20,6 +20,25 @@
       }
     },
     {
+      "name": "AppInstaller",
+      "interfaceName": "AppInstallerModule",
+      "declaration": "autolink/app-installer/types/platform-native-module.d.ts",
+      "declarationName": "AppInstaller",
+      "webview": false,
+      "autolink": {
+        "directory": "app-installer",
+        "exportName": "APP_INSTALLER_MODULE_NAME"
+      },
+      "implementations": {
+        "android": {
+          "searchRoot": "autolink/app-installer/android/src/main/java",
+          "fileName": "AppInstallerModule.java"
+        },
+        "ios": "autolink/app-installer/ios/src/AppInstallerModule.m",
+        "harmony": "autolink/app-installer/harmony/src/main/ets/AppInstallerModule.ets"
+      }
+    },
+    {
       "name": "Audio",
       "interfaceName": "AudioModule",
       "declaration": "autolink/audio/types/platform-native-module.d.ts",

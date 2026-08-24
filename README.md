@@ -18,14 +18,15 @@
 │   ├── iosApp       # Swift / UIKit / CocoaPods 原生工程（含 Gemfile / Bundler）
 │   └── harmonyApp   # ArkTS / Stage 模型原生工程
 ├── autolink          # Lynx 原生库，三端均由官方 Autolink 注册
+│   ├── app-installer # AppInstaller（高权限、默认关闭的 Android 自更新交接）
 │   ├── biometric     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
 │   ├── clipboard     # Clipboard
-│   ├── device        # Device（设备信息、安全区、状态栏、电量、显示宽度/亮度/常亮、加速度计 + 罗盘）
+│   ├── device        # Device（设备信息与应用标识、安全区、状态栏、跳应用设置、电量、显示宽度/亮度/常亮、加速度计/罗盘/陀螺仪/磁力计/气压计）
 │   ├── file-system   # FileSystem（系统文件选择器 + URI 文件操作）
 │   ├── haptics       # Haptics
 │   ├── liquid-glass  # iOS Liquid Glass Element（switch + dropdown）
 │   ├── album-utils   # AlbumUtils（相册选图 + 存图）
-│   ├── navigation    # Navigation（原生页面导航 + URL 打开 + 系统返回栈 + Android/iOS 原生跟手 Overlay）
+│   ├── navigation    # Navigation（原生页面导航 + URL 打开与 canOpen 探测 + 系统返回栈 + Android/iOS 原生跟手 Overlay）
 │   ├── scanner       # Scanner（系统扫码页 + 图片识码）
 │   ├── screenshot    # Screenshot（视图 / 页面截图存入缓存）
 │   ├── storage       # Storage（KV 共享 MMKV 字符串存储 + SecureStorage 机密小存储）

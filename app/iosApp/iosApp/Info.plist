@@ -38,6 +38,9 @@
 	     updates); the system shows this string before the permission dialog. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Show which direction you are facing in Lynx pages.</string>
+	<!-- Required by Core Motion sensor updates, including CMAltimeter. -->
+	<key>NSMotionUsageDescription</key>
+	<string>Read motion and air-pressure sensors in Lynx pages.</string>
 	<!-- Required by the Permissions module's microphone probe; the
 	     system shows this string before the permission dialog. -->
 	<key>NSMicrophoneUsageDescription</key>

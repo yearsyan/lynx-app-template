@@ -1,7 +1,7 @@
 /**
  * Raw Device NativeModule transport contract: device facts, safe area,
- * status bar, display metrics, battery state and motion sensors in one
- * module.
+ * status bar, display metrics, battery state, streaming sensors
+ * (accelerometer, compass, gyroscope, magnetometer and barometer).
  *
  * The native API intentionally keeps callbacks; this package's src/index.ts
  * owns the high-level Promise API and runtime validation.
@@ -21,6 +21,7 @@ export declare class Device {
   getBrightness(callback: (resultJSON: string) => void): void;
   setBrightness(value: number, callback: (error: string) => void): void;
   setKeepScreenOn(enabled: boolean, callback: (error: string) => void): void;
+  openAppSettings(callback: (error: string) => void): void;
   getBatteryInfo(
     callback: (result: {
       value?: { level: number | null; charging: boolean };

@@ -87,6 +87,7 @@ static id<LynxRouteHandler> _Nullable _routeHandler = nil;
     @"openForResult" : NSStringFromSelector(@selector(openForResult:callback:)),
     @"closeWithResult" : NSStringFromSelector(@selector(closeWithResult:callback:)),
     @"openURL" : NSStringFromSelector(@selector(openURL:callback:)),
+    @"canOpenURL" : NSStringFromSelector(@selector(canOpenURL:callback:)),
     @"setEnabled" : NSStringFromSelector(@selector(setEnabled:callback:)),
     @"configure" : NSStringFromSelector(@selector(
         configure:interceptorId:targetId:revision:callback:)),
@@ -180,6 +181,21 @@ static id<LynxRouteHandler> _Nullable _routeHandler = nil;
                            completionHandler:^(BOOL success) {
       callback(success ? @"" : @"Unable to open URL");
     }];
+  });
+}
+
+// canOpenURL: only sees schemes the host declares in
+// LSApplicationQueriesSchemes (plus http/https and this app's own schemes);
+// undeclared schemes return NO.
+- (void)canOpenURL:(NSString *)url callback:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSURL *target = [NSURL URLWithString:url];
+    if (url == nil || url.length == 0 || target == nil || target.scheme.length == 0) {
+      callback(@"Invalid URL");
+      return;
+    }
+    BOOL canOpen = [UIApplication.sharedApplication canOpenURL:target];
+    callback(canOpen ? @"{\"value\":true}" : @"{\"value\":false}");
   });
 }
 

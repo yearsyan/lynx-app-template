@@ -60,14 +60,14 @@ function runTool(toolPath, args, options) {
 function main() {
   const [mode, ...extraArgs] = process.argv.slice(2);
   if (mode !== 'debug' && mode !== 'release') {
-    fail('usage: node scripts/run-harmony.mjs <debug|release> [extra hvigor args...]');
+    fail(
+      'usage: node scripts/run-harmony.mjs <debug|release> [extra hvigor args...]',
+    );
   }
 
   const devecoHome = resolveDevecoHome();
   if (!devecoHome) {
-    fail(
-      'unsupported platform: set DEVECO_HOME to your DevEco Studio install',
-    );
+    fail('unsupported platform: set DEVECO_HOME to your DevEco Studio install');
   }
   if (!existsSync(devecoHome)) {
     fail(

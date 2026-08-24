@@ -5,7 +5,7 @@ one Lynx NativeModule, `Storage`, with two backends:
 
 | Method | JS facade | Backend |
 | --- | --- | --- |
-| `setString(key, value, cb, inMemory)` | `kv.setString` | shared MMKV (`lynx.native.kv`) or the in-memory overlay |
+| `setString(key, value, inMemory, cb)` | `kv.setString` | shared MMKV (`lynx.native.kv`) or the in-memory overlay |
 | `getString(key, defaultValue, cb)` / `getStringOrNull(key, cb)` | `kv.getString` | overlay first, then shared MMKV |
 | `remove(key, cb)` | `kv.remove` | shared MMKV |
 | `clear(cb)` | `kv.clear` | shared MMKV |

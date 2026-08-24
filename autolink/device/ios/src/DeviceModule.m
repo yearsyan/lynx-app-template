@@ -11,6 +11,12 @@ static NSString *const LynxStatusBarStyleLightContent = @"light-content";
 static NSString *const kEventName = @"sensors";
 static NSString *const kTypeAccelerometer = @"accelerometer";
 static NSString *const kTypeCompass = @"compass";
+static NSString *const kTypeGyroscope = @"gyroscope";
+static NSString *const kTypeMagnetometer = @"magnetometer";
+static NSString *const kTypeBarometer = @"barometer";
+// Core Motion reports CMAcceleration in g; the public Device contract uses
+// SI acceleration units on every platform.
+static const double kStandardGravityMetersPerSecondSquared = 9.80665;
 
 static NSString *LynxDeviceJSON(NSDictionary<NSString *, id> *result) {
   NSError *error = nil;
@@ -56,15 +62,22 @@ LynxTemplateData *LynxDeviceTemplateData(
 // The @LynxNativeModule annotation is what cocoapods-lynx-library scans for;
 // it expands to a harmless ObjC forward declaration when compiled.
 // Device facts, safe area, status bar, display metrics, battery state and
-// motion sensors exported to Lynx as `Device`. All widths are reported in
-// Lynx logical pixels (points), the unit Lynx layout consumes.
+// sensors exported to Lynx as `Device`. All widths are reported in Lynx
+// logical pixels (points), the unit Lynx layout consumes. The gyroscope
+// reports rad/s and the magnetometer microtesla, both straight from
+// CoreMotion; the barometer converts CMAltitudeData pressure (kPa) into
+// hectopascals so all three platforms report the same unit.
 @LynxNativeModule("Device")
 @implementation DeviceModule {
   __weak LynxContext *_lynxContext;
   CMMotionManager *_motionManager;
+  CMAltimeter *_altimeter;
   CLLocationManager *_locationManager;
   BOOL _accelerometerActive;
   BOOL _compassActive;
+  BOOL _gyroscopeActive;
+  BOOL _magnetometerActive;
+  BOOL _barometerActive;
   BOOL _destroyed;
 }
 
@@ -92,6 +105,7 @@ LynxTemplateData *LynxDeviceTemplateData(
     @"getBrightness" : NSStringFromSelector(@selector(getBrightness:)),
     @"setBrightness" : NSStringFromSelector(@selector(setBrightness:callback:)),
     @"setKeepScreenOn" : NSStringFromSelector(@selector(setKeepScreenOn:callback:)),
+    @"openAppSettings" : NSStringFromSelector(@selector(openAppSettings:)),
     @"getBatteryInfo" : NSStringFromSelector(@selector(getBatteryInfo:)),
     @"isAvailable" : NSStringFromSelector(@selector(isAvailable:callback:)),
     @"start" : NSStringFromSelector(@selector(start:callback:)),
@@ -116,6 +130,7 @@ LynxTemplateData *LynxDeviceTemplateData(
   value[@"osApiLevel"] = NSNull.null;
   value[@"appVersion"] = bundleInfo[@"CFBundleShortVersionString"] ?: @"";
   value[@"appBuild"] = bundleInfo[@"CFBundleVersion"] ?: @"";
+  value[@"bundleId"] = bundleInfo[@"CFBundleIdentifier"] ?: @"";
   value[@"density"] = @(UIScreen.mainScreen.scale);
   value[@"locale"] = NSLocale.currentLocale.localeIdentifier ?: @"";
   value[@"isTablet"] = [NSNumber
@@ -229,6 +244,23 @@ LynxTemplateData *LynxDeviceTemplateData(
   });
 }
 
+// openSettingsURLString is the only settings destination reachable through
+// public APIs; the system opens this app's own settings page.
+- (void)openAppSettings:(LynxCallbackBlock)callback {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSURL *url = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
+    if (url == nil) {
+      callback(@"Device has no app settings URL");
+      return;
+    }
+    [UIApplication.sharedApplication openURL:url
+                                     options:@{}
+                           completionHandler:^(BOOL success) {
+      callback(success ? @"" : @"Unable to open app settings");
+    }];
+  });
+}
+
 #pragma mark - Battery
 
 - (void)getBatteryInfo:(LynxCallbackBlock)callback {
@@ -256,10 +288,18 @@ LynxTemplateData *LynxDeviceTemplateData(
     _destroyed = YES;
   }
   CMMotionManager *motion = _motionManager;
+  CMAltimeter *altimeter = _altimeter;
   CLLocationManager *location = _locationManager;
   if (motion != nil) {
     dispatch_async(dispatch_get_main_queue(), ^{
       [motion stopAccelerometerUpdates];
+      [motion stopGyroUpdates];
+      [motion stopMagnetometerUpdates];
+    });
+  }
+  if (altimeter != nil) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [altimeter stopRelativeAltitudeUpdates];
     });
   }
   if (location != nil) {
@@ -271,6 +311,9 @@ LynxTemplateData *LynxDeviceTemplateData(
   }
   _accelerometerActive = NO;
   _compassActive = NO;
+  _gyroscopeActive = NO;
+  _magnetometerActive = NO;
+  _barometerActive = NO;
 }
 
 - (void)isAvailable:(NSString *)type callback:(LynxCallbackBlock)callback {
@@ -280,6 +323,18 @@ LynxTemplateData *LynxDeviceTemplateData(
   }
   if ([type isEqualToString:kTypeCompass]) {
     callback([self valueString:CLLocationManager.headingAvailable]);
+    return;
+  }
+  if ([type isEqualToString:kTypeGyroscope]) {
+    callback([self valueString:self.motionManager.isGyroAvailable]);
+    return;
+  }
+  if ([type isEqualToString:kTypeMagnetometer]) {
+    callback([self valueString:self.motionManager.isMagnetometerAvailable]);
+    return;
+  }
+  if ([type isEqualToString:kTypeBarometer]) {
+    callback([self valueString:CMAltimeter.isRelativeAltitudeAvailable]);
     return;
   }
   callback(@"Unknown sensor type");
@@ -298,6 +353,18 @@ LynxTemplateData *LynxDeviceTemplateData(
     [self startCompass:callback];
     return;
   }
+  if ([type isEqualToString:kTypeGyroscope]) {
+    [self startGyroscope:callback];
+    return;
+  }
+  if ([type isEqualToString:kTypeMagnetometer]) {
+    [self startMagnetometer:callback];
+    return;
+  }
+  if ([type isEqualToString:kTypeBarometer]) {
+    [self startBarometer:callback];
+    return;
+  }
   callback(@"Unknown sensor type");
 }
 
@@ -314,6 +381,30 @@ LynxTemplateData *LynxDeviceTemplateData(
     if (_compassActive) {
       _compassActive = NO;
       [self stopHeadingUpdates];
+    }
+    callback(@"");
+    return;
+  }
+  if ([type isEqualToString:kTypeGyroscope]) {
+    if (_gyroscopeActive) {
+      _gyroscopeActive = NO;
+      [self.motionManager stopGyroUpdates];
+    }
+    callback(@"");
+    return;
+  }
+  if ([type isEqualToString:kTypeMagnetometer]) {
+    if (_magnetometerActive) {
+      _magnetometerActive = NO;
+      [self.motionManager stopMagnetometerUpdates];
+    }
+    callback(@"");
+    return;
+  }
+  if ([type isEqualToString:kTypeBarometer]) {
+    if (_barometerActive) {
+      _barometerActive = NO;
+      [self stopBarometerUpdates];
     }
     callback(@"");
     return;
@@ -341,16 +432,116 @@ LynxTemplateData *LynxDeviceTemplateData(
                                if (strongSelf == nil || error != nil) {
                                  return;
                                }
-                               [strongSelf emitEvent:@{
-                                 @"type" : kTypeAccelerometer,
-                                 @"x" : @(data.acceleration.x),
-                                 @"y" : @(data.acceleration.y),
-                                 @"z" : @(data.acceleration.z),
-                                 @"timestamp" : @((long long)(NSDate.date.timeIntervalSince1970 * 1000)),
-                               }];
+                               [strongSelf emitTriple:kTypeAccelerometer
+                                                     x:data.acceleration.x *
+                                                       kStandardGravityMetersPerSecondSquared
+                                                     y:data.acceleration.y *
+                                                       kStandardGravityMetersPerSecondSquared
+                                                     z:data.acceleration.z *
+                                                       kStandardGravityMetersPerSecondSquared];
                              }];
   });
   callback(@"");
+}
+
+- (void)startGyroscope:(LynxCallbackBlock)callback {
+  if (_gyroscopeActive) {
+    callback(@"");
+    return;
+  }
+  CMMotionManager *motion = self.motionManager;
+  if (!motion.isGyroAvailable) {
+    callback(@"Gyroscope is unavailable");
+    return;
+  }
+  __weak DeviceModule *weakSelf = self;
+  _gyroscopeActive = YES;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [weakSelf.motionManager
+        startGyroUpdatesToQueue:[NSOperationQueue mainQueue]
+                    withHandler:^(CMGyroData *data, NSError *error) {
+                      DeviceModule *strongSelf = weakSelf;
+                      if (strongSelf == nil || error != nil) {
+                        return;
+                      }
+                      [strongSelf emitTriple:kTypeGyroscope
+                                            x:data.rotationRate.x
+                                            y:data.rotationRate.y
+                                            z:data.rotationRate.z];
+                    }];
+  });
+  callback(@"");
+}
+
+- (void)startMagnetometer:(LynxCallbackBlock)callback {
+  if (_magnetometerActive) {
+    callback(@"");
+    return;
+  }
+  CMMotionManager *motion = self.motionManager;
+  if (!motion.isMagnetometerAvailable) {
+    callback(@"Magnetometer is unavailable");
+    return;
+  }
+  __weak DeviceModule *weakSelf = self;
+  _magnetometerActive = YES;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [weakSelf.motionManager
+        startMagnetometerUpdatesToQueue:[NSOperationQueue mainQueue]
+                            withHandler:^(CMMagnetometerData *data, NSError *error) {
+                              DeviceModule *strongSelf = weakSelf;
+                              if (strongSelf == nil || error != nil) {
+                                return;
+                              }
+                              [strongSelf emitTriple:kTypeMagnetometer
+                                                    x:data.magneticField.x
+                                                    y:data.magneticField.y
+                                                    z:data.magneticField.z];
+                            }];
+  });
+  callback(@"");
+}
+
+// CMAltitudeData reports the pressure in kilopascals; the JS contract
+// standardizes on hectopascals (millibars) to match Android.
+- (void)startBarometer:(LynxCallbackBlock)callback {
+  if (_barometerActive) {
+    callback(@"");
+    return;
+  }
+  if (!CMAltimeter.isRelativeAltitudeAvailable) {
+    callback(@"Barometer is unavailable");
+    return;
+  }
+  __weak DeviceModule *weakSelf = self;
+  _barometerActive = YES;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [weakSelf.altimeterOnMain
+        startRelativeAltitudeUpdatesToQueue:[NSOperationQueue mainQueue]
+                                withHandler:^(CMAltitudeData *data, NSError *error) {
+                                  DeviceModule *strongSelf = weakSelf;
+                                  if (strongSelf == nil || error != nil) {
+                                    return;
+                                  }
+                                  NSMutableDictionary *payload = [NSMutableDictionary dictionary];
+                                  payload[@"type"] = kTypeBarometer;
+                                  payload[@"pressure"] = @(data.pressure.doubleValue * 10.0);
+                                  payload[@"timestamp"] =
+                                      @((long long)(NSDate.date.timeIntervalSince1970 * 1000));
+                                  [strongSelf emitEvent:payload];
+                                }];
+  });
+  callback(@"");
+}
+
+- (void)stopBarometerUpdates {
+  CMAltimeter *altimeter = _altimeter;
+  if (altimeter == nil) {
+    return;
+  }
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [altimeter stopRelativeAltitudeUpdates];
+  });
 }
 
 - (void)startCompass:(LynxCallbackBlock)callback {
@@ -479,6 +670,27 @@ LynxTemplateData *LynxDeviceTemplateData(
     _motionManager = [[CMMotionManager alloc] init];
   }
   return _motionManager;
+}
+
+- (CMAltimeter *)altimeterOnMain {
+  NSAssert(NSThread.isMainThread, @"CMAltimeter must be created on the main thread");
+  if (_altimeter == nil) {
+    _altimeter = [[CMAltimeter alloc] init];
+  }
+  return _altimeter;
+}
+
+- (void)emitTriple:(NSString *)type
+                 x:(double)x
+                 y:(double)y
+                 z:(double)z {
+  [self emitEvent:@{
+    @"type" : type,
+    @"x" : @(x),
+    @"y" : @(y),
+    @"z" : @(z),
+    @"timestamp" : @((long long)(NSDate.date.timeIntervalSince1970 * 1000)),
+  }];
 }
 
 - (CLLocationManager *)locationManagerOnMain {

@@ -3,6 +3,7 @@
 "NSFaceIDUsageDescription" = "用于在 Lynx 页面中通过面容 ID 确认你的身份。";
 "NSLocalNetworkUsageDescription" = "用于在开发 Lynx Bundle 时连接本地 Rspeedy 服务器。";
 "NSLocationWhenInUseUsageDescription" = "用于在 Lynx 页面中显示设备面向的方向。";
+"NSMotionUsageDescription" = "用于在 Lynx 页面中读取运动和气压传感器。";
 "NSMicrophoneUsageDescription" = "用于在你选择时通过 Lynx 页面录制音频。";
 "NSPhotoLibraryAddUsageDescription" = "用于将你选择保留的图片存入照片图库。";
 "NSPhotoLibraryUsageDescription" = "用于选择要在 Lynx 页面中使用的照片。";

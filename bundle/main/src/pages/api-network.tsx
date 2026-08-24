@@ -182,8 +182,15 @@ export function WebSocketPage() {
   );
 }
 
+const CHECK_URLS: string[] = [
+  'https://www.lynxjs.org',
+  'lynxapp://main',
+  'lynx-test://x',
+];
+
 export function OpenUrlPage() {
   const [result, setResult] = useState<string | null>(null);
+  const [checkText, setCheckText] = useState<string | null>(null);
 
   const open = useCallback((url: string) => {
     'background only';
@@ -193,9 +200,21 @@ export function OpenUrlPage() {
       .catch((error: Error) => setResult(`打开失败：${error.message}`));
   }, []);
 
+  const check = useCallback((url: string) => {
+    'background only';
+    router
+      .canOpen(url)
+      .then((canOpen) =>
+        setCheckText(
+          `${url}\n${canOpen ? '有可处理的应用' : '没有应用可处理'}`,
+        ),
+      )
+      .catch((error: Error) => setCheckText(`检测失败：${error.message}`));
+  }, []);
+
   return (
     <view>
-      <ApiName name="router.openURL" />
+      <ApiName name="router.openURL / router.canOpen" />
       <DemoCard
         title="打开链接"
         desc="把 URL 交给系统路由解析：https 走浏览器，自定义 scheme 唤起注册了该 scheme 的应用。"
@@ -206,6 +225,19 @@ export function OpenUrlPage() {
           onTap={() => open('https://www.lynxjs.org')}
         />
         <ResultLine text={result} placeholder="选择一个链接交给系统打开" />
+      </DemoCard>
+      <DemoCard
+        title="链接可达性"
+        desc="canOpen 先探测系统里是否有应用能处理该 URL；未在宿主声明的第三方 scheme 会返回 false。"
+      >
+        {CHECK_URLS.map((url) => (
+          <DemoButton
+            key={url}
+            label={`检测 ${url}`}
+            onTap={() => check(url)}
+          />
+        ))}
+        <ResultLine text={checkText} placeholder="检测结果展示在这里" />
       </DemoCard>
     </view>
   );

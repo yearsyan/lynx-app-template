@@ -101,6 +101,8 @@ export function nativeModuleMethodArity(
           return 2;
         case 'setKeepScreenOn':
           return 2;
+        case 'openAppSettings':
+          return 1;
         case 'getBatteryInfo':
           return 1;
         case 'isAvailable':
@@ -206,6 +208,8 @@ export function nativeModuleMethodArity(
         case 'closeWithResult':
           return 2;
         case 'openURL':
+          return 2;
+        case 'canOpenURL':
           return 2;
         case 'setEnabled':
           return 2;

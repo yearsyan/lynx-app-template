@@ -84,7 +84,7 @@ static void EnsureMMKVInitialized(void) {
 
 + (NSDictionary<NSString *, NSString *> *)methodLookup {
   return @{
-    @"setString" : NSStringFromSelector(@selector(setString:value:callback:inMemory:)),
+    @"setString" : NSStringFromSelector(@selector(setString:value:inMemory:callback:)),
     @"getString" : NSStringFromSelector(@selector(getString:defaultValue:callback:)),
     @"getStringOrNull" : NSStringFromSelector(@selector(getStringOrNull:callback:)),
     @"remove" : NSStringFromSelector(@selector(remove:callback:)),
@@ -110,8 +110,8 @@ static void EnsureMMKVInitialized(void) {
 
 - (void)setString:(NSString *)key
             value:(NSString *)value
-         callback:(LynxCallbackBlock)callback
-         inMemory:(BOOL)inMemory {
+         inMemory:(BOOL)inMemory
+         callback:(LynxCallbackBlock)callback {
   if (inMemory) {
     // Overlay-only write: the MMKV copy keeps its previous value.
     if (![self isValidKey:key] || value == nil) {

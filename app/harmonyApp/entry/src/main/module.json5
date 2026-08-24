@@ -13,6 +13,12 @@
     "installationFree": false,
     "pages": "$profile:main_pages",
     "appStartup": "$profile:app_startup",
+    // Schemes the Navigation canOpenURL query may see; bundleManager
+    // .canOpenLink only resolves schemes declared here (plus app links).
+    "querySchemes": [
+      "https",
+      "lynxapp"
+    ],
     "abilities": [
       {
         "name": "EntryAbility",
@@ -71,6 +77,11 @@
         // System-granted permission required by the accelerometer readings of
         // the Sensors native module; no runtime dialog is shown.
         "name": "ohos.permission.ACCELEROMETER"
+      },
+      {
+        // System-granted permission required by the gyroscope readings of
+        // the Sensors native module; no runtime dialog is shown.
+        "name": "ohos.permission.GYROSCOPE"
       },
       {
         // System-granted permission required by the NetworkInfo native

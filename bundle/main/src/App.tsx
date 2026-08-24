@@ -8,8 +8,6 @@ import {
   statusBar,
 } from '@lynx-template/autolink-device';
 
-import { ScrollView } from '@lynx-js/lynx-ui';
-
 import { useCallback, useEffect, useState } from '@lynx-js/react';
 import { useInitData } from '@lynx-js/react';
 
@@ -158,13 +156,6 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
   );
   const tab = TABS.find((item) => item.key === tabKey) ?? TABS[0];
 
-  // The lynx-ui bounce wrapper reads an explicit pixel height from
-  // `style.height` (it cannot stretch with flex), so size the scroll area to
-  // exactly what remains between the nav bar and the tab bar.
-  const viewportHeight = SystemInfo.pixelHeight / SystemInfo.pixelRatio;
-  const tabBarHeight = 48 + (bottomInset > 0 ? bottomInset : 10);
-  const scrollHeight = viewportHeight - topInset - 44 - tabBarHeight;
-
   const switchTab = useCallback(
     (key: 'api' | 'ui', categories: DemoTabMeta['categories']) => {
       'background only';
@@ -194,11 +185,11 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
           {t(tab.headline)}
         </text>
       </view>
-      <ScrollView
-        scrollOrientation="vertical"
+      <scroll-view
         className="Home__scroll"
-        style={{ width: '100%', height: `${scrollHeight}px` }}
-        bounceableOptions={false}
+        scroll-orientation="vertical"
+        scroll-bar-enable={false}
+        bounces={false}
       >
         <view
           className="Home__body"
@@ -217,7 +208,7 @@ function Home(props: { onOpen: (pageKey: string) => void }) {
             onOpen={props.onOpen}
           />
         </view>
-      </ScrollView>
+      </scroll-view>
       <view
         className="TabBar"
         style={{ paddingBottom: `${bottomInset > 0 ? bottomInset : 10}px` }}

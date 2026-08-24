@@ -80,6 +80,10 @@ function parseContract(value) {
       module.declarationName,
       `${location}.declarationName`,
     );
+    const webview = module.webview ?? true;
+    if (typeof webview !== 'boolean') {
+      throw new ContractError(`${location}.webview must be a boolean`);
+    }
     if (moduleNames.has(name)) {
       throw new ContractError(`${location}.name duplicates ${name}`);
     }
@@ -148,6 +152,7 @@ function parseContract(value) {
       declarationName,
       implementations,
       autolink,
+      webview,
     };
   });
 
@@ -305,13 +310,14 @@ async function attachAutolinkBridgeHelpers(contract) {
 }
 
 function generateWebviewContract(contract) {
+  const modules = contract.modules.filter((module) => module.webview);
   const lines = [
     '// Generated from per-package NativeModule declarations. Do not edit.',
     '// Run `pnpm native:contracts:generate` after changing a declaration.',
     '',
     'export const NATIVE_MODULE_CONTRACT = {',
   ];
-  for (const module of contract.modules) {
+  for (const module of modules) {
     lines.push(`  ${module.name}: {`);
     lines.push(`    name: '${module.name}',`);
     lines.push('    methods: {');
@@ -326,13 +332,13 @@ function generateWebviewContract(contract) {
   lines.push('} as const;', '');
 
   lines.push('export const NATIVE_MODULE_NAMES = {');
-  for (const module of contract.modules) {
+  for (const module of modules) {
     lines.push(`  ${module.name}: NATIVE_MODULE_CONTRACT.${module.name}.name,`);
   }
   lines.push('} as const;', '');
 
   lines.push('export const NATIVE_MODULE_METHODS = {');
-  for (const module of contract.modules) {
+  for (const module of modules) {
     lines.push(`  ${module.name}: {`);
     for (const method of module.methods) {
       const value = `NATIVE_MODULE_CONTRACT.${module.name}.methods.${method.name}.name,`;
@@ -481,6 +487,7 @@ ${completionBlock}${decodeValueBlock}${envelopeBlock}${decodeEnvelopeBlock}`;
 }
 
 function generateHarmonyContract(contract) {
+  const modules = contract.modules.filter((module) => module.webview);
   const lines = [
     '// Generated from contracts/native-modules.json. Do not edit.',
     '// Run `pnpm native:contracts:generate` after changing the contract.',
@@ -492,7 +499,7 @@ function generateHarmonyContract(contract) {
     '): number {',
     '  switch (moduleName) {',
   ];
-  for (const module of contract.modules) {
+  for (const module of modules) {
     lines.push(`    case '${module.name}':`);
     lines.push('      switch (methodName) {');
     for (const method of module.methods) {

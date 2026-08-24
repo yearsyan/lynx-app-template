@@ -1,4 +1,4 @@
-import { bundleManager, common } from '@kit.AbilityKit';
+import { bundleManager, common, Want } from '@kit.AbilityKit';
 import { display, UIContext, window } from '@kit.ArkUI';
 import { batteryInfo, deviceInfo, settings } from '@kit.BasicServicesKit';
 import { i18n } from '@kit.LocalizationKit';
@@ -274,6 +274,7 @@ class DeviceInfoValue {
   manufacturer: string;
   osVersion: string;
   osApiLevel: number | null;
+  bundleId: string;
   appVersion: string;
   appBuild: string;
   density: number;
@@ -286,12 +287,14 @@ class DeviceInfoValue {
     this.manufacturer = deviceInfo.brand;
     this.osVersion = deviceInfo.osFullName;
     this.osApiLevel = deviceInfo.sdkApiVersion;
+    this.bundleId = '';
     this.appVersion = '';
     this.appBuild = '';
     try {
       const bundleInfo = bundleManager.getBundleInfoForSelfSync(
         bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT,
       );
+      this.bundleId = bundleInfo.name;
       this.appVersion = bundleInfo.versionName;
       this.appBuild = String(bundleInfo.versionCode);
     } catch (error) {
@@ -377,6 +380,7 @@ class SensorEventPayload {
   z: number = 0;
   heading: number = 0;
   accuracy: number = -1;
+  pressure: number = 0;
   timestamp: number = 0;
   error: string = '';
 
@@ -404,6 +408,9 @@ class NativeSensorsController {
   private destroyed: boolean = false;
   private accelerometerCallback: ((data: sensor.AccelerometerResponse) => void) | undefined = undefined;
   private compassCallback: ((data: sensor.OrientationResponse) => void) | undefined = undefined;
+  private gyroscopeCallback: ((data: sensor.GyroscopeResponse) => void) | undefined = undefined;
+  private magnetometerCallback: ((data: sensor.MagneticFieldResponse) => void) | undefined = undefined;
+  private barometerCallback: ((data: sensor.BarometerResponse) => void) | undefined = undefined;
 
   isAvailable(type: string, callback: (resultJSON: string) => void): void {
     try {
@@ -411,6 +418,12 @@ class NativeSensorsController {
         sensor.getSingleSensorSync(sensor.SensorId.ACCELEROMETER);
       } else if (type === 'compass') {
         sensor.getSingleSensorSync(sensor.SensorId.ORIENTATION);
+      } else if (type === 'gyroscope') {
+        sensor.getSingleSensorSync(sensor.SensorId.GYROSCOPE);
+      } else if (type === 'magnetometer') {
+        sensor.getSingleSensorSync(sensor.SensorId.MAGNETIC_FIELD);
+      } else if (type === 'barometer') {
+        sensor.getSingleSensorSync(sensor.SensorId.BAROMETER);
       } else {
         callback('{"error":"Unknown sensor type"}');
         return;
@@ -467,6 +480,71 @@ class NativeSensorsController {
       }
       return;
     }
+    if (type === 'gyroscope') {
+      if (this.gyroscopeCallback !== undefined) {
+        callback('');
+        return;
+      }
+      try {
+        const listener = (data: sensor.GyroscopeResponse): void => {
+          const payload = new SensorEventPayload('gyroscope');
+          payload.x = data.x;
+          payload.y = data.y;
+          payload.z = data.z;
+          payload.timestamp = Date.now();
+          this.emit(payload);
+        };
+        sensor.on(sensor.SensorId.GYROSCOPE, listener);
+        this.gyroscopeCallback = listener;
+        callback('');
+      } catch (error) {
+        callback(this.messageOf(error, 'Unable to start the gyroscope'));
+      }
+      return;
+    }
+    if (type === 'magnetometer') {
+      if (this.magnetometerCallback !== undefined) {
+        callback('');
+        return;
+      }
+      try {
+        const listener = (data: sensor.MagneticFieldResponse): void => {
+          const payload = new SensorEventPayload('magnetometer');
+          payload.x = data.x;
+          payload.y = data.y;
+          payload.z = data.z;
+          payload.timestamp = Date.now();
+          this.emit(payload);
+        };
+        sensor.on(sensor.SensorId.MAGNETIC_FIELD, listener);
+        this.magnetometerCallback = listener;
+        callback('');
+      } catch (error) {
+        callback(this.messageOf(error, 'Unable to start the magnetometer'));
+      }
+      return;
+    }
+    if (type === 'barometer') {
+      if (this.barometerCallback !== undefined) {
+        callback('');
+        return;
+      }
+      try {
+        const listener = (data: sensor.BarometerResponse): void => {
+          const payload = new SensorEventPayload('barometer');
+          // HarmonyOS reports barometer pressure in hPa.
+          payload.pressure = data.pressure;
+          payload.timestamp = Date.now();
+          this.emit(payload);
+        };
+        sensor.on(sensor.SensorId.BAROMETER, listener);
+        this.barometerCallback = listener;
+        callback('');
+      } catch (error) {
+        callback(this.messageOf(error, 'Unable to start the barometer'));
+      }
+      return;
+    }
     callback('Unknown sensor type');
   }
 
@@ -501,6 +579,51 @@ class NativeSensorsController {
       }
       return;
     }
+    if (type === 'gyroscope') {
+      const listener = this.gyroscopeCallback;
+      if (listener === undefined) {
+        callback('');
+        return;
+      }
+      try {
+        sensor.off(sensor.SensorId.GYROSCOPE, listener);
+        this.gyroscopeCallback = undefined;
+        callback('');
+      } catch (error) {
+        callback(this.messageOf(error, 'Unable to stop the gyroscope'));
+      }
+      return;
+    }
+    if (type === 'magnetometer') {
+      const listener = this.magnetometerCallback;
+      if (listener === undefined) {
+        callback('');
+        return;
+      }
+      try {
+        sensor.off(sensor.SensorId.MAGNETIC_FIELD, listener);
+        this.magnetometerCallback = undefined;
+        callback('');
+      } catch (error) {
+        callback(this.messageOf(error, 'Unable to stop the magnetometer'));
+      }
+      return;
+    }
+    if (type === 'barometer') {
+      const listener = this.barometerCallback;
+      if (listener === undefined) {
+        callback('');
+        return;
+      }
+      try {
+        sensor.off(sensor.SensorId.BAROMETER, listener);
+        this.barometerCallback = undefined;
+        callback('');
+      } catch (error) {
+        callback(this.messageOf(error, 'Unable to stop the barometer'));
+      }
+      return;
+    }
     callback('Unknown sensor type');
   }
 
@@ -519,6 +642,30 @@ class NativeSensorsController {
     if (compass !== undefined) {
       try {
         sensor.off(sensor.SensorId.ORIENTATION, compass);
+      } catch (_error) {
+      }
+    }
+    const gyroscope = this.gyroscopeCallback;
+    this.gyroscopeCallback = undefined;
+    if (gyroscope !== undefined) {
+      try {
+        sensor.off(sensor.SensorId.GYROSCOPE, gyroscope);
+      } catch (_error) {
+      }
+    }
+    const magnetometer = this.magnetometerCallback;
+    this.magnetometerCallback = undefined;
+    if (magnetometer !== undefined) {
+      try {
+        sensor.off(sensor.SensorId.MAGNETIC_FIELD, magnetometer);
+      } catch (_error) {
+      }
+    }
+    const barometer = this.barometerCallback;
+    this.barometerCallback = undefined;
+    if (barometer !== undefined) {
+      try {
+        sensor.off(sensor.SensorId.BAROMETER, barometer);
       } catch (_error) {
       }
     }
@@ -550,7 +697,7 @@ class SensorsLifecycleClient extends LynxViewClient {
 }
 
 /**
- * Device, safe-area, status-bar, display, battery and motion-sensor APIs
+ * Device, safe-area, status-bar, display, battery and sensor APIs
  * exported to Lynx as Device. Sensor readings flow back through the
  * module's LynxContext as `sensors` global events.
  */
@@ -726,6 +873,34 @@ export class DeviceModule extends LynxModule {
       callback('');
     } catch (error) {
       callback(this.failureMessage(error as Error, 'Unable to change keep-screen-on'));
+    }
+  }
+
+  /**
+   * Opens this app's detail page in the system Settings app. There is no
+   * public action constant for it; the de-facto contract is the settings
+   * bundle's application_info_entry page with the target bundleName.
+   */
+  async openAppSettings(callback: (error: string) => void): Promise<void> {
+    const abilityContext = this.abilityContext();
+    if (abilityContext === undefined) {
+      callback('Device has no UIAbilityContext');
+      return;
+    }
+    try {
+      const bundleInfo = bundleManager.getBundleInfoForSelfSync(
+        bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT,
+      );
+      const want: Want = {
+        bundleName: 'com.huawei.hmos.settings',
+        abilityName: 'com.huawei.hmos.settings.MainAbility',
+        uri: 'application_info_entry',
+        parameters: { pushParams: bundleInfo.name },
+      };
+      await abilityContext.startAbility(want);
+      callback('');
+    } catch (error) {
+      callback(this.failureMessage(error as Error, 'Unable to open app settings'));
     }
   }
 

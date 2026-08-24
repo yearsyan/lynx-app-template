@@ -18,8 +18,8 @@ export declare class Storage {
   setString(
     key: string,
     value: string,
-    callback: (error: string) => void,
     inMemory: boolean,
+    callback: (error: string) => void,
   ): void;
   getString(
     key: string,

@@ -26,6 +26,8 @@ export interface DeviceInfo {
   osVersion: string;
   /** Android SDK_INT / HarmonyOS API version; null on iOS. */
   osApiLevel: number | null;
+  /** Application id: Android packageName / iOS bundle identifier / HarmonyOS bundleName. */
+  bundleId: string;
   appVersion: string;
   appBuild: string;
   /** Logical density scale (Android density, iOS scale, HarmonyOS densityPixels). */
@@ -86,6 +88,7 @@ function decodeDeviceInfo(value: unknown): DeviceInfo {
     typeof info.manufacturer !== 'string' ||
     typeof info.osVersion !== 'string' ||
     (info.osApiLevel !== null && typeof info.osApiLevel !== 'number') ||
+    typeof info.bundleId !== 'string' ||
     typeof info.appVersion !== 'string' ||
     typeof info.appBuild !== 'string' ||
     typeof info.density !== 'number' ||
@@ -242,6 +245,21 @@ export const statusBar = {
     const normalized = normalizeStatusBarStyle(style);
     return completeNativeCall((callback) =>
       requireDeviceModule().setStatusBarStyle(normalized, callback),
+    );
+  },
+};
+
+/**
+ * Opens this app's page in the system Settings app (the "app info" screen
+ * with permissions, storage and notifications). The canonical escape hatch
+ * after a permission has been denied — further settings pages are not
+ * reachable through public APIs on iOS / HarmonyOS.
+ */
+export const appSettings = {
+  open(): Promise<void> {
+    'background only';
+    return completeNativeCall((callback) =>
+      requireDeviceModule().openAppSettings(callback),
     );
   },
 };
@@ -419,7 +437,12 @@ export const battery = {
 // Sensors
 // ---------------------------------------------------------------------------
 
-export type SensorType = 'accelerometer' | 'compass';
+export type SensorType =
+  | 'accelerometer'
+  | 'compass'
+  | 'gyroscope'
+  | 'magnetometer'
+  | 'barometer';
 
 /** Acceleration in m/s^2 including gravity, in the device frame. */
 export interface AccelerometerReading {
@@ -440,7 +463,45 @@ export interface CompassReading {
   timestamp: number;
 }
 
-export type SensorReading = AccelerometerReading | CompassReading;
+/** Angular rotation rate in rad/s around the device-frame axes. */
+export interface GyroscopeReading {
+  type: 'gyroscope';
+  x: number;
+  y: number;
+  z: number;
+  timestamp: number;
+}
+
+/** Geomagnetic field strength in microtesla, in the device frame. */
+export interface MagnetometerReading {
+  type: 'magnetometer';
+  x: number;
+  y: number;
+  z: number;
+  timestamp: number;
+}
+
+/** Ambient barometric pressure in hectopascals (millibars). */
+export interface BarometerReading {
+  type: 'barometer';
+  pressure: number;
+  timestamp: number;
+}
+
+export type SensorReading =
+  | AccelerometerReading
+  | CompassReading
+  | GyroscopeReading
+  | MagnetometerReading
+  | BarometerReading;
+
+const SENSOR_TYPES: readonly SensorType[] = [
+  'accelerometer',
+  'compass',
+  'gyroscope',
+  'magnetometer',
+  'barometer',
+];
 
 interface SensorEventPayload {
   type?: unknown;
@@ -449,6 +510,7 @@ interface SensorEventPayload {
   z?: unknown;
   heading?: unknown;
   accuracy?: unknown;
+  pressure?: unknown;
   timestamp?: unknown;
   error?: unknown;
 }
@@ -481,8 +543,13 @@ function dispatchEvent(value: unknown): void {
   'background only';
   if (typeof value !== 'object' || value === null) return;
   const payload = value as SensorEventPayload;
-  if (payload.type !== 'accelerometer' && payload.type !== 'compass') return;
-  const type = payload.type;
+  if (
+    typeof payload.type !== 'string' ||
+    !SENSOR_TYPES.includes(payload.type as SensorType)
+  ) {
+    return;
+  }
+  const type = payload.type as SensorType;
   if (typeof payload.error === 'string' && payload.error.length > 0) {
     for (const listener of [...(listeners.get(type) ?? [])]) {
       listener.onError?.(payload.error);
@@ -497,7 +564,7 @@ function dispatchEvent(value: unknown): void {
 }
 
 function decodeReading(
-  type: 'accelerometer' | 'compass',
+  type: SensorType,
   payload: SensorEventPayload,
 ): SensorReading | null {
   'background only';
@@ -505,7 +572,11 @@ function decodeReading(
     typeof payload.timestamp === 'number' && Number.isFinite(payload.timestamp)
       ? payload.timestamp
       : Date.now();
-  if (type === 'accelerometer') {
+  if (
+    type === 'accelerometer' ||
+    type === 'gyroscope' ||
+    type === 'magnetometer'
+  ) {
     if (
       !isFiniteNumber(payload.x) ||
       !isFiniteNumber(payload.y) ||
@@ -513,23 +584,23 @@ function decodeReading(
     ) {
       return null;
     }
+    return { type, x: payload.x, y: payload.y, z: payload.z, timestamp };
+  }
+  if (type === 'compass') {
+    if (!isFiniteNumber(payload.heading)) {
+      return null;
+    }
     return {
-      type: 'accelerometer',
-      x: payload.x,
-      y: payload.y,
-      z: payload.z,
+      type: 'compass',
+      heading: payload.heading,
+      accuracy: isFiniteNumber(payload.accuracy) ? payload.accuracy : -1,
       timestamp,
     };
   }
-  if (!isFiniteNumber(payload.heading)) {
+  if (!isFiniteNumber(payload.pressure)) {
     return null;
   }
-  return {
-    type: 'compass',
-    heading: payload.heading,
-    accuracy: isFiniteNumber(payload.accuracy) ? payload.accuracy : -1,
-    timestamp,
-  };
+  return { type: 'barometer', pressure: payload.pressure, timestamp };
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -550,15 +621,16 @@ function command(
 }
 
 /**
- * Streaming motion sensors (accelerometer and compass). Readings arrive
- * through the Lynx GlobalEventEmitter on the `sensors` event; the module
- * keeps each sensor registered only while at least one observer is
- * attached.
+ * Streaming sensors (accelerometer, compass, gyroscope, magnetometer and
+ * barometer). Readings arrive through the Lynx GlobalEventEmitter on the
+ * `sensors` event; the module keeps each sensor registered only while at
+ * least one observer is attached.
  */
 export const sensors = {
   /**
    * Whether the device has the requested sensor. `compass` is false on iOS
-   * when heading hardware is missing (e.g. Wi-Fi-only iPads, simulators).
+   * when heading hardware is missing (e.g. Wi-Fi-only iPads, simulators);
+   * `barometer` is false on devices without a pressure sensor.
    */
   available(type: SensorType): Promise<boolean> {
     'background only';

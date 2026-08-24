@@ -56,6 +56,9 @@ session。即使旧文档的异步原生调用在导航完成后才返回，也�
 - 方法名和参数个数来自各 Autolink 包的 `types/platform-native-module.d.ts`，并通过
   `contracts/native-modules.json` 的映射聚合生成；模块对象上的其他公开方法不会被
   WebView 调用；
+- `contracts/native-modules.json` 中标记 `webview: false` 的高权限模块不会进入生成
+  契约；`AppInstaller` 同时被 Android、iOS、HarmonyOS 原生分发层硬拒绝，不能通过
+  `modules` 配置重新开放；
 - URL、重定向和页面内容可信度由宿主业务负责。当前实现没有区分主 frame 与子 frame，
   因而不要给会加载不可信 iframe 的页面授予敏感模块。
 

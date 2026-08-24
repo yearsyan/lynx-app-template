@@ -288,6 +288,38 @@ export const router = {
   },
 
   /**
+   * Whether `openURL(url)` would find a handler on this device. Custom
+   * schemes are only visible after the host declares them (Android
+   * `<queries>`, iOS `LSApplicationQueriesSchemes`, HarmonyOS
+   * `querySchemes`); undeclared schemes resolve to `false`. The app's own
+   * scheme and `http(s)` work out of the box.
+   */
+  canOpen(url: string): Promise<boolean> {
+    'background only';
+    return new Promise((resolve, reject) => {
+      requireNavigationModule().canOpenURL(url, (resultValue) => {
+        'background only';
+        try {
+          const result = decodeNativeEnvelope(
+            resultValue,
+            'router.canOpen',
+          ) as { error?: unknown; value?: unknown };
+          if (typeof result.error === 'string' && result.error.length > 0) {
+            reject(new Error(result.error));
+            return;
+          }
+          if (typeof result.value !== 'boolean') {
+            throw new Error('router.canOpen returned an invalid value');
+          }
+          resolve(result.value);
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      });
+    });
+  },
+
+  /**
    * Opens a route and waits for it to close. The promise resolves when the
    * opened page disappears: with the object passed to `closeWithResult`, or
    * `undefined` when it closed without one (plain `close`, system Back).

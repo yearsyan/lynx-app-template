@@ -9,6 +9,11 @@
 
 static NSString *const kRPCMessageHandlerName = @"lynxNativeBridge";
 static NSString *const kJSApiName = @"__lynxNativeBridge";
+static NSString *const kBlockedAppInstallerModule = @"AppInstaller";
+
+static BOOL LynxModuleBridgeIsBlockedModule(NSString *name) {
+  return [name isEqualToString:kBlockedAppInstallerModule];
+}
 
 static const char *LynxModuleBridgeUnqualifiedType(const char *encoding) {
   while (encoding != NULL && strchr("rnNoORV", encoding[0]) != NULL) {
@@ -143,8 +148,9 @@ static const char *LynxModuleBridgeUnqualifiedType(const char *encoding) {
                          ? bridge[@"modules"]
                          : nil;
   for (id item in modules) {
-    if ([item isKindOfClass:[NSString class]] && [(NSString *)item length] > 0) {
-      [names addObject:item];
+    if ([item isKindOfClass:[NSString class]] && [(NSString *)item length] > 0 &&
+        !LynxModuleBridgeIsBlockedModule((NSString *)item)) {
+      [names addObject:(NSString *)item];
     }
   }
   self.allowedModules = [names copy];
@@ -223,6 +229,14 @@ static const char *LynxModuleBridgeUnqualifiedType(const char *encoding) {
   }
   long long callId = idNumber.longLongValue;
 
+  if (LynxModuleBridgeIsBlockedModule(moduleName)) {
+    [self respond:callId
+          session:session
+               ok:NO
+          payload:[NSString stringWithFormat:@"module '%@' is blocked from webviews",
+                                             moduleName]];
+    return;
+  }
   if (![self.allowedModules containsObject:moduleName]) {
     [self respond:callId
           session:session

@@ -97,11 +97,15 @@ async function invokeVoid(...invocation: NativeInvocation): Promise<void> {
 
 /** KV module (MMKV-backed), mirroring the Autolink MMKV package's `kv`. */
 export const kv = {
-  async setString(key: string, value: string): Promise<void> {
+  async setString(
+    key: string,
+    value: string,
+    inMemory: boolean = false,
+  ): Promise<void> {
     await invokeVoid(
       NATIVE_MODULE_NAMES.Storage,
       NATIVE_MODULE_METHODS.Storage.setString,
-      [key, value],
+      [key, value, inMemory],
     );
   },
 
@@ -147,8 +151,12 @@ export const kv = {
     return contains === true;
   },
 
-  async setJSON(key: string, value: unknown): Promise<void> {
-    await this.setString(key, JSON.stringify(value));
+  async setJSON(
+    key: string,
+    value: unknown,
+    inMemory: boolean = false,
+  ): Promise<void> {
+    await this.setString(key, JSON.stringify(value), inMemory);
   },
 
   async getJSON<T>(key: string, defaultValue: T): Promise<T> {

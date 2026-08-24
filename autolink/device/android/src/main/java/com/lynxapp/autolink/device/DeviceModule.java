@@ -14,6 +14,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
@@ -57,11 +58,12 @@ import java.util.Locale;
  * `sensors` global events — the same channel the WebSocket module uses —
  * so no callback is held beyond a command ack. The JS bridge refcounts
  * listeners and only keeps a sensor registered while at least one observer
- * is attached. Accelerometer reports m/s^2 including gravity on every
- * platform. Compass reports the magnetic azimuth in degrees (0-360) with
- * an accuracy estimate in degrees (-1 when unreliable), preferring the
- * rotation-vector sensor and falling back to accelerometer + magnetometer
- * fusion.
+ * is attached. Accelerometer reports m/s^2 including gravity and gyroscope
+ * rad/s on every platform. Magnetometer reports the raw geomagnetic field
+ * in microtesla and barometer the ambient pressure in hectopascals.
+ * Compass reports the magnetic azimuth in degrees (0-360) with an accuracy
+ * estimate in degrees (-1 when unreliable), preferring the rotation-vector
+ * sensor and falling back to accelerometer + magnetometer fusion.
  */
 @LynxNativeModule(name = DeviceModule.NAME)
 public final class DeviceModule extends LynxContextModule implements SensorEventListener {
@@ -70,6 +72,9 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
 
     private static final String TYPE_ACCELEROMETER = "accelerometer";
     private static final String TYPE_COMPASS = "compass";
+    private static final String TYPE_GYROSCOPE = "gyroscope";
+    private static final String TYPE_MAGNETOMETER = "magnetometer";
+    private static final String TYPE_BAROMETER = "barometer";
     private static final int TABLET_MIN_SMALLEST_WIDTH_DP = 600;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -84,6 +89,9 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
     private volatile boolean destroyed = false;
     private boolean accelerometerActive = false;
     private boolean compassActive = false;
+    private boolean gyroscopeActive = false;
+    private boolean magnetometerActive = false;
+    private boolean barometerActive = false;
     private boolean compassFusion = false;
     private boolean gravitySet = false;
     private boolean geomagneticSet = false;
@@ -110,6 +118,7 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
             value.put("manufacturer", Build.MANUFACTURER != null ? Build.MANUFACTURER : "");
             value.put("osVersion", Build.VERSION.RELEASE != null ? Build.VERSION.RELEASE : "");
             value.put("osApiLevel", Build.VERSION.SDK_INT);
+            value.put("bundleId", context.getPackageName());
             putAppVersion(value, context);
             value.put("density", context.getResources().getDisplayMetrics().density);
             value.put("locale", Locale.getDefault().toLanguageTag());
@@ -318,6 +327,42 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         });
     }
 
+    /**
+     * Opens this app's detail page in the system Settings app
+     * (ACTION_APPLICATION_DETAILS_SETTINGS). The canonical follow-up after a
+     * runtime permission has been denied.
+     */
+    @LynxMethod
+    public void openAppSettings(Callback callback) {
+        Context context = hostContext();
+        if (context == null) {
+            callback.invoke("Device has no host context");
+            return;
+        }
+        Intent intent = new Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", context.getPackageName(), null));
+        Activity activity = hostActivity();
+        if (activity == null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                context.startActivity(intent);
+                callback.invoke("");
+            } catch (Throwable failure) {
+                callback.invoke(messageOf(failure, "Unable to open app settings"));
+            }
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                activity.startActivity(intent);
+                callback.invoke("");
+            } catch (Throwable failure) {
+                callback.invoke(messageOf(failure, "Unable to open app settings"));
+            }
+        });
+    }
+
     // ------------------------------------------------------------------
     // Battery
     // ------------------------------------------------------------------
@@ -397,6 +442,9 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         }
         accelerometerActive = false;
         compassActive = false;
+        gyroscopeActive = false;
+        magnetometerActive = false;
+        barometerActive = false;
         gravitySet = false;
         geomagneticSet = false;
     }
@@ -427,6 +475,39 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
             reconcileRegistrations();
             return "";
         }
+        if (TYPE_GYROSCOPE.equals(type)) {
+            if (gyroscopeActive) {
+                return "";
+            }
+            if (!isAvailableSensor(TYPE_GYROSCOPE)) {
+                return "Gyroscope is unavailable";
+            }
+            gyroscopeActive = true;
+            reconcileRegistrations();
+            return "";
+        }
+        if (TYPE_MAGNETOMETER.equals(type)) {
+            if (magnetometerActive) {
+                return "";
+            }
+            if (!isAvailableSensor(TYPE_MAGNETOMETER)) {
+                return "Magnetometer is unavailable";
+            }
+            magnetometerActive = true;
+            reconcileRegistrations();
+            return "";
+        }
+        if (TYPE_BAROMETER.equals(type)) {
+            if (barometerActive) {
+                return "";
+            }
+            if (!isAvailableSensor(TYPE_BAROMETER)) {
+                return "Barometer is unavailable";
+            }
+            barometerActive = true;
+            reconcileRegistrations();
+            return "";
+        }
         return "Unknown sensor type: " + (type == null ? "" : type);
     }
 
@@ -449,6 +530,30 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
             reconcileRegistrations();
             return "";
         }
+        if (TYPE_GYROSCOPE.equals(type)) {
+            if (!gyroscopeActive) {
+                return "";
+            }
+            gyroscopeActive = false;
+            reconcileRegistrations();
+            return "";
+        }
+        if (TYPE_MAGNETOMETER.equals(type)) {
+            if (!magnetometerActive) {
+                return "";
+            }
+            magnetometerActive = false;
+            reconcileRegistrations();
+            return "";
+        }
+        if (TYPE_BAROMETER.equals(type)) {
+            if (!barometerActive) {
+                return "";
+            }
+            barometerActive = false;
+            reconcileRegistrations();
+            return "";
+        }
         return "Unknown sensor type: " + (type == null ? "" : type);
     }
 
@@ -465,6 +570,15 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
                     || (manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null
                             && manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null);
         }
+        if (TYPE_GYROSCOPE.equals(type)) {
+            return manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null;
+        }
+        if (TYPE_MAGNETOMETER.equals(type)) {
+            return manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null;
+        }
+        if (TYPE_BAROMETER.equals(type)) {
+            return manager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null;
+        }
         return false;
     }
 
@@ -480,23 +594,29 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         }
         List<Sensor> desired = new ArrayList<>();
         if (accelerometerActive) {
-            Sensor sensor = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-            if (sensor != null) {
-                desired.add(sensor);
-            }
+            addDesired(desired, manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
+        }
+        if (gyroscopeActive) {
+            addDesired(desired, manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+        }
+        if (magnetometerActive) {
+            addDesired(desired, manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
+        }
+        if (barometerActive) {
+            addDesired(desired, manager.getDefaultSensor(Sensor.TYPE_PRESSURE));
         }
         boolean fusion = false;
         if (compassActive) {
             Sensor rotationVector = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
             if (rotationVector != null) {
-                desired.add(rotationVector);
+                addDesired(desired, rotationVector);
             } else {
                 fusion = true;
                 Sensor magnetic = manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
                 Sensor accelerometer = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
                 if (magnetic != null && accelerometer != null) {
-                    desired.add(accelerometer);
-                    desired.add(magnetic);
+                    addDesired(desired, accelerometer);
+                    addDesired(desired, magnetic);
                 }
             }
         }
@@ -513,6 +633,14 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         }
     }
 
+    private static void addDesired(List<Sensor> desired, @Nullable Sensor sensor) {
+        // Features can share one sensor (compass fusion reuses the raw
+        // accelerometer/magnetometer), so keep the union free of duplicates.
+        if (sensor != null && !desired.contains(sensor)) {
+            desired.add(sensor);
+        }
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (destroyed) {
@@ -521,7 +649,8 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         switch (event.sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
                 if (accelerometerActive) {
-                    emitAccelerometer(event.values[0], event.values[1], event.values[2]);
+                    emitTriple(TYPE_ACCELEROMETER,
+                            event.values[0], event.values[1], event.values[2]);
                 }
                 if (compassFusion) {
                     System.arraycopy(event.values, 0, gravity, 0, 3);
@@ -530,6 +659,10 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
                 }
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
+                if (magnetometerActive) {
+                    emitTriple(TYPE_MAGNETOMETER,
+                            event.values[0], event.values[1], event.values[2]);
+                }
                 if (compassFusion) {
                     System.arraycopy(event.values, 0, geomagnetic, 0, 3);
                     geomagneticSet = true;
@@ -540,6 +673,17 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
                 if (compassActive && !compassFusion) {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
                     emitCompass(azimuthOf(rotationMatrix));
+                }
+                break;
+            case Sensor.TYPE_GYROSCOPE:
+                if (gyroscopeActive) {
+                    emitTriple(TYPE_GYROSCOPE,
+                            event.values[0], event.values[1], event.values[2]);
+                }
+                break;
+            case Sensor.TYPE_PRESSURE:
+                if (barometerActive) {
+                    emitBarometer(event.values[0]);
                 }
                 break;
             default:
@@ -606,9 +750,9 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         return display != null ? display.getRotation() : Surface.ROTATION_0;
     }
 
-    private void emitAccelerometer(double x, double y, double z) {
+    private void emitTriple(String type, double x, double y, double z) {
         JavaOnlyMap payload = new JavaOnlyMap();
-        payload.putString("type", TYPE_ACCELEROMETER);
+        payload.putString("type", type);
         payload.putDouble("x", x);
         payload.putDouble("y", y);
         payload.putDouble("z", z);
@@ -621,6 +765,14 @@ public final class DeviceModule extends LynxContextModule implements SensorEvent
         payload.putString("type", TYPE_COMPASS);
         payload.putDouble("heading", heading);
         payload.putDouble("accuracy", accuracyDegrees(compassSensorAccuracy));
+        payload.putDouble("timestamp", System.currentTimeMillis());
+        emit(payload);
+    }
+
+    private void emitBarometer(double pressure) {
+        JavaOnlyMap payload = new JavaOnlyMap();
+        payload.putString("type", TYPE_BAROMETER);
+        payload.putDouble("pressure", pressure);
         payload.putDouble("timestamp", System.currentTimeMillis());
         emit(payload);
     }

@@ -12,13 +12,14 @@ Promise 和结构化值/旧 JSON 兼容解码，不依赖中心 runtime 或 host
 Android、iOS 和 HarmonyOS 宿主分别注册同名原生模块，业务 bundle 不需要根据平台分支调用：
 
 - `Storage`：一个模块承载两个后端——`kv` 以共享 MMKV 保存字符串（JSON 编解码由共享 TypeScript 层完成）；`secureStorage` 面向小型机密数据（token、会话密钥等）的 get / set / remove，Android 用 Keystore AES-GCM 加密、iOS 用 Keychain、HarmonyOS 用 HUKS；
-- `Navigation`：打开另一个 bundle 对应的原生页面、关闭当前页面或打开系统 URL，同时让当前 Lynx 页面同步声明是否接管系统返回并接收返回生命周期事件；
+- `Navigation`：打开另一个 bundle 对应的原生页面、关闭当前页面或打开系统 URL（`canOpen` 可先探测可达性），同时让当前 Lynx 页面同步声明是否接管系统返回并接收返回生命周期事件；
 - `Clipboard`：读写系统剪贴板纯文本；
 - `Haptics`：单击式震动反馈，分 light / medium / heavy 三档；
 - `Biometric`：静默查询生物识别（指纹 / 面容）可用性，并拉起系统认证弹窗，可选降级到锁屏凭证；
 - `AlbumUtils`：从系统相册选择一张或多张图片，或把图片 URI 保存回系统相册；
 - `FileSystem`：通过系统文件选择器选择一个或多个文件，查询 Picker URI 元数据、复制到应用缓存、读取 UTF-8 文本或 Base64，并在缓存沙箱内写入 / 删除 / 列举文件；
-- `Device`：按需读取机型、OS/App 版本、密度、locale、平板/折叠屏与当前安全区，负责状态栏前景样式，读取电量（0..1，读不到时为 null）与充电状态，查询屏幕/窗口/LynxView 宽度（统一为 Lynx 逻辑像素）、窗口亮度与屏幕常亮，并提供加速度计与罗盘（磁北方位角）流式读数（经 `GlobalEventEmitter` 事件回传，监听计数归零自动停流）；TypeScript 提供 `deviceInfo`、`safeArea`、`statusBar`、`display`、`battery`、`sensors` facade；
+- `Device`：按需读取机型、OS/App 版本、应用标识（`bundleId`，Android 包名 / iOS bundle identifier / HarmonyOS bundleName）、密度、locale、平板/折叠屏与当前安全区，负责状态栏前景样式，跳转本应用的系统设置页（`appSettings.open()`，权限被拒后的标准去处），读取电量（0..1，读不到时为 null）与充电状态，查询屏幕/窗口/LynxView 宽度（统一为 Lynx 逻辑像素）、窗口亮度与屏幕常亮，并提供加速度计、罗盘、陀螺仪、磁力计与气压计的流式读数（经 `GlobalEventEmitter` 事件回传，监听计数归零自动停流）；TypeScript 提供 `deviceInfo`、`safeArea`、`statusBar`、`appSettings`、`display`、`battery`、`sensors` facade；
+- `AppInstaller`：高权限、默认关闭的 Android 自更新交接；复制并校验 APK 的 SHA-256、包名、版本与签名后才拉起系统安装器，iOS / HarmonyOS 仅报告不支持；
 - `Toast`：一次性原生轻提示（info / success / error），替代 bundle 内自绘的 `<ToastHost />` 组件；
 - `NetworkInfo`：按需查询当前网络类型（wifi / cellular / ethernet / other / none），变化经 `networkInfo` 事件回传；
 - `ImageTooling`：读取图片元数据，完成缩放、单区域裁剪、横拼/竖拼/图层叠加，并读取、修改或清除 EXIF/GPS；位图不经过 JS 通道；
@@ -52,7 +53,8 @@ Navigation 模块承载，
 `autolink/device/types/platform-native-module.d.ts`。仓库不再需要 `lib/native-host`。
 
 `contracts/native-modules.json` 只保存模块名、声明位置、Autolink 包和三端实现位置的
-映射元数据。`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
+映射元数据；`webview: false` 可把高权限模块排除在 WebView RPC 契约外。
+`pnpm native:contracts:generate` 读取上述 TypeScript 声明，生成
 `autolink/webview-bridge/src/contracts.generated.ts` 的模块名、方法白名单和参数个数，
 同时在每个 NativeModule Autolink 包生成 `src/native.generated.ts`（raw 类型/模块名）和
 `src/bridge.generated.ts`（包内桥接辅助函数）。包根入口 `src/index.ts` 是手写 facade，
@@ -284,13 +286,23 @@ App 能处理时 Promise 会以宿主错误消息 reject。共享层要求 URL �
 scheme 且不含首尾空白，并拒绝 `javascript:` 与 `data:`。
 
 三端实现：Android 用 `ACTION_VIEW` 隐式 Intent（直接 `startActivity` 不受
-Android 11+ 包可见性限制，无需 `<queries>`；只有 `resolveActivity` 之类的
-查询才需要）；iOS 用 `UIApplication.open`（它不需要
-`LSApplicationQueriesSchemes`，只有 `canOpenURL` 检查才需要）；HarmonyOS
-用 `UIAbilityContext.openLink`。要在系统里注册自己的 scheme：Android 在
-`AndroidManifest.xml` 里给目标 Activity 加 `VIEW`/`BROWSABLE` intent-filter，
-iOS 在 `Info.plist` 声明 `CFBundleURLTypes`，HarmonyOS 在 `module.json5`
-的 ability `skills` 里声明 `uris.scheme`。
+Android 11+ 包可见性限制；只有 `resolveActivity` 之类的查询才需要
+`<queries>`——navigation 库自带一条不带 data 过滤的 `VIEW` 查询，任意
+scheme 都能探测，宿主可收窄为具体 `<data android:scheme=…/>`）；iOS 用
+`UIApplication.open`；HarmonyOS 用 `UIAbilityContext.openLink`。要在系统里
+注册自己的 scheme：Android 在 `AndroidManifest.xml` 里给目标 Activity 加
+`VIEW`/`BROWSABLE` intent-filter，iOS 在 `Info.plist` 声明
+`CFBundleURLTypes`，HarmonyOS 在 `module.json5` 的 ability `skills` 里声明
+`uris.scheme`。
+
+`router.canOpen(url)` 以同样的校验先探测是否有应用能处理该 URL，返回
+`Promise<boolean>` 而不真正拉起。三端都把「查询 scheme」放在宿主声明之后：
+Android 是 `<queries>`（见上）、iOS 是 `Info.plist` 的
+`LSApplicationQueriesSchemes`（最多 50 个；`http`/`https` 与本 App 自己的
+scheme 免声明）、HarmonyOS 是 `module.json5` 的 `querySchemes` 字段
+（`bundleManager.canOpenLink` 只解析已声明 scheme，模板宿主已声明 `https`
+与 `lynxapp`）。未声明的第三方 scheme 三端统一返回 `false`，URL 非法则
+reject——与 `Linking.canOpenURL` 的行为对齐。
 
 外部打进来的 `lynxapp://www.lynxjs.org/<path>?<query>` 深链由三端共同接收。
 唯一配置处是 `contracts/deeplinks.json`：
@@ -1028,6 +1040,41 @@ UIAbilityContext）时命令 reject。`setKeepScreenOn(true)` 覆盖视频播放
 | `isTablet` | `smallestScreenWidthDp >= 600` | `UIUserInterfaceIdiomPad` | `deviceType === 'tablet'` |
 | `isFoldable` | 铰链角度传感器特性（API 30+） | 恒为 `false` | `display.isFoldable()` |
 
+### APK 安装（Android 专用、默认关闭）
+
+安装能力位于独立的 `@lynx-template/autolink-app-installer`，不属于 `Device`。模板默认不
+选择该包，因此默认 APK 不包含 `REQUEST_INSTALL_PACKAGES` 权限或安装用 FileProvider；
+企业托管 / 直装渠道确认政策允许后，才把 `app-installer` 加入
+`package.json#nativeApp.autolinkModules`，执行 `pnpm native:autolink:apply` 与
+`pnpm install`。Google Play 分发应继续关闭它并使用 Play In-App Updates。
+
+```ts
+import { appInstaller } from '@lynx-template/autolink-app-installer';
+
+const capabilities = await appInstaller.getCapabilities();
+if (!capabilities.permissionGranted) {
+  await appInstaller.openPermissionSettings();
+  // App 回到前台后再次检查；此方法不挂起等待设置页返回。
+}
+
+const result = await appInstaller.launchInstall({
+  uri: completedTask.fileUri,
+  expectedPackageName: 'com.example.enterprise',
+  expectedVersionCode: 42,
+  expectedSha256: updateManifest.sha256,
+});
+// result.status === 'launched' 只表示安装器已拉起，并非安装完成。
+```
+
+Android 会先把绝对路径、`file://` 或可读 `content://` 源复制到
+`cache/LynxFiles/updates`（最大 1 GiB），再校验整包 SHA-256、APK 包名与当前应用一致、
+版本精确匹配预期且高于已安装版本，并验证签名证书/合法的向前轮换链。全部通过后才检查
+“安装未知应用”开关并拉起系统安装器。FileProvider 仅暴露上述窄目录；任一失败都会在
+系统 UI 出现前 reject。iOS / HarmonyOS 的 capability 为 `supported: false`。
+
+`AppInstaller` 还在聚合契约中标记 `webview: false`，三端 WebView bridge 原生实现也有
+硬拒绝；即使业务误把 `AppInstaller` 写进 `module-bridge.modules`，H5 仍无法调用。
+
 ### 轻提示（Toast）
 
 `Toast` 提供一次性轻提示，业务不再需要在 bundle 里挂 `<ToastHost />` 组件；新 toast 替换旧
@@ -1147,7 +1194,7 @@ const info = await battery.getInfo();
 | iOS | `UIDevice.batteryLevel` / `batteryState`；调用前自动开启 `batteryMonitoringEnabled` |
 | HarmonyOS | `@ohos.batteryInfo` 的 `batterySOC` / `chargingStatus` / `isBatteryPresent` |
 
-### 传感器（加速度计 / 罗盘）
+### 传感器（加速度计 / 罗盘 / 陀螺仪 / 磁力计 / 气压计）
 
 `Device` 的 `sensors` 以「命令 + 事件」模型提供流式传感器读数，与 `WebSocket` 一致：契约方法
 只有 `isAvailable` / `start` / `stop`（error-string ack），读数经 Lynx
@@ -1178,14 +1225,19 @@ if (await sensors.available('compass')) {
 - `compass` 读数为磁北方位角（0-360°，绕竖直轴），`accuracy` 是以角度计的估计误差
   （iOS 直接使用 `headingAccuracy`；Android / HarmonyOS 由精度枚举映射为
   ±15°/±30°/±45°，不可靠时 -1）；
+- `gyroscope` 读数为绕设备坐标系 x/y/z 轴的角速度（rad/s）；
+- `magnetometer` 读数为设备坐标系下的地磁强度分量（µT，未校准原始值）；
+- `barometer` 读数为环境气压（hPa；Android / HarmonyOS 原生即为 hPa，iOS
+  `CMAltitudeData` 从 kPa ×10 归一），无气压硬件的设备（如 iPod touch、
+  部分平板与模拟器）`available()` 为 `false`；
 - `timestamp` 为原生发出时刻的 epoch 毫秒，各平台原生时间源不保证跨端可比，仅用于
   排序与间隔估算。
 
-| 平台 | `accelerometer` | `compass` | 权限 |
-| --- | --- | --- | --- |
-| Android | `SensorManager` `TYPE_ACCELEROMETER`（UI 速率） | `TYPE_ROTATION_VECTOR`（缺失时回落加速度计+磁力计融合），`getOrientation` 求方位角并按屏幕旋转重映射 | 均免权限 |
-| iOS | `CMMotionManager` 加速度计更新（含重力） | `CLLocationManager` heading（`magneticHeading` / `headingAccuracy`） | 罗盘需定位授权：宿主声明 `NSLocationWhenInUseUsageDescription`，模块在首次 `start` 时发起申请；拒绝经 `onError` 报告，模拟器/无磁力计设备 `available()` 为 `false`。加速度计免权限 |
-| HarmonyOS | `sensor.on(ACCELEROMETER)` | `sensor.on(ORIENTATION)`，`alpha` 即地磁融合方位角 | `ohos.permission.ACCELEROMETER`（system_grant，已在宿主声明）；罗盘免权限 |
+| 平台 | `accelerometer` | `compass` | `gyroscope` | `magnetometer` | `barometer` | 权限 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Android | `SensorManager` `TYPE_ACCELEROMETER`（UI 速率） | `TYPE_ROTATION_VECTOR`（缺失时回落加速度计+磁力计融合），`getOrientation` 求方位角并按屏幕旋转重映射 | `TYPE_GYROSCOPE` | `TYPE_MAGNETIC_FIELD` | `TYPE_PRESSURE` | 均免权限 |
+| iOS | `CMMotionManager` 加速度计更新（含重力） | `CLLocationManager` heading（`magneticHeading` / `headingAccuracy`） | `CMMotionManager` 陀螺仪更新（`rotationRate`） | `CMMotionManager` 磁力计更新（`magneticField`） | `CMAltimeter`（`pressure` kPa → hPa） | 罗盘需定位授权：宿主声明 `NSLocationWhenInUseUsageDescription`，模块在首次 `start` 时发起申请；Core Motion 还要求宿主声明 `NSMotionUsageDescription`（无独立运行时弹窗）。拒绝经 `onError` 报告，模拟器/无磁力计设备 `available()` 为 `false` |
+| HarmonyOS | `sensor.on(ACCELEROMETER)` | `sensor.on(ORIENTATION)`，`alpha` 即地磁融合方位角 | `sensor.on(GYROSCOPE)` | `sensor.on(MAGNETIC_FIELD)` | `sensor.on(BAROMETER)`（原生 hPa） | `ohos.permission.ACCELEROMETER` 与 `ohos.permission.GYROSCOPE`（均 system_grant，已在宿主声明）；其余免权限 |
 
 与 `WebSocket` 相同，事件进入后台运行时（`'background only'`）；传感器回调高频触发，
 避免在监听器里做重计算，必要时自行节流。页面销毁时三端都会停流（Android
@@ -1403,8 +1455,9 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 `autolink/` 是 monorepo 的一个 workspace 目录列表（`pnpm-workspace.yaml` 中的 `autolink/*`），
 其中每个子目录都是一个独立的 Lynx 原生库 npm 包，通过 `lynx.lib.json` 清单描述平台源码：
 
-根目录 `package.json#nativeApp.autolinkModules` 是应用实际启用的库清单。脚手架默认全选，
-交互创建时可在多选 TUI 中取消可选库；只有启用库会作为根直接依赖出现在
+根目录 `package.json#nativeApp.autolinkModules` 是应用实际启用的库清单。脚手架默认选择
+常规模块；`autolink.config.json` 中 `defaultEnabled: false` 的高权限模块只在显式勾选
+或 `--autolink all` 时启用。交互创建时可在多选 TUI 中调整；只有启用库会作为根直接依赖出现在
 `node_modules`，从而被 Android、iOS 与 HarmonyOS 的官方扫描器发现。未启用库仍保留
 源码、原始声明与生成契约，修改清单并依次运行 `pnpm native:autolink:apply`、
 `pnpm install` 即可重新启用。`navigation` 与 `device` 是三端宿主必需项；后者向宿主提供
@@ -1414,9 +1467,10 @@ reason 限制。模块不内置自动重连、心跳或离线队列，因为这�
 ```text
 autolink/
 ├── album-utils/   # AlbumUtils（相册选图 + 存图）
+├── app-installer/ # AppInstaller（高权限、默认关闭的 Android 自更新交接）
 ├── navigation/    # Navigation（应用内导航 + 系统 scheme 打开 + 系统返回拦截 + Android/iOS 预测进度）
 ├── biometric/     # Biometric（系统生物识别弹窗 + 锁屏凭证降级）
-├── device/        # Device（设备事实、安全区、状态栏、电量、显示宽度/亮度/常亮、加速度计 + 罗盘流式读数）
+├── device/        # Device（设备事实、安全区、状态栏、电量、显示宽度/亮度/常亮、加速度计/罗盘/陀螺仪/磁力计/气压计流式读数）
 ├── toast/         # Toast（原生轻提示；iOS 为模块自绘气泡）
 ├── file-system/   # FileSystem（系统文件选择器 + URI 元数据、缓存复制、受限读取与缓存沙箱写入/删除/列举）
 ├── websocket/     # WebSocket（Android OkHttp / iOS NSURLSession）

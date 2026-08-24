@@ -27,6 +27,7 @@ export function createAutolinkSelectionState(modules, platforms) {
     .map((module) => ({
       name: module.name,
       label: module.label,
+      defaultEnabled: module.defaultEnabled,
       required: module.requiredFor.some((platform) =>
         enabledPlatforms.has(platform),
       ),
@@ -34,7 +35,9 @@ export function createAutolinkSelectionState(modules, platforms) {
   return {
     choices,
     cursor: 0,
-    selected: choices.map((choice) => choice.name),
+    selected: choices
+      .filter((choice) => choice.required || choice.defaultEnabled)
+      .map((choice) => choice.name),
   };
 }
 
@@ -79,13 +82,15 @@ export function updateAutolinkSelectionState(state, action) {
 }
 
 function selectionLines(state) {
-  const lines = [
-    'Select native Autolink modules (all are enabled by default):',
-  ];
+  const lines = ['Select native Autolink modules:'];
   for (const [index, choice] of state.choices.entries()) {
     const cursor = index === state.cursor ? '❯' : ' ';
     const checked = state.selected.includes(choice.name) ? 'x' : ' ';
-    const required = choice.required ? ' (required by selected host)' : '';
+    const required = choice.required
+      ? ' (required by selected host)'
+      : choice.defaultEnabled
+        ? ''
+        : ' (opt-in)';
     lines.push(
       `${cursor} [${checked}] ${choice.label} (${choice.name})${required}`,
     );

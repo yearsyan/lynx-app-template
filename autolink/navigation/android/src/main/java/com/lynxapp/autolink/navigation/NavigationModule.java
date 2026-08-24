@@ -214,6 +214,44 @@ public final class NavigationModule extends LynxContextModule {
         });
     }
 
+    /**
+     * Whether an ACTION_VIEW intent for the URL resolves to a browsable
+     * default handler. Package visibility applies: custom schemes only
+     * resolve when the host declares them in a <queries> filter (this
+     * library ships a broad VIEW query; hosts can narrow it).
+     */
+    @LynxMethod
+    public void canOpenURL(String url, Callback callback) {
+        Uri uri = url == null ? Uri.EMPTY : Uri.parse(url);
+        if (url == null || url.trim().isEmpty() || uri.getScheme() == null
+                || !url.equals(url.trim())) {
+            callback.invoke("Invalid URL: " + url);
+            return;
+        }
+        Context context = mLynxContext != null
+                ? mLynxContext.getApplicationContext() : mContext;
+        if (context == null) {
+            callback.invoke("Navigation has no host context");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri)
+                .addCategory(Intent.CATEGORY_BROWSABLE);
+        boolean canOpen;
+        try {
+            canOpen = intent.resolveActivity(context.getPackageManager()) != null;
+        } catch (Throwable error) {
+            callback.invoke(error.getMessage() != null
+                    ? error.getMessage()
+                    : "Unable to resolve URL handlers");
+            return;
+        }
+        callback.invoke(booleanResult(canOpen));
+    }
+
+    private static String booleanResult(boolean value) {
+        return value ? "{\"value\":true}" : "{\"value\":false}";
+    }
+
     /** Compatibility switch for headless consumers that do not use backStack. */
     @LynxMethod
     public void setEnabled(boolean enabled, Callback callback) {

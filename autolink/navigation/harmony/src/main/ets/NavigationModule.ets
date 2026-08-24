@@ -1,3 +1,4 @@
+import { bundleManager } from '@kit.AbilityKit';
 import { UIContext } from '@kit.ArkUI';
 import { LynxContext, LynxModule, LynxViewClient } from '@lynx/lynx';
 
@@ -415,6 +416,27 @@ export class NavigationModule extends LynxModule {
       return;
     }
     handler.openURL(url, callback);
+  }
+
+  /**
+   * Whether bundleManager knows a handler for the link. canOpenLink only
+   * sees schemes the host declares in the module.json5 `querySchemes`
+   * field; undeclared schemes report false instead of throwing.
+   */
+  canOpenURL(url: string, callback: (resultJSON: string) => void): void {
+    if (url.trim().length === 0 || url !== url.trim() ||
+      !new RegExp('^[a-zA-Z][a-zA-Z0-9+.-]*:').test(url)) {
+      callback(`{"error":"Invalid URL: ${url}"}`);
+      return;
+    }
+    try {
+      callback(bundleManager.canOpenLink(url)
+        ? '{"value":true}'
+        : '{"value":false}');
+    } catch (_error) {
+      // 17700055 invalid link / 17700056 scheme missing from querySchemes.
+      callback('{"value":false}');
+    }
   }
 
   setEnabled(enabled: boolean, callback: (error: string) => void): void {

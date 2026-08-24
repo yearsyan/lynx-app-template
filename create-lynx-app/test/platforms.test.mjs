@@ -76,6 +76,34 @@ test.before(async () => {
   autolinkModules = await loadAutolinkModules(repositoryDirectory);
 });
 
+test('release template excludes local Harmony signing material', async () => {
+  const manifest = JSON.parse(
+    await readFile(
+      join(packageDirectory, 'src/template-manifest.json'),
+      'utf8',
+    ),
+  );
+  assert.ok(manifest.excludeNames.includes('.ohos-sign'));
+  await doesNotExist(join(templateDirectory, 'app/harmonyApp/.ohos-sign'));
+});
+
+test('iOS accelerometer normalizes Core Motion g values to m/s^2', async () => {
+  const source = await readFile(
+    join(repositoryDirectory, 'autolink/device/ios/src/DeviceModule.m'),
+    'utf8',
+  );
+  assert.match(source, /kStandardGravityMetersPerSecondSquared = 9\.80665/);
+  for (const axis of ['x', 'y', 'z']) {
+    assert.match(
+      source,
+      new RegExp(
+        `${axis}:data\\.acceleration\\.${axis} \\*\\s+` +
+          'kStandardGravityMetersPerSecondSquared',
+      ),
+    );
+  }
+});
+
 async function doesNotExist(path) {
   await assert.rejects(access(path), (error) => error?.code === 'ENOENT');
 }
@@ -123,7 +151,9 @@ async function verifySinglePlatformScaffold(platform) {
     assert.deepEqual(packageJson.nativeApp.platforms, [platform]);
     const expectedAutolink = applicableAutolinkModules(autolinkModules, [
       platform,
-    ]).map((module) => module.name);
+    ])
+      .filter((module) => module.defaultEnabled)
+      .map((module) => module.name);
     assert.deepEqual(packageJson.nativeApp.autolinkModules, expectedAutolink);
     assert.deepEqual(
       Object.keys(packageJson.devDependencies)
@@ -320,6 +350,7 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     assert.match(webviewContracts, /setStatusBarStyle/);
     assert.match(webviewContracts, /getSafeAreaInsets/);
     assert.doesNotMatch(webviewContracts, /\bStatusBar:/);
+    assert.doesNotMatch(webviewContracts, /\bAppInstaller:/);
     assert.doesNotMatch(webviewContracts, /\bimport\b/);
     const deviceDeclaration = await readFile(
       join(
@@ -331,6 +362,19 @@ test('scaffold writes only selected Autolink packages as direct dependencies', a
     assert.match(deviceDeclaration, /getSafeAreaInsets/);
     assert.match(deviceDeclaration, /setStatusBarStyle/);
     assert.match(deviceDeclaration, /getBatteryInfo/);
+    assert.doesNotMatch(deviceDeclaration, /installApp/);
+    const appInstallerManifest = await readFile(
+      join(
+        projectDirectory,
+        'autolink/app-installer/android/src/main/AndroidManifest.xml',
+      ),
+      'utf8',
+    );
+    assert.match(appInstallerManifest, /REQUEST_INSTALL_PACKAGES/);
+    assert.equal(
+      packageJson.devDependencies['@fixture/autolink-app-installer'],
+      undefined,
+    );
     const navigationDeclaration = await readFile(
       join(
         projectDirectory,

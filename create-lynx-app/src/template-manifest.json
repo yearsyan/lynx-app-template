@@ -29,6 +29,7 @@
     ".gradle",
     ".kotlin",
     ".hvigor",
+    ".ohos-sign",
     ".cxx",
     ".externalNativeBuild",
     "oh_modules",

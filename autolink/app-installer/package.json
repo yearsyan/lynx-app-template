@@ -1,0 +1,20 @@
+{
+  "name": "@lynx-template/autolink-app-installer",
+  "description": "Opt-in, policy-sensitive app installer hand-off for Lynx hosts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./raw": "./src/native.generated.ts"
+  },
+  "files": [
+    "android",
+    "ios",
+    "harmony",
+    "src",
+    "types",
+    "lynx.lib.json",
+    "README.md"
+  ]
+}

@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Privileged permission: this entire library is intentionally disabled
+         in the default template and must be explicitly selected by a
+         sideload/enterprise distribution. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- Only validated APK copies staged under cache/LynxFiles/updates are
+             grantable. No files or broad cache root is exposed. -->
+        <provider
+            android:name="com.lynxapp.autolink.appinstaller.AppInstallerFileProvider"
+            android:authorities="${applicationId}.lynx.appinstaller.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/lynx_app_installer_paths" />
+        </provider>
+    </application>
+
+</manifest>

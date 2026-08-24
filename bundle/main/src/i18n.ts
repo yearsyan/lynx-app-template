@@ -179,6 +179,9 @@ const english: Record<string, string> = {
   平台能力: 'Platform Capability',
   当前网络: 'Current Network',
   指南针: 'Compass',
+  陀螺仪: 'Gyroscope',
+  磁力计: 'Magnetometer',
+  气压计: 'Barometer',
   测试方式: 'Test Method',
   '滚动 / 甩动 / 刹停验证': 'Scroll / Fling / Stop Test',
   硬件签名密钥: 'Hardware Signing Key',
@@ -261,14 +264,20 @@ const english: Record<string, string> = {
     'Drag or tap the track to change the value. Main-thread gestures keep interaction smooth.',
   '持续输出包含重力的 x/y/z 加速度（m/s²）。':
     'Continuously reports gravity-inclusive x/y/z acceleration in m/s².',
+  '持续输出绕 x/y/z 轴的角速度（rad/s）。':
+    'Continuously reports the angular velocity around the x/y/z axes in rad/s.',
+  '持续输出设备坐标系下的地磁强度（µT）。':
+    'Continuously reports the geomagnetic field strength in the device frame in µT.',
+  '输出环境气压（hPa），数值随海拔与天气缓慢变化。':
+    'Reports ambient barometric pressure in hPa; the value drifts slowly with altitude and weather.',
   '按 scope 创建可轮换的不可导出密钥；签名绑定 keyId、业务上下文摘要与服务端挑战。':
     'Create a rotatable, non-exportable key per scope. Signatures bind the key ID, business-context digest, and server challenge.',
   '无头多选组件，指示器内容完全自定义；这里绘制了一个绿色对勾。':
     'A headless checkbox with fully custom indicator content; this demo draws a green checkmark.',
   '无头开关组件：轨道与滑块自由布局，ui-checked / ui-active 变体驱动过渡动画。':
     'A headless switch with freely composed track and thumb; ui-checked and ui-active states drive transitions.',
-  '机型、系统版本、应用版本、屏幕密度、地区语言与三种宽度（屏幕 / 窗口 / LynxView）。':
-    'Hardware model, OS and app versions, display density, locale, and screen, window, and LynxView widths.',
+  '机型、系统版本、应用版本与包名、屏幕密度、地区语言与三种宽度（屏幕 / 窗口 / LynxView）。':
+    'Hardware model, OS and app versions, application id, display density, locale, and screen, window, and LynxView widths.',
   '模态对话框：Backdrop 遮罩 + Content 内容 + Trigger / Close 触发器，支持受控开关。对话框打开期间系统返回先关闭对话框，而不是退出页面。':
     'A controlled modal composed from Backdrop, Content, Trigger, and Close. System Back closes the dialog before leaving the page.',
   '横幅也支持长按，但未开启马达。慢拖、快速甩动或点停惯性都不应触发点击/长按。':
@@ -401,6 +410,11 @@ const english: Record<string, string> = {
   尚未选择任何支付方式: 'No payment method selected',
   开始后可晃动设备观察数值: 'Start, then shake the device to observe values',
   开始后旋转设备观察朝向: 'Start, then rotate the device to observe heading',
+  开始后转动设备观察角速度:
+    'Start, then rotate the device to observe rotation rate',
+  开始后转动设备观察磁场变化:
+    'Start, then rotate the device to observe field changes',
+  开始后读取当前环境气压: 'Start to read the current ambient pressure',
   录音状态与结果展示在这里: 'Recording status and results appear here',
   '截图结果（尺寸与文件）展示在这里':
     'Capture size and file results appear here',
@@ -430,6 +444,16 @@ const english: Record<string, string> = {
   选中文件的元数据与文本预览: 'Selected file metadata and text preview',
   '选择一个目标发起 GET 请求': 'Choose a target for a GET request',
   选择一个链接交给系统打开: 'Choose a URL for the system to open',
+  链接可达性: 'URL Availability',
+  'canOpen 先探测系统里是否有应用能处理该 URL；未在宿主声明的第三方 scheme 会返回 false。':
+    'canOpen first probes whether any installed app can handle the URL; third-party schemes not declared by the host resolve to false.',
+  '检测 {url}': 'Check {url}',
+  有可处理的应用: 'A handler is available',
+  没有应用可处理: 'No handler is available',
+  '检测失败：{message}': 'Check failed: {message}',
+  检测结果展示在这里: 'Check results appear here',
+  打开应用设置: 'Open App Settings',
+  已请求打开系统应用设置: 'Requested the system app settings page',
   '选择一项、点直接返回或用系统返回手势，观察结果差异':
     'Choose an item, go back directly, or use the system Back gesture to compare results',
   事件日志展示在这里: 'Event logs appear here',
@@ -742,7 +766,14 @@ const english: Record<string, string> = {
     'Battery level is unavailable (the iOS Simulator returns no value)',
   该设备不支持加速度计: 'This device does not support an accelerometer',
   该设备不支持指南针: 'This device does not support a compass',
+  该设备不支持陀螺仪: 'This device does not support a gyroscope',
+  该设备不支持磁力计: 'This device does not support a magnetometer',
+  该设备不支持气压计: 'This device does not support a barometer',
   '错误：{message}': 'Error: {message}',
+  'x {x} · y {y} · z {z} m/s²': 'x {x} · y {y} · z {z} m/s²',
+  'x {x} · y {y} · z {z} rad/s': 'x {x} · y {y} · z {z} rad/s',
+  'x {x} · y {y} · z {z} µT': 'x {x} · y {y} · z {z} µT',
+  '气压 {pressure} hPa': 'Pressure {pressure} hPa',
   '朝向 {heading}° · 精度 ±{accuracy}':
     'Heading {heading}° · accuracy ±{accuracy}',
   '{availability} · 类型 {type}\n{policy} · {reason} · 锁屏凭据{credential}':

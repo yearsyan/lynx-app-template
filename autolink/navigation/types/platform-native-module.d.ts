@@ -68,6 +68,7 @@ export declare class Navigation {
     callback: (error: string) => void,
   ): void;
   openURL(url: string, callback: (error: string) => void): void;
+  canOpenURL(url: string, callback: (resultJSON: string) => void): void;
   setEnabled(enabled: boolean, callback: (error: string) => void): void;
   configure(
     enabled: boolean,

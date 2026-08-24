@@ -5,6 +5,10 @@
       "name": "album-utils"
     },
     {
+      "name": "app-installer",
+      "defaultEnabled": false
+    },
+    {
       "name": "audio"
     },
     {

@@ -3,9 +3,12 @@ import { albumUtils } from '@lynx-template/autolink-album-utils';
 import { biometric } from '@lynx-template/autolink-biometric';
 import { clipboard } from '@lynx-template/autolink-clipboard';
 import {
+  appSettings,
   battery,
   deviceInfo,
   display,
+  type SensorReading,
+  type SensorType,
   sensors,
 } from '@lynx-template/autolink-device';
 import { haptics } from '@lynx-template/autolink-haptics';
@@ -45,7 +48,7 @@ export function DeviceInfoPage() {
           .join(' · ');
         setResult(
           `${info.manufacturer} ${info.model}\n系统 ${info.osVersion} · 应用 v${info.appVersion} (${info.appBuild})\n` +
-            `密度 ${info.density}x · ${info.locale}${traits.length > 0 ? ` · ${traits}` : ''}`,
+            `包名 ${info.bundleId} · 密度 ${info.density}x · ${info.locale}${traits.length > 0 ? ` · ${traits}` : ''}`,
         );
         setWidths(
           `屏幕 ${Math.round(screen)} / 窗口 ${Math.round(windowWidth)} / LynxView ${Math.round(view)}`,
@@ -59,7 +62,7 @@ export function DeviceInfoPage() {
       <ApiName name="deviceInfo.getInfo" />
       <DemoCard
         title="设备信息"
-        desc="机型、系统版本、应用版本、屏幕密度、地区语言与三种宽度（屏幕 / 窗口 / LynxView）。"
+        desc="机型、系统版本、应用版本与包名、屏幕密度、地区语言与三种宽度（屏幕 / 窗口 / LynxView）。"
       >
         <DemoButton label="读取设备信息" primary onTap={read} />
         <ResultLine text={result} placeholder="点击读取本机信息" />
@@ -101,115 +104,141 @@ export function BatteryPage() {
   );
 }
 
-export function SensorsPage() {
-  const [accelText, setAccelText] = useState<string | null>(null);
-  const [compassText, setCompassText] = useState<string | null>(null);
-  const [accelOn, setAccelOn] = useState(false);
-  const [compassOn, setCompassOn] = useState(false);
-  const accelStop = useRef<(() => void) | null>(null);
-  const compassStop = useRef<(() => void) | null>(null);
+interface SensorDemoSpec {
+  type: SensorType;
+  title: string;
+  desc: string;
+  placeholder: string;
+  unavailable: string;
+  format: (reading: SensorReading) => string;
+}
+
+const SENSOR_SPECS: SensorDemoSpec[] = [
+  {
+    type: 'accelerometer',
+    title: '加速度计',
+    desc: '持续输出包含重力的 x/y/z 加速度（m/s²）。',
+    placeholder: '开始后可晃动设备观察数值',
+    unavailable: '该设备不支持加速度计',
+    format: (reading) =>
+      reading.type === 'accelerometer'
+        ? `x ${reading.x.toFixed(2)} · y ${reading.y.toFixed(2)} · z ${reading.z.toFixed(2)} m/s²`
+        : '',
+  },
+  {
+    type: 'compass',
+    title: '指南针',
+    desc: '磁北朝向 0-360°；iOS 首次使用会请求定位权限。',
+    placeholder: '开始后旋转设备观察朝向',
+    unavailable: '该设备不支持指南针',
+    format: (reading) => {
+      if (reading.type !== 'compass') return '';
+      const accuracy =
+        reading.accuracy < 0 ? '?' : `${Math.round(reading.accuracy)}°`;
+      return `朝向 ${Math.round(reading.heading)}° · 精度 ±${accuracy}`;
+    },
+  },
+  {
+    type: 'gyroscope',
+    title: '陀螺仪',
+    desc: '持续输出绕 x/y/z 轴的角速度（rad/s）。',
+    placeholder: '开始后转动设备观察角速度',
+    unavailable: '该设备不支持陀螺仪',
+    format: (reading) =>
+      reading.type === 'gyroscope'
+        ? `x ${reading.x.toFixed(2)} · y ${reading.y.toFixed(2)} · z ${reading.z.toFixed(2)} rad/s`
+        : '',
+  },
+  {
+    type: 'magnetometer',
+    title: '磁力计',
+    desc: '持续输出设备坐标系下的地磁强度（µT）。',
+    placeholder: '开始后转动设备观察磁场变化',
+    unavailable: '该设备不支持磁力计',
+    format: (reading) =>
+      reading.type === 'magnetometer'
+        ? `x ${reading.x.toFixed(1)} · y ${reading.y.toFixed(1)} · z ${reading.z.toFixed(1)} µT`
+        : '',
+  },
+  {
+    type: 'barometer',
+    title: '气压计',
+    desc: '输出环境气压（hPa），数值随海拔与天气缓慢变化。',
+    placeholder: '开始后读取当前环境气压',
+    unavailable: '该设备不支持气压计',
+    format: (reading) =>
+      reading.type === 'barometer'
+        ? `气压 ${reading.pressure.toFixed(1)} hPa`
+        : '',
+  },
+];
+
+function SensorCard({ spec }: { spec: SensorDemoSpec }) {
+  const [text, setText] = useState<string | null>(null);
+  const [active, setActive] = useState(false);
+  const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     'background only';
     return () => {
       'background only';
-      accelStop.current?.();
-      compassStop.current?.();
+      stopRef.current?.();
     };
   }, []);
 
-  const toggleAccel = useCallback(() => {
+  const toggle = useCallback(() => {
     'background only';
-    if (accelStop.current !== null) {
-      accelStop.current();
-      accelStop.current = null;
-      setAccelOn(false);
-      setAccelText(null);
+    if (stopRef.current !== null) {
+      stopRef.current();
+      stopRef.current = null;
+      setActive(false);
+      setText(null);
       return;
     }
     sensors
-      .available('accelerometer')
+      .available(spec.type)
       .then((usable) => {
         if (!usable) {
-          setAccelText('该设备不支持加速度计');
+          setText(spec.unavailable);
           return;
         }
-        accelStop.current = sensors.observe(
-          'accelerometer',
+        stopRef.current = sensors.observe(
+          spec.type,
           (reading) => {
             'background only';
-            if (reading.type !== 'accelerometer') return;
-            setAccelText(
-              `x ${reading.x.toFixed(2)} · y ${reading.y.toFixed(2)} · z ${reading.z.toFixed(2)} m/s²`,
-            );
-          },
-          (message) => setAccelText(`错误：${message}`),
-        );
-        setAccelOn(true);
-      })
-      .catch((error: Error) => setAccelText(error.message));
-  }, []);
-
-  const toggleCompass = useCallback(() => {
-    'background only';
-    if (compassStop.current !== null) {
-      compassStop.current();
-      compassStop.current = null;
-      setCompassOn(false);
-      setCompassText(null);
-      return;
-    }
-    sensors
-      .available('compass')
-      .then((usable) => {
-        if (!usable) {
-          setCompassText('该设备不支持指南针');
-          return;
-        }
-        compassStop.current = sensors.observe(
-          'compass',
-          (reading) => {
-            'background only';
-            if (reading.type !== 'compass') return;
-            const accuracy =
-              reading.accuracy < 0 ? '?' : `${Math.round(reading.accuracy)}°`;
-            setCompassText(
-              `朝向 ${Math.round(reading.heading)}° · 精度 ±${accuracy}`,
-            );
+            if (reading.type !== spec.type) return;
+            const value = spec.format(reading);
+            if (value.length > 0) {
+              setText(value);
+            }
           },
           // iOS 通过错误回调报告定位权限被拒绝。
-          (message) => setCompassText(`错误：${message}`),
+          (message) => setText(`错误：${message}`),
         );
-        setCompassOn(true);
+        setActive(true);
       })
-      .catch((error: Error) => setCompassText(error.message));
-  }, []);
+      .catch((error: Error) => setText(error.message));
+  }, [spec]);
 
+  return (
+    <DemoCard title={spec.title} desc={spec.desc}>
+      <DemoButton
+        label={active ? '停止' : '开始'}
+        primary={!active}
+        onTap={toggle}
+      />
+      <ResultLine text={text} placeholder={spec.placeholder} />
+    </DemoCard>
+  );
+}
+
+export function SensorsPage() {
   return (
     <view>
       <ApiName name="sensors.observe" />
-      <DemoCard
-        title="加速度计"
-        desc="持续输出包含重力的 x/y/z 加速度（m/s²）。"
-      >
-        <DemoButton
-          label={accelOn ? '停止' : '开始'}
-          primary={!accelOn}
-          onTap={toggleAccel}
-        />
-        <ResultLine text={accelText} placeholder="开始后可晃动设备观察数值" />
-      </DemoCard>
-      <DemoCard
-        title="指南针"
-        desc="磁北朝向 0-360°；iOS 首次使用会请求定位权限。"
-      >
-        <DemoButton
-          label={compassOn ? '停止' : '开始'}
-          primary={!compassOn}
-          onTap={toggleCompass}
-        />
-        <ResultLine text={compassText} placeholder="开始后旋转设备观察朝向" />
-      </DemoCard>
+      {SENSOR_SPECS.map((spec) => (
+        <SensorCard key={spec.type} spec={spec} />
+      ))}
     </view>
   );
 }
@@ -520,6 +549,14 @@ export function PermissionsPage() {
       .catch((error: Error) => setResult(`${label} · ${error.message}`));
   }, []);
 
+  const openSettings = useCallback(() => {
+    'background only';
+    appSettings
+      .open()
+      .then(() => setResult('已请求打开系统应用设置'))
+      .catch((error: Error) => setResult(error.message));
+  }, []);
+
   return (
     <view>
       <ApiName name="permissions.check / request" />
@@ -527,6 +564,7 @@ export function PermissionsPage() {
         title="运行时权限"
         desc="统一的权限查询与申请：状态归一为已授权/部分授权/已拒绝/未请求/受限制。Android 无法区分「未请求」与「拒绝后不再询问」，因此 denied 后申请仍可能弹窗；iOS 拒绝后需去系统设置。"
       >
+        <DemoButton label="打开应用设置" onTap={openSettings} />
         {PERMISSION_ITEMS.map((item) => (
           <DemoCard key={item.type} title={item.label}>
             <DemoButton

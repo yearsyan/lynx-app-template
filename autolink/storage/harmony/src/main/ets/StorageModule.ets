@@ -61,8 +61,8 @@ export class StorageModule extends LynxModule {
   setString(
     key: string,
     value: string,
-    callback: (error: string) => void,
     inMemory: boolean,
+    callback: (error: string) => void,
   ): void {
     if (inMemory === true) {
       // Overlay-only write: the MMKV copy keeps its previous value.

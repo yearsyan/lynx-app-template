@@ -100,6 +100,7 @@ class NativeTransport {
 const PROXY_NAME: string = 'lynxNativeTransport';
 const JS_API_NAME: string = '__lynxNativeBridge';
 const ABOUT_BLANK: string = 'about:blank';
+const BLOCKED_MODULES: string[] = ['AppInstaller'];
 
 const BOOTSTRAP_SCRIPT: string = `
 (function () {
@@ -200,7 +201,8 @@ export class ModuleWebviewUI extends UIBase {
     this.allowedModules = [];
     const modules = bridge?.['modules'];
     if (Array.isArray(modules)) {
-      this.allowedModules = modules as string[];
+      this.allowedModules = (modules as string[])
+        .filter((moduleName: string) => !BLOCKED_MODULES.includes(moduleName));
     }
     const nextSrc = record['src'];
     if (typeof nextSrc === 'string' && nextSrc.length > 0) {
@@ -319,6 +321,15 @@ export class ModuleWebviewUI extends UIBase {
     const args = Array.isArray(parsed.args) ? parsed.args : [];
 
     if (session.length === 0 || moduleName.length === 0 || methodName.length === 0) {
+      return;
+    }
+    if (BLOCKED_MODULES.includes(moduleName)) {
+      this.respond({
+        session,
+        id: callId,
+        ok: false,
+        error: `module '${moduleName}' is blocked from webviews`,
+      });
       return;
     }
     if (!this.allowedModules.includes(moduleName)) {

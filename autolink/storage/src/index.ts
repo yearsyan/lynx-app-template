@@ -37,7 +37,7 @@ export const kv = {
     'background only';
     validateKey(key);
     return completeNativeCall((callback) =>
-      requireStorageModule().setString(key, value, callback, inMemory),
+      requireStorageModule().setString(key, value, inMemory, callback),
     );
   },
 

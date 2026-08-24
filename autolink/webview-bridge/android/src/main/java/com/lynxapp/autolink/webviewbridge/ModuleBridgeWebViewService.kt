@@ -48,6 +48,7 @@ class ModuleBridgeWebViewService(
         allowedModules = (bridge?.get(MODULES_PARAM) as? List<*>)
             ?.mapNotNull { it as? String }
             ?.filter(String::isNotEmpty)
+            ?.filterNot { it in BLOCKED_MODULES }
             ?.toSet()
             ?: emptySet()
     }
@@ -146,6 +147,10 @@ class ModuleBridgeWebViewService(
             return
         }
 
+        if (moduleName in BLOCKED_MODULES) {
+            respond(session, id, ok = false, "module '$moduleName' is blocked from webviews")
+            return
+        }
         if (moduleName !in allowedModules) {
             respond(session, id, ok = false, "module '$moduleName' is not exposed to this webview")
             return
@@ -265,6 +270,7 @@ class ModuleBridgeWebViewService(
         const val KEY_OK = "ok"
         const val KEY_RESULT = "result"
         const val KEY_ERROR = "error"
+        val BLOCKED_MODULES = setOf("AppInstaller")
 
         fun jsonObjectToMap(json: JSONObject): HashMap<String, Any?> =
             HashMap<String, Any?>().apply {
