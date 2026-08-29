@@ -114,14 +114,14 @@ export async function resolveOptions(
 
   if (!name || !KEBAB.test(name)) {
     fail(
-      'project name must be kebab-case, e.g. `pnpm dlx @lynfe/lynx-app my-app`',
+      'project name must be kebab-case, e.g. `pnpm dlx @sairo/lynx-app my-app`',
     );
   }
 
   const interactive =
     !hasFlag(argv, 'yes') && process.stdin.isTTY && process.stdout.isTTY;
 
-  let scope = flagValue(argv, 'scope') ?? 'lynfe';
+  let scope = flagValue(argv, 'scope') ?? 'sairo';
   let bundleId = flagValue(argv, 'bundle-id');
   let displayName = flagValue(argv, 'display-name');
   let platforms = commaList(argv, 'platforms');

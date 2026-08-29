@@ -63,7 +63,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           node "$GITHUB_WORKSPACE/create-lynx-app/bin/index.mjs" ci-android \
-            --bundle-id com.lynfe.ciandroid \
+            --bundle-id com.sairo.ciandroid \
             --display-name "CI Android" \
             --platforms android \
             --yes
@@ -108,7 +108,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           node "$GITHUB_WORKSPACE/create-lynx-app/bin/index.mjs" ci-ios \
-            --bundle-id com.lynfe.ciios \
+            --bundle-id com.sairo.ciios \
             --display-name "CI iOS" \
             --platforms ios \
             --yes
@@ -152,7 +152,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           node "$GITHUB_WORKSPACE/create-lynx-app/bin/index.mjs" ci-harmony \
-            --bundle-id com.lynfe.ciharmony \
+            --bundle-id com.sairo.ciharmony \
             --display-name "CI Harmony" \
             --platforms harmony \
             --yes

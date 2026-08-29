@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   publish:
-    name: Publish @lynfe packages
+    name: Publish @sairo packages
     runs-on: ubuntu-latest
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -24,7 +24,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: 'https://npm.neuyan.com/'
+          scope: '@sairo'
           # v5 enables package-manager caching by default and requires the
           # pnpm executable (from package.json#packageManager) on PATH; this
           # workflow only runs plain node scripts and npm publish.
@@ -71,10 +72,10 @@ jobs:
         run: node scripts/apply_release_version.mjs "${{ steps.version.outputs.version }}"
 
       # 先发主包，再发别名包（别名依赖主包的同一版本）。
-      - name: Publish @lynfe/lynx-app
+      - name: Publish @sairo/lynx-app
         working-directory: create-lynx-app
         run: npm publish --access public
 
-      - name: Publish @lynfe/create-lynx-app
+      - name: Publish @sairo/create-lynx-app
         working-directory: create-lynx-app-alias
         run: npm publish --access public

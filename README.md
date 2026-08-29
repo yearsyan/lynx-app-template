@@ -119,7 +119,7 @@ pnpm template:export       # 把当前仓库快照导出到 create-lynx-app/temp
 
 ## 模板发布
 
-`create-lynx-app`（npm 包 `@lynfe/lynx-app`）通过 `pnpm template:export` 生成的快照脚手架新项目；推送 `v*` 标签会触发 GitHub Actions 重新导出模板并发布 npm 包。流程与本地验证方法见 [create-lynx-app/README.md](create-lynx-app/README.md)。
+`create-lynx-app`（npm 包 `@sairo/lynx-app`）通过 `pnpm template:export` 生成的快照脚手架新项目；推送 `v*` 标签会触发 GitHub Actions 重新导出模板并发布 npm 包。流程与本地验证方法见 [create-lynx-app/README.md](create-lynx-app/README.md)。
 
 ## 原生应用标识
 

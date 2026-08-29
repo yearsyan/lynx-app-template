@@ -31,7 +31,7 @@ async function main() {
       ),
       update(pkg) {
         pkg.version = version;
-        pkg.dependencies['@lynfe/lynx-app'] = version;
+        pkg.dependencies['@sairo/lynx-app'] = version;
       },
     },
   ];

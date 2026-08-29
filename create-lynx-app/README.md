@@ -1,4 +1,4 @@
-# @lynfe/lynx-app
+# @sairo/lynx-app
 
 Scaffold a multi-platform Lynx 4.0 host (Android / iOS / HarmonyOS) from the
 shared ReactLynx template.
@@ -6,16 +6,16 @@ shared ReactLynx template.
 ## Usage
 
 ```bash
-pnpm dlx @lynfe/lynx-app my-app
+pnpm dlx @sairo/lynx-app my-app
 # or
-npx @lynfe/lynx-app my-app
+npx @sairo/lynx-app my-app
 ```
 
 Flags:
 
 ```bash
 --bundle-id com.acme.myapp   # reverse-DNS bundle ID (default com.<name>)
---scope acme                  # npm scope, no leading @ (default lynfe)
+--scope acme                  # npm scope, no leading @ (default sairo)
 --display-name "My App"       # user-visible name (default derived from name)
 --platforms android,ios       # comma-separated subset (default all three)
 --autolink storage,toast         # native modules to enable (default all applicable)
@@ -41,10 +41,10 @@ in the generated repository so the selection can be changed later with
 ## npm create
 
 `npm create <pkg>` resolves to the `create-<pkg>` package name, so the exact
-`npm create @lynfe/lynx-app` syntax requires a thin alias package
-`@lynfe/create-lynx-app` whose `bin` re-exports this entry point. Until that
-alias is published, use `pnpm dlx @lynfe/lynx-app` or
-`npx @lynfe/lynx-app`.
+`npm create @sairo/lynx-app` syntax requires a thin alias package
+`@sairo/create-lynx-app` whose `bin` re-exports this entry point. Until that
+alias is published, use `pnpm dlx @sairo/lynx-app` or
+`npx @sairo/lynx-app`.
 
 ## Publishing
 
@@ -64,5 +64,5 @@ alias is published, use `pnpm dlx @lynfe/lynx-app` or
    npm publish
    ```
 
-The `@lynfe` scope is claimed automatically by publishing the first
-`@lynfe/*` package; no separate scope registration step is required.
+The `@sairo` scope is claimed automatically by publishing the first
+`@sairo/*` package; no separate scope registration step is required.

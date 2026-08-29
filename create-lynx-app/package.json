@@ -1,5 +1,5 @@
 {
-  "name": "@lynfe/lynx-app",
+  "name": "@sairo/lynx-app",
   "version": "0.1.1",
   "description": "Scaffold a multi-platform Lynx 4.0 host (Android / iOS / HarmonyOS) from a template.",
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://npm.neuyan.com/"
   },
   "keywords": [
     "lynx",
